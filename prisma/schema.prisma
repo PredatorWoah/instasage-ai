@@ -22,16 +22,18 @@ model User {
 }
 
 model Account {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform          String   // 'instagram' | 'facebook' | 'youtube'
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform          String    // 'instagram' | 'facebook' | 'youtube'
   username          String
   displayName       String
   profilePictureUrl String
   followerCount     Int
-  isConnected       Boolean  @default(true)
-  lastSyncedAt      DateTime @default(now())
+  isConnected       Boolean   @default(true)
+  lastSyncedAt      DateTime  @default(now())
+  accessToken       String?
+  tokenExpiresAt    DateTime?
   posts             Post[]
   metrics           Metric[]
 }

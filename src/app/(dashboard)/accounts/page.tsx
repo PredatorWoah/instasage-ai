@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
-import { Plus, Check, RefreshCw, AlertCircle, Link2Off } from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Plus, Check, AlertCircle, Link2Off } from 'lucide-react';
 import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { mockAccounts } from '@/data/mockAccounts';
+import { formatNumber } from '@/utils/formatters';
+import type { ConnectedAccount } from '@/types/account';
 
 const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -23,45 +30,63 @@ const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
   </svg>
 );
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { mockAccounts } from '@/data/mockAccounts';
-import { formatNumber } from '@/utils/formatters';
-import type { ConnectedAccount } from '@/types/account';
 
-export default function AccountsPage() {
+function AccountsContent() {
   const [accounts, setAccounts] = useState<ConnectedAccount[]>(mockAccounts);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const toggleConnection = (id: string) => {
-    setAccounts((prev) =>
-      prev.map((acc) => {
-        if (acc.id === id) {
-          const nextState = !acc.isConnected;
-          if (nextState) {
-            toast.success('Account Connected', {
-              description: `Instagram account @${acc.username} has been linked.`,
-            });
-          } else {
-            toast.info('Account Disconnected', {
-              description: `Instagram account @${acc.username} has been unlinked.`,
-            });
-          }
-          return {
-            ...acc,
-            isConnected: nextState,
-            lastSyncedAt: nextState ? new Date().toISOString() : 'Never',
-          };
-        }
-        return acc;
-      })
-    );
+  // Listen to OAuth redirect query parameter results
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const username = searchParams.get('username');
+    const error = searchParams.get('error');
+
+    if (connected === 'true' && username) {
+      toast.success('Instagram Connected', {
+        description: `@${username} has been linked via Meta OAuth successfully.`,
+      });
+      
+      // Update local state if the mock username matches
+      setAccounts((prev) =>
+        prev.map((acc) =>
+          acc.username === username
+            ? { ...acc, isConnected: true, lastSyncedAt: new Date().toISOString() }
+            : acc
+        )
+      );
+
+      // Clean query parameters from history
+      router.replace('/accounts');
+    } else if (error) {
+      toast.error('OAuth Connection Failed', {
+        description: error === 'auth_failed' ? 'Permissions request was denied.' : 'Verification error occurred.',
+      });
+      router.replace('/accounts');
+    }
+  }, [searchParams, router]);
+
+  const handleConnectAction = (acc: ConnectedAccount) => {
+    if (acc.isConnected) {
+      // Disconnect local active session
+      setAccounts((prev) =>
+        prev.map((a) =>
+          a.id === acc.id
+            ? { ...a, isConnected: false, lastSyncedAt: 'Never' }
+            : a
+        )
+      );
+      toast.info('Account Disconnected', {
+        description: `@${acc.username} has been unlinked.`,
+      });
+    } else {
+      // Redirect to Instagram OAuth redirect URL helper
+      window.location.href = `/api/auth/instagram?userId=default-creator-id`;
+    }
   };
 
   const handleAddAccount = () => {
-    toast.success('Instagram Authentication Flow', {
-      description: 'Redirecting to mock Instagram authorization portal... (Offline demo)',
-    });
+    window.location.href = `/api/auth/instagram?userId=default-creator-id`;
   };
 
   return (
@@ -145,7 +170,7 @@ export default function AccountsPage() {
                 </div>
 
                 <Button
-                  onClick={() => toggleConnection(acc.id)}
+                  onClick={() => handleConnectAction(acc)}
                   variant={acc.isConnected ? 'outline' : 'default'}
                   size="sm"
                   className={`text-xs h-8 px-3.5 gap-1.5 ${
@@ -170,5 +195,13 @@ export default function AccountsPage() {
         ))}
       </div>
     </div>
+  );
+}
+
+export default function AccountsPage() {
+  return (
+    <Suspense fallback={<div className="h-96 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />}>
+      <AccountsContent />
+    </Suspense>
   );
 }
