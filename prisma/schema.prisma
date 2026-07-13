@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String?
+  username     String?
+  bio          String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  accounts     Account[]
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform          String   // 'instagram' | 'facebook' | 'youtube'
+  username          String
+  displayName       String
+  profilePictureUrl String
+  followerCount     Int
+  isConnected       Boolean  @default(true)
+  lastSyncedAt      DateTime @default(now())
+  posts             Post[]
+  metrics           Metric[]
+}
+
+model Post {
+  id               String   @id @default(uuid())
+  accountId        String
+  account          Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  thumbnail        String
+  caption          String
+  platform         String
+  views            Int
+  likes            Int
+  comments         Int
+  saves            Int
+  shares           Int
+  performanceScore Float
+  publishedAt      DateTime
+  type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'story'
+}
+
+model Metric {
+  id         String   @id @default(uuid())
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  date       DateTime
+  followers  Int?
+  views      Int?
+  reach      Int?
+  engagement Float?
+  postsCount Int?
+}
