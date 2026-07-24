@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    // Check if user session exists in localStorage
-    const session = localStorage.getItem('instasage_session');
-    
-    // Whitelist auth routes (login, register, forgot-password)
+    if (status === 'loading') return;
+
     const isAuthRoute = ['/login', '/register', '/forgot-password'].includes(pathname);
 
     if (!session && !isAuthRoute) {
@@ -23,9 +23,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     } else {
       setAuthorized(true);
     }
-  }, [router, pathname]);
+  }, [session, status, router, pathname]);
 
-  if (!authorized) {
+  if (status === 'loading' || !authorized) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
