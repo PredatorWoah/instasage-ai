@@ -3,14 +3,12 @@
 import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Plus, Check, AlertCircle, Link2Off } from 'lucide-react';
+import { Plus, Check, AlertCircle, Link2Off, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockAccounts } from '@/data/mockAccounts';
 import { formatNumber } from '@/utils/formatters';
-import type { ConnectedAccount } from '@/types/account';
 
 const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -32,61 +30,52 @@ const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 function AccountsContent() {
-  const [accounts, setAccounts] = useState<ConnectedAccount[]>(mockAccounts);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Listen to OAuth redirect query parameter results
+  const fetchAccounts = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/accounts');
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data);
+      }
+    } catch (error) {
+      toast.error('Failed to load accounts');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const connected = searchParams.get('connected');
-    const username = searchParams.get('username');
+    fetchAccounts();
     const error = searchParams.get('error');
-
-    if (connected === 'true' && username) {
-      toast.success('Instagram Connected', {
-        description: `@${username} has been linked via Meta OAuth successfully.`,
-      });
-      
-      // Update local state if the mock username matches
-      setAccounts((prev) =>
-        prev.map((acc) =>
-          acc.username === username
-            ? { ...acc, isConnected: true, lastSyncedAt: new Date().toISOString() }
-            : acc
-        )
-      );
-
-      // Clean query parameters from history
-      router.replace('/accounts');
-    } else if (error) {
-      toast.error('OAuth Connection Failed', {
-        description: error === 'auth_failed' ? 'Permissions request was denied.' : 'Verification error occurred.',
-      });
+    if (error) {
+      toast.error('OAuth Connection Failed', { description: error });
       router.replace('/accounts');
     }
   }, [searchParams, router]);
 
-  const handleConnectAction = (acc: ConnectedAccount) => {
-    if (acc.isConnected) {
-      // Disconnect local active session
-      setAccounts((prev) =>
-        prev.map((a) =>
-          a.id === acc.id
-            ? { ...a, isConnected: false, lastSyncedAt: 'Never' }
-            : a
-        )
-      );
-      toast.info('Account Disconnected', {
-        description: `@${acc.username} has been unlinked.`,
+  const handleSync = async (accId: string) => {
+    toast.info('Syncing account data...');
+    try {
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: accId })
       });
-    } else {
-      // Redirect to Instagram OAuth redirect URL helper
-      window.location.href = `/api/auth/instagram?userId=default-creator-id`;
+      if (res.ok) {
+        toast.success('Sync complete');
+        fetchAccounts();
+      } else {
+        toast.error('Sync failed');
+      }
+    } catch (e) {
+      toast.error('Sync failed');
     }
-  };
-
-  const handleAddAccount = () => {
-    window.location.href = `/api/auth/instagram?userId=default-creator-id`;
   };
 
   return (
@@ -99,45 +88,41 @@ function AccountsContent() {
             Manage your connected social platforms and accounts credentials
           </p>
         </div>
-        <Button
-          onClick={handleAddAccount}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 gap-1.5 font-semibold shrink-0 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Add Instagram Account
-        </Button>
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {accounts.map((acc) => (
+        {isLoading ? (
+           <div className="h-48 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />
+        ) : accounts.length === 0 ? (
+          <div className="col-span-full py-12 text-center border border-dashed rounded-xl border-border">
+             <p className="text-muted-foreground text-sm">No accounts connected. Use the settings page to connect accounts.</p>
+          </div>
+        ) : accounts.map((acc) => (
           <Card
             key={acc.id}
             className="bg-secondary/20 border-border overflow-hidden hover:border-border/80 transition-colors flex flex-col justify-between"
           >
             <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center gap-4 space-y-0">
               <div className="relative w-12 h-12 rounded-full overflow-hidden border border-border shrink-0 bg-secondary">
-                <Image
-                  src={acc.profilePictureUrl}
-                  alt={acc.displayName}
-                  fill
-                  className="object-cover"
-                  sizes="48px"
-                  unoptimized
-                />
+                {acc.profilePictureUrl ? (
+                  <Image src={acc.profilePictureUrl} alt={acc.displayName} fill className="object-cover" sizes="48px" unoptimized />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-indigo-500/20 text-indigo-500 font-bold">{acc.displayName?.[0]}</div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-sm font-semibold truncate text-foreground leading-none">
                     {acc.displayName}
                   </h3>
-                  <InstagramIcon className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  {acc.platform === 'instagram' && <InstagramIcon className="w-3.5 h-3.5 text-pink-400 shrink-0" />}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 truncate">@{acc.username}</p>
               </div>
             </CardHeader>
 
             <CardContent className="px-5 pb-5 pt-0 space-y-4">
-              {/* Followers count and sync info */}
               <div className="flex items-center justify-between text-xs py-2 border-t border-b border-border/40">
                 <div>
                   <p className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">Followers</p>
@@ -146,14 +131,13 @@ function AccountsContent() {
                 <div className="text-right">
                   <p className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">Last Sync</p>
                   <p className="text-foreground mt-0.5 font-medium">
-                    {acc.isConnected && acc.lastSyncedAt !== 'Never'
+                    {acc.isConnected && acc.lastSyncedAt
                       ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(acc.lastSyncedAt))
                       : 'Never'}
                   </p>
                 </div>
               </div>
 
-              {/* Status and Action Buttons */}
               <div className="flex items-center justify-between gap-4 pt-1">
                 <div>
                   {acc.isConnected ? (
@@ -170,24 +154,12 @@ function AccountsContent() {
                 </div>
 
                 <Button
-                  onClick={() => handleConnectAction(acc)}
-                  variant={acc.isConnected ? 'outline' : 'default'}
+                  onClick={() => handleSync(acc.id)}
+                  variant="outline"
                   size="sm"
-                  className={`text-xs h-8 px-3.5 gap-1.5 ${
-                    acc.isConnected
-                      ? 'border-border text-muted-foreground hover:text-red-400 hover:bg-red-500/5'
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  }`}
+                  className="text-xs h-8 px-3.5 gap-1.5 border-border text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10"
                 >
-                  {acc.isConnected ? (
-                    <>
-                      <Link2Off className="w-3.5 h-3.5" /> Disconnect
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-3.5 h-3.5" /> Connect
-                    </>
-                  )}
+                  <RefreshCw className="w-3.5 h-3.5" /> Sync
                 </Button>
               </div>
             </CardContent>

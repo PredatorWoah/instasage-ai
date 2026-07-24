@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: 'Production-grade social media analytics dashboard for creators. Track performance, get AI insights, and grow faster.',
 };
 
+import { Providers } from "@/components/Providers";
+
 export default function RootLayout({
   children,
 }: {
@@ -18,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <Providers>{children}</Providers>
         <Toaster theme="dark" position="top-right" richColors closeButton />
       </body>
     </html>

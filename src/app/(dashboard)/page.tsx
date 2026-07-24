@@ -1,4 +1,7 @@
-import { fetchKPIs, fetchFollowersTimeSeries, fetchViewsTimeSeries, fetchEngagementTimeSeries, fetchPostingFrequency, fetchRecentPosts, fetchInsights } from '@/services/api';
+import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { getDashboardData } from '@/services/dashboard';
 import { KPIGrid } from '@/components/dashboard/KPIGrid';
 import { RecentContent } from '@/components/dashboard/RecentContent';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -10,43 +13,90 @@ import { Badge } from '@/components/ui/badge';
 import { Zap, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { formatNumber } from '@/utils/formatters';
+import type { KPIMetric, TimeSeriesPoint } from '@/types';
+import { generateInsights } from '@/services/ai';
 
 export const metadata = {
   title: 'Dashboard — InstaSage AI',
 };
 
-type PageProps = {
-  searchParams: Promise<{ q?: string }>;
-};
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
 
-export default async function DashboardPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
+  if (!session || !session.user) {
+    redirect('/login');
+  }
 
-  const [kpis, followersData, viewsData, engagementData, postingData, posts, insights] =
-    await Promise.all([
-      fetchKPIs(),
-      fetchFollowersTimeSeries(),
-      fetchViewsTimeSeries(),
-      fetchEngagementTimeSeries(),
-      fetchPostingFrequency(),
-      fetchRecentPosts(8),
-      fetchInsights(),
-    ]);
+  const data = await getDashboardData(session.user.id);
+  const insightsData = await generateInsights(session.user.id);
 
-  // Filter based on global search query
-  const query = q?.toLowerCase() || '';
+  const metricsData: KPIMetric[] = [
+    {
+      id: 'followers',
+      label: 'Total Followers',
+      value: formatNumber(data.kpis.followers),
+      change: '+0',
+      changePercent: 0,
+      trend: 'neutral' as const,
+      icon: 'Users',
+      color: 'bg-indigo-500/10 text-indigo-500'
+    },
+    {
+      id: 'views',
+      label: 'Total Views',
+      value: formatNumber(data.kpis.views),
+      change: '+0',
+      changePercent: 0,
+      trend: 'neutral' as const,
+      icon: 'Eye',
+      color: 'bg-emerald-500/10 text-emerald-500'
+    },
+    {
+      id: 'engagement',
+      label: 'Avg Engagement',
+      value: `${data.kpis.engagement.toFixed(1)}%`,
+      change: '+0',
+      changePercent: 0,
+      trend: 'neutral' as const,
+      icon: 'Heart',
+      color: 'bg-pink-500/10 text-pink-500'
+    },
+  ];
 
-  const filteredInsights = insights
-    .filter((i) => {
-      if (!query) return i.impact === 'high';
-      return i.title.toLowerCase().includes(query) || i.description.toLowerCase().includes(query);
-    })
-    .slice(0, 2);
+  // Map historical database metrics to chart TimeSeriesPoint format
+  const timeseriesMap = new Map<string, TimeSeriesPoint>();
 
-  const filteredPosts = posts.filter((p) => {
-    if (!query) return true;
-    return p.caption.toLowerCase().includes(query);
+  // Initialize last 30 days
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    timeseriesMap.set(dateStr, {
+      date: dateStr,
+      followers: 0,
+      views: 0,
+      engagement: 0,
+      posts: 0
+    });
+  }
+
+  // Populate actual data
+  data.metrics.forEach(m => {
+    const dStr = m.date.toISOString().split('T')[0];
+    if (timeseriesMap.has(dStr)) {
+      const existing = timeseriesMap.get(dStr)!;
+      existing.followers = (existing.followers || 0) + (m.followers || 0);
+      existing.views = (existing.views || 0) + (m.views || 0);
+      existing.posts = (existing.posts || 0) + (m.postsCount || 0);
+      // Rough avg
+      existing.engagement = ((existing.engagement || 0) + (m.engagement || 0)) / 2;
+    }
   });
+
+  const timeSeriesData = Array.from(timeseriesMap.values());
+
+  const filteredInsights = Array.isArray(insightsData) ? insightsData.slice(0, 2) : [];
 
   return (
     <div className="space-y-8">
@@ -59,21 +109,21 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       </div>
 
       {/* KPI Grid */}
-      <KPIGrid metrics={kpis} />
+      <KPIGrid metrics={metricsData} />
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ChartCard title="Followers Growth" subtitle="All platforms · 30 days">
-          <FollowersChart data={followersData.slice(-30)} />
+          <FollowersChart data={timeSeriesData} />
         </ChartCard>
         <ChartCard title="Total Views" subtitle="All platforms · 30 days">
-          <ViewsChart data={viewsData.slice(-30)} />
+          <ViewsChart data={timeSeriesData} />
         </ChartCard>
-        <ChartCard title="Engagement Rate" subtitle="% · 30 days · avg 6.8%">
-          <EngagementChart data={engagementData.slice(-30)} />
+        <ChartCard title="Engagement Rate" subtitle="% · 30 days">
+          <EngagementChart data={timeSeriesData} />
         </ChartCard>
         <ChartCard title="Posting Frequency" subtitle="Posts per day · 30 days">
-          <PostingFrequencyChart data={postingData.slice(-30)} />
+          <PostingFrequencyChart data={timeSeriesData} />
         </ChartCard>
       </div>
 
@@ -84,7 +134,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <div className="flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-400" />
               <h2 className="text-sm font-semibold text-foreground">
-                {query ? 'Filtered AI Insights' : 'Top AI Insights'}
+                Top AI Insights
               </h2>
             </div>
             <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground" asChild>
@@ -94,8 +144,8 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredInsights.map((insight) => (
-              <Card key={insight.id} className="bg-secondary/20 border-border">
+            {filteredInsights.map((insight: any, i: number) => (
+              <Card key={i} className="bg-secondary/20 border-border">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h3 className="text-sm font-semibold leading-snug">{insight.title}</h3>
@@ -104,12 +154,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{insight.description}</p>
-                  {insight.metricValue && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 bg-indigo-500/10 text-indigo-400 text-xs px-2 py-1 rounded-md border border-indigo-500/20">
-                      <span className="font-bold">{insight.metricValue}</span>
-                      <span>{insight.metric}</span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -118,7 +162,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       )}
 
       {/* Recent Content */}
-      <RecentContent posts={filteredPosts} />
+      <RecentContent posts={data.posts.map(p => ({
+          id: p.id,
+          type: p.type as any,
+          platform: p.platform as any,
+          thumbnail: p.thumbnail,
+          caption: p.caption,
+          views: p.views,
+          likes: p.likes,
+          comments: p.comments,
+          shares: p.shares,
+          saves: p.saves,
+          performanceScore: p.performanceScore,
+          publishedAt: p.publishedAt.toISOString()
+        }))} />
     </div>
   );
 }
