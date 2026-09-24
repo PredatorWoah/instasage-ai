@@ -1,24 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { Sparkles, Mail, Lock } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
-export default function LoginPage() {
-  const router = useRouter();
-
-  const handleSignInGoogle = async (e: React.FormEvent) => {
+export default function RegisterPage() {
+  const handleRegisterGoogle = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await signIn('google', { callbackUrl: '/' });
-    } catch (error) {
-      toast.error('Authentication failed');
+    } catch {
+      toast.error('Registration failed');
     }
   };
 
@@ -41,22 +35,22 @@ export default function LoginPage() {
       {/* Card Form */}
       <div className="z-10 w-full max-w-sm bg-secondary/15 backdrop-blur-md rounded-2xl border border-border/80 shadow-2xl p-6 space-y-6">
         <div className="text-center space-y-1">
-          <h1 className="text-lg font-bold text-foreground tracking-tight">Welcome Back</h1>
-          <p className="text-xs text-muted-foreground">Sign in to your creator operating dashboard</p>
+          <h1 className="text-lg font-bold text-foreground tracking-tight">Create Account</h1>
+          <p className="text-xs text-muted-foreground">Sign up to get started</p>
         </div>
 
-        <form onSubmit={handleSignInGoogle} className="space-y-4">
+        <form onSubmit={handleRegisterGoogle} className="space-y-4">
           <div className="space-y-2 pt-2">
             <Button type="submit" className="w-full text-xs h-9 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">
-              Sign In with Google
+              Sign Up with Google
             </Button>
           </div>
         </form>
 
         <div className="text-center text-xs text-muted-foreground border-t border-border/50 pt-4">
-          New to InstaSage?{' '}
-          <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
-            Create Account
+          Already have an account?{' '}
+          <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
+            Sign In
           </Link>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
   LayoutDashboard, BarChart3, Grid2X2, Sparkles, Lightbulb,
   Users, Swords, FileText, Settings, UserCheck,
@@ -17,6 +18,8 @@ const ICON_MAP: Record<string, React.ElementType> = {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const displayName = session?.user?.name || session?.user?.email || 'Account';
 
   return (
     <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-[240px] bg-background border-r border-border z-30">
@@ -94,11 +97,11 @@ export function Sidebar() {
       <div className="px-4 py-4 border-t border-border shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-xs font-bold text-white">
-            C
+            {displayName[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">@creatorhandle</p>
-            <p className="text-xs text-muted-foreground">Pro Plan</p>
+            <p className="text-sm font-medium truncate">{displayName}</p>
+            <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
           </div>
         </div>
       </div>

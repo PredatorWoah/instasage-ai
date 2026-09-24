@@ -3,10 +3,9 @@
 import { Suspense, useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Search, ChevronDown, ArrowUpDown, Flame } from 'lucide-react';
+import { Search, ArrowUpDown, Flame } from 'lucide-react';
 import { mockPosts } from '@/data/mockPosts';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -28,7 +27,6 @@ import {
   getPlatformColor,
   getPlatformLabel,
   getPerformanceColor,
-  getPerformanceLabel,
 } from '@/utils/formatters';
 import type { Post } from '@/types';
 import { cn } from '@/lib/utils';

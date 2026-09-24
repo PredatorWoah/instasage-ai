@@ -25,11 +25,6 @@ export function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function formatWatchTime(minutes: number): string {
-  if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
-  return `${minutes}m`;
-}
-
 export function getPerformanceLabel(score: number): string {
   if (score >= 90) return 'Excellent';
   if (score >= 75) return 'Good';

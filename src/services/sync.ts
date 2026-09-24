@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
-import { getYouTubeChannelInfo, getYouTubeVideos } from './youtube';
+import { getYouTubeChannelInfo, getYouTubeVideos, getFreshYouTubeToken } from './youtube';
 import { getInstagramBusinessProfile, getInstagramBusinessMedia, getInstagramBusinessInsights } from './meta';
-
-import { prisma } from "@/lib/auth";;
+import { prisma } from '@/lib/prisma';
 
 export async function syncSocialProfile(profileId: string) {
   const profile = await prisma.socialProfile.findUnique({ where: { id: profileId } });
@@ -18,9 +16,9 @@ export async function syncSocialProfile(profileId: string) {
 
   try {
     if (profile.platform === 'youtube') {
-      await syncYouTubeProfile(profile, syncJob.id);
+      await syncYouTubeProfile(profile);
     } else if (profile.platform === 'instagram') {
-      await syncInstagramProfile(profile, syncJob.id);
+      await syncInstagramProfile(profile);
     }
 
     await prisma.syncJob.update({
@@ -49,8 +47,9 @@ export async function syncSocialProfile(profileId: string) {
   }
 }
 
-async function syncYouTubeProfile(profile: any, jobId: string) {
-  const channel = await getYouTubeChannelInfo(profile.accessToken);
+async function syncYouTubeProfile(profile: any) {
+  const accessToken = await getFreshYouTubeToken(profile);
+  const channel = await getYouTubeChannelInfo(accessToken);
   if (!channel) throw new Error('Could not fetch YouTube channel');
 
   const stats = channel.statistics;
@@ -77,7 +76,7 @@ async function syncYouTubeProfile(profile: any, jobId: string) {
     }
   });
 
-  const videos = await getYouTubeVideos(profile.accessToken);
+  const videos = await getYouTubeVideos(accessToken);
   if (videos && videos.length > 0) {
     for (const video of videos) {
       if (!video.id) continue;
@@ -118,7 +117,7 @@ async function syncYouTubeProfile(profile: any, jobId: string) {
   }
 }
 
-async function syncInstagramProfile(profile: any, jobId: string) {
+async function syncInstagramProfile(profile: any) {
   // Using pageAccessToken for IG Graph API
   const igProfile = await getInstagramBusinessProfile(profile.accessToken, profile.username /* Note: Usually graph api needs numerical IG ID, mapped from username or retrieved via accounts API */); // username here is acting as the IG Business ID if configured that way
 
@@ -146,7 +145,7 @@ async function syncInstagramProfile(profile: any, jobId: string) {
       let views = 0;
       let reach = 0;
       let saves = 0;
-      let shares = 0;
+      const shares = 0;
 
       try {
         const insights = await getInstagramBusinessInsights(profile.accessToken, m.id);
@@ -159,7 +158,7 @@ async function syncInstagramProfile(profile: any, jobId: string) {
           if (savedMetric) saves = savedMetric.values[0].value;
           if (viewsMetric) views = viewsMetric.values[0].value;
         }
-      } catch(e) {
+      } catch {
         // IG insights can throw errors for certain media types, fail gracefully
       }
 

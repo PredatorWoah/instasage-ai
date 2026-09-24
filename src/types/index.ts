@@ -13,6 +13,7 @@ export type KPIMetric = {
   label: string;
   value: string;
   change: string;
+  note?: string;
   changePercent: number;
   trend: MetricTrend;
   icon: string;
@@ -41,18 +42,6 @@ export type Post = {
   performanceScore: number;
   publishedAt: string;
   type: 'reel' | 'carousel' | 'post' | 'video' | 'story';
-};
-
-export type Insight = {
-  id: string;
-  title: string;
-  description: string; // Explanation
-  impact: 'high' | 'medium' | 'low'; // Mapping to priority/impact
-  category: 'timing' | 'content' | 'audience' | 'growth' | 'engagement';
-  metric?: string;
-  metricValue?: string;
-  confidenceScore: number; // e.g. 94
-  suggestedAction: string;
 };
 
 export type Recommendation = {

@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { Recommendation } from '@/types';
 
 const PRIORITY_CONFIG = {
   high: { label: 'High Priority', className: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },

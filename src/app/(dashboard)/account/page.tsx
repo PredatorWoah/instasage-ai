@@ -3,10 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
-import {
-  User, Shield, Smartphone, HardDrive, CreditCard, Sparkles, Check, Globe, Clock,
-  Calendar, Key, Monitor, Activity, ShieldCheck, Mail, LogOut
-} from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,47 +26,27 @@ import {
 export default function AccountPage() {
   const { theme, setTheme } = useTheme();
 
-  // Load local session state
-  const [profile, setProfile] = useState({
-    name: 'Creator User',
-    username: 'creator_user',
-    email: 'creator@example.com',
-    bio: 'Digital content strategist, scaling multi-channel video content.',
-  });
-
-  useEffect(() => {
-    const session = localStorage.getItem('instasage_session');
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        setProfile((prev) => ({
-          ...prev,
-          name: parsed.name || prev.name,
-          email: parsed.email || prev.email,
-        }));
-      } catch (e) {
-        // Fallback
-      }
-    }
-  }, []);
+  const { update: updateSession } = useSession();
+  const [profile, setProfile] = useState({ name: '', username: '', email: '', bio: '' });
 
   // Editable Profile Form State
-  const [name, setName] = useState(profile.name);
-  const [username, setUsername] = useState(profile.username);
-  const [email, setEmail] = useState(profile.email);
-  const [bio, setBio] = useState(profile.bio);
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
 
   useEffect(() => {
-    setName(profile.name);
-    setEmail(profile.email);
-  }, [profile]);
-
-  // Connected Platforms State
-  const [platforms, setPlatforms] = useState([
-    { id: 'instagram', name: 'Instagram', handle: '@creatorhandle', connected: true, color: 'bg-pink-500/10 text-pink-400 border-pink-500/20' },
-    { id: 'youtube', name: 'YouTube', handle: 'CreatorChannel', connected: true, color: 'bg-red-500/10 text-red-400 border-red-500/20' },
-    { id: 'facebook', name: 'Facebook', handle: 'Not connected', connected: false, color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  ]);
+    fetch('/api/user')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((user) => {
+        if (!user) return;
+        const loaded = { name: user.name || '', username: user.username || '', email: user.email || '', bio: user.bio || '' };
+        setProfile(loaded);
+        setName(loaded.name);
+        setUsername(loaded.username);
+        setBio(loaded.bio);
+      })
+      .catch(() => toast.error('Failed to load profile'));
+  }, []);
 
   // Preferences State
   const [language, setLanguage] = useState('en');
@@ -80,48 +59,21 @@ export default function AccountPage() {
     security: true,
   });
 
-  // Security UI State
-  const [twoFactor, setTwoFactor] = useState(false);
-  const [password, setPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-
-  const handleProfileSave = (e: React.FormEvent) => {
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setProfile({ name, username, email, bio });
-    localStorage.setItem('instasage_session', JSON.stringify({ email, name }));
-    toast.success('Profile Saved', { description: 'Your profile settings have been updated.' });
-  };
-
-  const togglePlatform = (id: string) => {
-    setPlatforms((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const nextConnected = !p.connected;
-          toast.success(
-            nextConnected
-              ? `${p.name} connected successfully!`
-              : `${p.name} disconnected.`
-          );
-          return {
-            ...p,
-            connected: nextConnected,
-            handle: nextConnected ? '@newcreator_handle' : 'Not connected',
-          };
-        }
-        return p;
-      })
-    );
-  };
-
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password || !newPassword) {
-      toast.error('Field Validation Error', { description: 'Please fill in both password fields.' });
+    const res = await fetch('/api/user', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, username, bio }),
+    });
+    if (!res.ok) {
+      toast.error('Failed to save profile');
       return;
     }
-    toast.success('Password Updated', { description: 'Your account security credentials have been updated.' });
-    setPassword('');
-    setNewPassword('');
+    const user = await res.json();
+    setProfile((prev) => ({ ...prev, name: user.name || '', username: user.username || '', bio: user.bio || '' }));
+    await updateSession({ name: user.name });
+    toast.success('Profile Saved', { description: 'Your profile settings have been updated.' });
   };
 
   return (
@@ -130,12 +82,12 @@ export default function AccountPage() {
       <div className="flex items-center gap-4 bg-secondary/10 p-5 rounded-xl border border-border">
         <Avatar className="h-14 w-14 border border-border">
           <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-lg font-bold">
-            {profile.name.substring(0, 2).toUpperCase()}
+            {(profile.name || profile.email || '?').substring(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-lg font-bold text-foreground leading-tight">{profile.name}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">@{profile.username} · {profile.email}</p>
+          <h1 className="text-lg font-bold text-foreground leading-tight">{profile.name || 'Your Profile'}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">{profile.username && `@${profile.username} · `}{profile.email}</p>
         </div>
       </div>
 
@@ -169,7 +121,7 @@ export default function AccountPage() {
                   </div>
                   <div className="space-y-1.5 col-span-2">
                     <Label className="text-xs">Email Address</Label>
-                    <Input value={email} onChange={(e) => setEmail(e.target.value)} className="h-8 text-xs bg-secondary/50 border-border" />
+                    <Input value={profile.email} readOnly disabled className="h-8 text-xs bg-secondary/50 border-border" />
                   </div>
                   <div className="space-y-1.5 col-span-2">
                     <Label className="text-xs">Bio</Label>
@@ -194,23 +146,8 @@ export default function AccountPage() {
               <CardTitle className="text-sm font-semibold">Connected Platforms</CardTitle>
               <CardDescription className="text-[11px]">Authorized social platform connections for analytical access</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 pt-3">
-              {platforms.map((p) => (
-                <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/15">
-                  <div className="flex items-center gap-3">
-                    <Badge className={`text-[10px] border px-2 py-0.5 ${p.color}`}>{p.name}</Badge>
-                    <span className="text-xs text-muted-foreground font-medium">{p.handle}</span>
-                  </div>
-                  <Button
-                    variant={p.connected ? 'outline' : 'default'}
-                    size="sm"
-                    onClick={() => togglePlatform(p.id)}
-                    className="text-xs h-7.5 px-3"
-                  >
-                    {p.connected ? 'Disconnect' : 'Connect'}
-                  </Button>
-                </div>
-              ))}
+            <CardContent className="pt-3">
+              <ConnectedAccounts callbackUrl="/account" />
             </CardContent>
           </Card>
         </TabsContent>
@@ -319,63 +256,29 @@ export default function AccountPage() {
           <Card className="bg-secondary/20 border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Security Settings</CardTitle>
-              <CardDescription className="text-[11px]">Manage password credentials and active browser sessions</CardDescription>
+              <CardDescription className="text-[11px]">How you sign in to InstaSage</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-5 pt-3">
-              {/* Password update form */}
-              <form onSubmit={handlePasswordChange} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Current Password</Label>
-                    <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-8 bg-secondary/50 border-border text-xs" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">New Password</Label>
-                    <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="h-8 bg-secondary/50 border-border text-xs" />
-                  </div>
+            <CardContent className="space-y-3 pt-3">
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/15">
+                <div className="p-2 rounded bg-indigo-500/10 text-indigo-400">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
-                <Button type="submit" size="sm" className="text-xs h-8">Update Password</Button>
-              </form>
-
-              <Separator className="border-border/50" />
-
-              {/* 2FA (UI Only) */}
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-secondary/15">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <Smartphone className="w-4 h-4 text-indigo-400" />
-                    Two-Factor Authentication (2FA)
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">Secure your creator workspace with mobile authenticator codes.</p>
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-foreground">Signed in with Google{profile.email && ` as ${profile.email}`}</p>
+                  <p className="text-[10px] text-muted-foreground">Password and two-factor authentication are managed by your Google account.</p>
                 </div>
-                <Switch checked={twoFactor} onCheckedChange={(val) => { setTwoFactor(val); toast.success(`2FA ${val ? 'Activated' : 'Deactivated'}`); }} />
+                <a
+                  href="https://myaccount.google.com/security"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-indigo-400 hover:underline shrink-0"
+                >
+                  Manage
+                </a>
               </div>
-
-              {/* Active Sessions (Mock) */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">Active Device Sessions</h3>
-                {[
-                  { device: 'macOS (Safari browser)', location: 'New York, USA', status: 'Current Session', icon: Monitor, current: true },
-                  { device: 'iOS Device (Safari Mobile)', location: 'Boston, USA', status: 'Active 2 hours ago', icon: Smartphone, current: false },
-                ].map((session, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border border-border bg-secondary/15 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded bg-indigo-500/10 text-indigo-400">
-                        <session.icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{session.device}</p>
-                        <p className="text-[10px] text-muted-foreground">{session.location} · {session.status}</p>
-                      </div>
-                    </div>
-                    {!session.current && (
-                      <Button variant="ghost" size="sm" onClick={() => toast.success('Device session revoked.')} className="text-xs text-red-400 hover:text-red-300">
-                        Revoke
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: '/login' })} className="text-xs h-8">
+                Sign out
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

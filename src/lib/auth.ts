@@ -2,24 +2,8 @@ import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import InstagramProvider from "next-auth/providers/instagram";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-
-const connectionString = `${process.env.DATABASE_URL}`;
-const pool = new Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    adapter,
-    log: ["query"],
-  });
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import { prisma } from "@/lib/prisma";
+import { connectYouTubeProfile } from "@/services/youtube";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -27,6 +11,14 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      authorization: {
+        params: {
+          scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly",
+          // Needed so we get a refresh_token for background syncs
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
     }),
     InstagramProvider({
       clientId: process.env.INSTAGRAM_CLIENT_ID || "",
@@ -43,11 +35,26 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.sub = user.id;
       }
+      if (trigger === "update" && typeof session?.name === "string") {
+        token.name = session.name;
+      }
       return token;
+    },
+  },
+  events: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "google" || !account.access_token) return;
+      if (!account.scope?.includes("youtube.readonly")) return;
+      try {
+        await connectYouTubeProfile(user.id, account);
+      } catch (error) {
+        // A Google account without a YouTube channel is fine; just skip it
+        console.error("Failed to connect YouTube profile:", error);
+      }
     },
   },
   pages: {
