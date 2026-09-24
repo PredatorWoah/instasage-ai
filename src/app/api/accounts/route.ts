@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { connectYouTubeProfile } from '@/services/youtube';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -17,6 +18,25 @@ export async function GET() {
     return NextResponse.json(accounts);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { channel } = await req.json().catch(() => ({}));
+  if (typeof channel !== 'string' || !channel.trim()) {
+    return NextResponse.json({ error: 'Enter a YouTube @handle, channel ID or URL' }, { status: 400 });
+  }
+
+  try {
+    const profile = await connectYouTubeProfile(session.user.id, channel);
+    return NextResponse.json(profile);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
 

@@ -3,31 +3,39 @@ import { prisma } from '@/lib/prisma';
 
 const youtube = google.youtube('v3');
 
-export async function getYouTubeChannelInfo(accessToken: string) {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
+function apiKey() {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) throw new Error('YOUTUBE_API_KEY is not set');
+  return key;
+}
 
-  const response = await youtube.channels.list({
-    auth,
-    part: ['snippet', 'statistics', 'contentDetails'],
-    mine: true,
-  });
+const CHANNEL_PARTS = ['snippet', 'statistics', 'contentDetails'];
 
+export async function getYouTubeChannelInfo(channelId: string) {
+  const response = await youtube.channels.list({ key: apiKey(), part: CHANNEL_PARTS, id: [channelId] });
   return response.data.items?.[0];
 }
 
-export async function getYouTubeVideos(accessToken: string) {
-  const auth = new google.auth.OAuth2();
-  auth.setCredentials({ access_token: accessToken });
+// Accepts @handle, a channel ID (UC...), or a youtube.com channel URL
+async function findChannel(input: string) {
+  const value = input.trim().replace(/\/+$/, '');
+  const idMatch = value.match(/(UC[\w-]{22})/);
+  if (idMatch) return getYouTubeChannelInfo(idMatch[1]);
 
-  const channelInfo = await getYouTubeChannelInfo(accessToken);
+  const handle = value.match(/@([\w.-]+)/)?.[1] ?? value;
+  const response = await youtube.channels.list({ key: apiKey(), part: CHANNEL_PARTS, forHandle: handle });
+  return response.data.items?.[0];
+}
+
+export async function getYouTubeVideos(channelId: string) {
+  const channelInfo = await getYouTubeChannelInfo(channelId);
   if (!channelInfo) return null;
 
   const uploadsPlaylistId = channelInfo.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadsPlaylistId) return [];
 
   const response = await youtube.playlistItems.list({
-    auth,
+    key: apiKey(),
     part: ['snippet'],
     playlistId: uploadsPlaylistId,
     maxResults: 50,
@@ -37,7 +45,7 @@ export async function getYouTubeVideos(accessToken: string) {
   if (!videoIds.length) return [];
 
   const videosResponse = await youtube.videos.list({
-    auth,
+    key: apiKey(),
     part: ['snippet', 'statistics'],
     id: videoIds,
   });
@@ -45,62 +53,23 @@ export async function getYouTubeVideos(accessToken: string) {
   return videosResponse.data.items;
 }
 
-type GoogleTokens = {
-  access_token?: string | null;
-  refresh_token?: string | null;
-  expires_at?: number | null;
-};
-
-// Creates or refreshes the user's YouTube SocialProfile from a Google OAuth grant
-export async function connectYouTubeProfile(userId: string, tokens: GoogleTokens) {
-  if (!tokens.access_token) return;
-  const channel = await getYouTubeChannelInfo(tokens.access_token);
-  if (!channel?.id) return;
+// Creates or updates the user's YouTube SocialProfile from a handle, ID or URL
+export async function connectYouTubeProfile(userId: string, channelInput: string) {
+  const channel = await findChannel(channelInput);
+  if (!channel?.id) throw new Error('YouTube channel not found. Try your @handle or the channel URL.');
 
   const data = {
+    externalId: channel.id,
     username: channel.snippet?.customUrl?.replace(/^@/, '') || channel.id,
     displayName: channel.snippet?.title || 'YouTube Channel',
     profilePictureUrl: channel.snippet?.thumbnails?.default?.url || '',
     followerCount: parseInt(channel.statistics?.subscriberCount || '0', 10),
-    accessToken: tokens.access_token,
-    tokenExpiresAt: tokens.expires_at ? new Date(tokens.expires_at * 1000) : null,
     isConnected: true,
   };
 
   const existing = await prisma.socialProfile.findFirst({ where: { userId, platform: 'youtube' } });
   if (existing) {
-    await prisma.socialProfile.update({ where: { id: existing.id }, data });
-  } else {
-    await prisma.socialProfile.create({ data: { ...data, userId, platform: 'youtube' } });
+    return prisma.socialProfile.update({ where: { id: existing.id }, data });
   }
-}
-
-// Returns a valid Google access token for the profile, refreshing it if it has expired
-export async function getFreshYouTubeToken(profile: {
-  id: string;
-  userId: string;
-  accessToken: string | null;
-  tokenExpiresAt: Date | null;
-}) {
-  const stillValid = profile.tokenExpiresAt && profile.tokenExpiresAt.getTime() > Date.now() + 60_000;
-  if (profile.accessToken && stillValid) return profile.accessToken;
-
-  const account = await prisma.account.findFirst({
-    where: { userId: profile.userId, provider: 'google', refresh_token: { not: null } },
-  });
-  if (!account?.refresh_token) throw new Error('YouTube token expired. Please reconnect your account.');
-
-  const client = new google.auth.OAuth2(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET);
-  client.setCredentials({ refresh_token: account.refresh_token });
-  const { credentials } = await client.refreshAccessToken();
-  if (!credentials.access_token) throw new Error('YouTube token refresh failed. Please reconnect your account.');
-
-  await prisma.socialProfile.update({
-    where: { id: profile.id },
-    data: {
-      accessToken: credentials.access_token,
-      tokenExpiresAt: credentials.expiry_date ? new Date(credentials.expiry_date) : null,
-    },
-  });
-  return credentials.access_token;
+  return prisma.socialProfile.create({ data: { ...data, userId, platform: 'youtube' } });
 }

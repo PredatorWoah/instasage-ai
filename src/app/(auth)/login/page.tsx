@@ -1,18 +1,29 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
-import { toast } from 'sonner';
+import { Sparkles, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
-  const handleSignInGoogle = async (e: React.FormEvent) => {
+  const router = useRouter();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      await signIn('google', { callbackUrl: '/' });
-    } catch {
-      toast.error('Authentication failed');
+    setLoading(true);
+    setError('');
+    const res = await signIn('credentials', { password, redirect: false });
+    setLoading(false);
+    if (res?.ok) {
+      router.replace('/');
+    } else {
+      setError('Wrong password. Check APP_PASSWORD in your environment settings.');
     }
   };
 
@@ -36,23 +47,31 @@ export default function LoginPage() {
       <div className="z-10 w-full max-w-sm bg-secondary/15 backdrop-blur-md rounded-2xl border border-border/80 shadow-2xl p-6 space-y-6">
         <div className="text-center space-y-1">
           <h1 className="text-lg font-bold text-foreground tracking-tight">Welcome Back</h1>
-          <p className="text-xs text-muted-foreground">Sign in to your creator operating dashboard</p>
+          <p className="text-xs text-muted-foreground">Enter your password to open the dashboard</p>
         </div>
 
-        <form onSubmit={handleSignInGoogle} className="space-y-4">
-          <div className="space-y-2 pt-2">
-            <Button type="submit" className="w-full text-xs h-9 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">
-              Sign In with Google
-            </Button>
+        <form onSubmit={handleSignIn} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs">Password</Label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                autoFocus
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="pl-9 h-9 text-sm bg-secondary/50 border-border"
+              />
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
           </div>
+          <Button type="submit" disabled={loading} className="w-full text-xs h-9 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white">
+            {loading ? 'Signing in...' : 'Sign In'}
+          </Button>
         </form>
-
-        <div className="text-center text-xs text-muted-foreground border-t border-border/50 pt-4">
-          New to InstaSage?{' '}
-          <Link href="/register" className="text-indigo-400 hover:text-indigo-300 font-medium">
-            Create Account
-          </Link>
-        </div>
       </div>
     </div>
   );

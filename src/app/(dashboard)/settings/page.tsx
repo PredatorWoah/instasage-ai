@@ -21,7 +21,7 @@ export default function SettingsPage() {
           <CardTitle className="text-sm font-semibold">Connected Accounts</CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-5">
-          <ConnectedAccounts callbackUrl="/settings" />
+          <ConnectedAccounts />
         </CardContent>
       </Card>
 
