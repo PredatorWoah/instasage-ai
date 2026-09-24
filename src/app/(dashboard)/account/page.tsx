@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
-import {
-  User, Shield, Smartphone, HardDrive, CreditCard, Sparkles, Check, Globe, Clock,
-  Calendar, Key, Monitor, Activity, ShieldCheck, Mail, LogOut
-} from 'lucide-react';
+import { Smartphone, Monitor } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +42,7 @@ export default function AccountPage() {
           name: parsed.name || prev.name,
           email: parsed.email || prev.email,
         }));
-      } catch (e) {
+      } catch {
         // Fallback
       }
     }

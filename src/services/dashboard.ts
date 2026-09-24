@@ -1,5 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-import { prisma } from "@/lib/auth";;
+import { prisma } from '@/lib/auth';
 
 export async function getDashboardData(userId: string) {
   const profiles = await prisma.socialProfile.findMany({ where: { userId } });

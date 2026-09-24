@@ -1,23 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { Sparkles, Mail, Lock } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
-  const router = useRouter();
-
   const handleSignInGoogle = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await signIn('google', { callbackUrl: '/' });
-    } catch (error) {
+    } catch {
       toast.error('Authentication failed');
     }
   };

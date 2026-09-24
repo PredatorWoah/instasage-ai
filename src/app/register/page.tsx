@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
@@ -8,13 +7,11 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
 export default function RegisterPage() {
-  const router = useRouter();
-
   const handleRegisterGoogle = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await signIn('google', { callbackUrl: '/' });
-    } catch (error) {
+    } catch {
       toast.error('Registration failed');
     }
   };

@@ -43,18 +43,6 @@ export type Post = {
   type: 'reel' | 'carousel' | 'post' | 'video' | 'story';
 };
 
-export type Insight = {
-  id: string;
-  title: string;
-  description: string; // Explanation
-  impact: 'high' | 'medium' | 'low'; // Mapping to priority/impact
-  category: 'timing' | 'content' | 'audience' | 'growth' | 'engagement';
-  metric?: string;
-  metricValue?: string;
-  confidenceScore: number; // e.g. 94
-  suggestedAction: string;
-};
-
 export type Recommendation = {
   id: string;
   title: string;

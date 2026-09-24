@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Plus, Check, AlertCircle, Link2Off, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ function AccountsContent() {
         const data = await res.json();
         setAccounts(data);
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load accounts');
     } finally {
       setIsLoading(false);
@@ -73,7 +73,7 @@ function AccountsContent() {
       } else {
         toast.error('Sync failed');
       }
-    } catch (e) {
+    } catch {
       toast.error('Sync failed');
     }
   };

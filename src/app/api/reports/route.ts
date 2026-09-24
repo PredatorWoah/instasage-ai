@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
+import { authOptions, prisma } from '@/lib/auth';
 import Papa from 'papaparse';
-
-import { prisma } from "@/lib/auth";;
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

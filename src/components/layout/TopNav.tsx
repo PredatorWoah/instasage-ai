@@ -66,7 +66,7 @@ export function TopNav() {
           setUserName(parsed.name);
           setInitials(parsed.name.substring(0, 2).toUpperCase());
         }
-      } catch (e) {
+      } catch {
         // Fallback
       }
     }

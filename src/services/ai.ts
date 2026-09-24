@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/auth';
 
-import { prisma } from "@/lib/auth";;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 
 export async function generateInsights(userId: string) {
