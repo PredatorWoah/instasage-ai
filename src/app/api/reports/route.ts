@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions, prisma } from '@/lib/auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import Papa from 'papaparse';
 
 export async function GET(req: Request) {

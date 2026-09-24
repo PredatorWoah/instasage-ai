@@ -14,7 +14,7 @@ import { Zap, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/utils/formatters';
-import type { KPIMetric, TimeSeriesPoint } from '@/types';
+import type { KPIMetric } from '@/types';
 import { generateInsights } from '@/services/ai';
 
 export const metadata = {
@@ -31,14 +31,17 @@ export default async function DashboardPage() {
   const data = await getDashboardData(session.user.id);
   const insightsData = await generateInsights(session.user.id);
 
+  const { followersChange, followersStart } = data.kpis;
+  const followersChangePercent = followersStart > 0 ? Number(((Math.abs(followersChange) / followersStart) * 100).toFixed(1)) : 0;
+
   const metricsData: KPIMetric[] = [
     {
       id: 'followers',
       label: 'Total Followers',
       value: formatNumber(data.kpis.followers),
-      change: '+0',
-      changePercent: 0,
-      trend: 'neutral' as const,
+      change: `${followersChange >= 0 ? '+' : '-'}${formatNumber(Math.abs(followersChange))}`,
+      changePercent: followersChangePercent,
+      trend: followersChange > 0 ? 'up' : followersChange < 0 ? 'down' : 'neutral',
       icon: 'Users',
       color: 'bg-indigo-500/10 text-indigo-500'
     },
@@ -46,7 +49,8 @@ export default async function DashboardPage() {
       id: 'views',
       label: 'Total Views',
       value: formatNumber(data.kpis.views),
-      change: '+0',
+      change: '',
+      note: 'Across all synced posts',
       changePercent: 0,
       trend: 'neutral' as const,
       icon: 'Eye',
@@ -56,7 +60,8 @@ export default async function DashboardPage() {
       id: 'engagement',
       label: 'Avg Engagement',
       value: `${data.kpis.engagement.toFixed(1)}%`,
-      change: '+0',
+      change: '',
+      note: 'Posts from the last 30 days',
       changePercent: 0,
       trend: 'neutral' as const,
       icon: 'Heart',
@@ -64,37 +69,7 @@ export default async function DashboardPage() {
     },
   ];
 
-  // Map historical database metrics to chart TimeSeriesPoint format
-  const timeseriesMap = new Map<string, TimeSeriesPoint>();
-
-  // Initialize last 30 days
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    timeseriesMap.set(dateStr, {
-      date: dateStr,
-      followers: 0,
-      views: 0,
-      engagement: 0,
-      posts: 0
-    });
-  }
-
-  // Populate actual data
-  data.metrics.forEach(m => {
-    const dStr = m.date.toISOString().split('T')[0];
-    if (timeseriesMap.has(dStr)) {
-      const existing = timeseriesMap.get(dStr)!;
-      existing.followers = (existing.followers || 0) + (m.followers || 0);
-      existing.views = (existing.views || 0) + (m.views || 0);
-      existing.posts = (existing.posts || 0) + (m.postsCount || 0);
-      // Rough avg
-      existing.engagement = ((existing.engagement || 0) + (m.engagement || 0)) / 2;
-    }
-  });
-
-  const timeSeriesData = Array.from(timeseriesMap.values());
+  const timeSeriesData = data.timeSeries;
 
   const filteredInsights = Array.isArray(insightsData) ? insightsData.slice(0, 2) : [];
 

@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Search, ChevronDown, User, Settings, HelpCircle, LogOut, LayoutDashboard } from 'lucide-react';
+import { Bell, Search, ChevronDown, User, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PLATFORMS } from '@/constants/platforms';
 import { MobileSidebar } from './MobileSidebar';
-import { toast } from 'sonner';
+import { useSession, signOut } from 'next-auth/react';
 
 function GlobalSearchInput() {
   const router = useRouter();
@@ -36,7 +36,7 @@ function GlobalSearchInput() {
     } else {
       params.delete('q');
     }
-    router.push(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   return (
@@ -53,29 +53,12 @@ function GlobalSearchInput() {
 }
 
 export function TopNav() {
-  const router = useRouter();
-  const [userName, setUserName] = useState('Creator User');
-  const [initials, setInitials] = useState('CU');
-
-  useEffect(() => {
-    const session = localStorage.getItem('instasage_session');
-    if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        if (parsed.name) {
-          setUserName(parsed.name);
-          setInitials(parsed.name.substring(0, 2).toUpperCase());
-        }
-      } catch {
-        // Fallback
-      }
-    }
-  }, []);
+  const { data: session } = useSession();
+  const userName = session?.user?.name || session?.user?.email || 'Account';
+  const initials = userName.substring(0, 2).toUpperCase();
 
   const handleLogout = () => {
-    localStorage.removeItem('instasage_session');
-    toast.success('Logged Out', { description: 'You have been signed out of your session.' });
-    router.push('/login');
+    signOut({ callbackUrl: '/login' });
   };
 
   return (
@@ -135,7 +118,7 @@ export function TopNav() {
           <DropdownMenuContent align="end" className="w-48 bg-background border border-border p-1.5">
             <div className="px-2 py-1.5 mb-1">
               <p className="text-xs font-semibold text-foreground truncate">{userName}</p>
-              <p className="text-[10px] text-muted-foreground truncate">Creator Workspace</p>
+              <p className="text-[10px] text-muted-foreground truncate">{session?.user?.email}</p>
             </div>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="text-xs gap-2 py-2">
@@ -155,13 +138,6 @@ export function TopNav() {
                 <Settings className="w-4 h-4 text-muted-foreground" />
                 Settings
               </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => toast.info('Help Center is not available in offline prototype.')}
-              className="text-xs gap-2 py-2"
-            >
-              <HelpCircle className="w-4 h-4 text-muted-foreground" />
-              Help
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem

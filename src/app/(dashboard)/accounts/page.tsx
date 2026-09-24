@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { signIn } from 'next-auth/react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -96,7 +97,14 @@ function AccountsContent() {
            <div className="h-48 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />
         ) : accounts.length === 0 ? (
           <div className="col-span-full py-12 text-center border border-dashed rounded-xl border-border">
-             <p className="text-muted-foreground text-sm">No accounts connected. Use the settings page to connect accounts.</p>
+             <p className="text-muted-foreground text-sm">No accounts connected yet.</p>
+             <Button
+               onClick={() => signIn('google', { callbackUrl: '/accounts' })}
+               size="sm"
+               className="mt-4 text-xs bg-indigo-600 hover:bg-indigo-700"
+             >
+               Connect YouTube
+             </Button>
           </div>
         ) : accounts.map((acc) => (
           <Card

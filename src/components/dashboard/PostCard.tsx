@@ -28,14 +28,16 @@ export function PostCard({ post }: PostCardProps) {
     <Card className="bg-secondary/20 border-border overflow-hidden group hover:border-border/80 transition-colors">
       {/* Thumbnail */}
       <div className="relative aspect-square overflow-hidden bg-secondary">
-        <Image
-          src={post.thumbnail}
-          alt={post.caption}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-          unoptimized
-        />
+        {post.thumbnail && (
+          <Image
+            src={post.thumbnail}
+            alt={post.caption}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            unoptimized
+          />
+        )}
         {/* Overlay badges */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute top-2 left-2">

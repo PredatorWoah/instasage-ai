@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
+import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
+import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
 
 export const metadata = { title: 'Settings — InstaSage AI' };
 
@@ -21,22 +20,8 @@ export default function SettingsPage() {
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">Connected Accounts</CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-5 space-y-3">
-          {[
-            { name: 'Instagram', handle: '@creatorhandle', color: 'bg-pink-500/10 text-pink-400 border-pink-500/20', connected: true },
-            { name: 'YouTube', handle: 'CreatorChannel', color: 'bg-red-500/10 text-red-400 border-red-500/20', connected: true },
-            { name: 'Facebook', handle: 'Not connected', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', connected: false },
-          ].map((account) => (
-            <div key={account.name} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-              <div className="flex items-center gap-3">
-                <Badge className={`text-[11px] border ${account.color}`}>{account.name}</Badge>
-                <span className="text-xs text-muted-foreground">{account.handle}</span>
-              </div>
-              <Button variant={account.connected ? 'outline' : 'default'} size="sm" className="text-xs h-7">
-                {account.connected ? 'Disconnect' : 'Connect'}
-              </Button>
-            </div>
-          ))}
+        <CardContent className="px-5 pb-5">
+          <ConnectedAccounts callbackUrl="/settings" />
         </CardContent>
       </Card>
 
@@ -45,18 +30,11 @@ export default function SettingsPage() {
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">Profile</CardTitle>
         </CardHeader>
-        <CardContent className="px-5 pb-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Display Name</Label>
-              <Input defaultValue="Creator Handle" className="h-8 text-sm bg-secondary/50 border-border" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Email</Label>
-              <Input defaultValue="creator@example.com" className="h-8 text-sm bg-secondary/50 border-border" />
-            </div>
-          </div>
-          <Button size="sm" className="text-xs h-8 bg-indigo-600 hover:bg-indigo-700">Save Changes</Button>
+        <CardContent className="px-5 pb-5">
+          <p className="text-xs text-muted-foreground">
+            Edit your name, username and bio on the{' '}
+            <Link href="/account" className="text-indigo-400 hover:underline">Account page</Link>.
+          </p>
         </CardContent>
       </Card>
 
@@ -88,9 +66,7 @@ export default function SettingsPage() {
       {/* Danger Zone */}
       <div>
         <p className="text-xs font-semibold text-red-400 mb-3">Danger Zone</p>
-        <Button variant="outline" size="sm" className="text-xs border-red-500/30 text-red-400 hover:bg-red-500/10">
-          Delete Account
-        </Button>
+        <DeleteAccountButton />
       </div>
     </div>
   );

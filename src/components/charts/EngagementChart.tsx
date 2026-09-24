@@ -43,6 +43,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
           stroke="#ec4899"
           strokeWidth={2}
           dot={false}
+          connectNulls
           activeDot={{ r: 4, fill: '#ec4899' }}
         />
       </LineChart>

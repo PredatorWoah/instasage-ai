@@ -33,17 +33,23 @@ export function KPICard({ metric }: KPICardProps) {
           <div className={cn('p-2 rounded-lg', iconClass)}>
             <Icon className="w-4 h-4" />
           </div>
-          <TrendIndicator trend={metric.trend} changePercent={metric.changePercent} />
+          {metric.change && <TrendIndicator trend={metric.trend} changePercent={metric.changePercent} />}
         </div>
         <div>
           <p className="text-2xl font-bold tracking-tight text-foreground">{metric.value}</p>
           <p className="text-xs text-muted-foreground mt-1">{metric.label}</p>
         </div>
         <p className="text-xs text-muted-foreground mt-3 pt-3 border-t border-border">
-          <span className={metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}>
-            {metric.change}
-          </span>{' '}
-          vs last month
+          {metric.change ? (
+            <>
+              <span className={metric.trend === 'up' ? 'text-emerald-400' : metric.trend === 'down' ? 'text-red-400' : 'text-muted-foreground'}>
+                {metric.change}
+              </span>{' '}
+              vs 30 days ago
+            </>
+          ) : (
+            metric.note
+          )}
         </p>
       </CardContent>
     </Card>

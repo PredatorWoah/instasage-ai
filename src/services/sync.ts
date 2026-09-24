@@ -1,6 +1,6 @@
-import { getYouTubeChannelInfo, getYouTubeVideos } from './youtube';
+import { getYouTubeChannelInfo, getYouTubeVideos, getFreshYouTubeToken } from './youtube';
 import { getInstagramBusinessProfile, getInstagramBusinessMedia, getInstagramBusinessInsights } from './meta';
-import { prisma } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function syncSocialProfile(profileId: string) {
   const profile = await prisma.socialProfile.findUnique({ where: { id: profileId } });
@@ -48,7 +48,8 @@ export async function syncSocialProfile(profileId: string) {
 }
 
 async function syncYouTubeProfile(profile: any) {
-  const channel = await getYouTubeChannelInfo(profile.accessToken);
+  const accessToken = await getFreshYouTubeToken(profile);
+  const channel = await getYouTubeChannelInfo(accessToken);
   if (!channel) throw new Error('Could not fetch YouTube channel');
 
   const stats = channel.statistics;
@@ -75,7 +76,7 @@ async function syncYouTubeProfile(profile: any) {
     }
   });
 
-  const videos = await getYouTubeVideos(profile.accessToken);
+  const videos = await getYouTubeVideos(accessToken);
   if (videos && videos.length > 0) {
     for (const video of videos) {
       if (!video.id) continue;

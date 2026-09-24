@@ -13,6 +13,7 @@ export type KPIMetric = {
   label: string;
   value: string;
   change: string;
+  note?: string;
   changePercent: number;
   trend: MetricTrend;
   icon: string;
