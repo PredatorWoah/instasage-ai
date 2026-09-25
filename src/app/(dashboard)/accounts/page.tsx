@@ -112,7 +112,7 @@ function AccountsContent() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Connected Accounts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Your connected accounts. Use the switcher in the top bar to view one account or all of them.
+            Accounts sync automatically every morning (around 6:30 AM IST). Use the switcher in the top bar to view one account or all of them.
           </p>
         </div>
         {accounts.length > 1 && (
