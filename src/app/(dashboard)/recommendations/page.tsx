@@ -82,11 +82,11 @@ function RecommendationsPageContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold flex items-center gap-2">
+          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em] flex items-center gap-2">
             <Lightbulb className="w-5 h-5 text-amber-400" />
             Recommendations
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-[15px] text-muted-foreground mt-3">
             Next steps Gemini suggests from your recent posts
           </p>
         </div>
@@ -125,7 +125,7 @@ function RecommendationsPageContent() {
       </div>
 
       {/* Recommendations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
         {loading ? (
           [0, 1, 2, 3].map((i) => <div key={i} className="h-56 rounded-xl border border-border bg-secondary/10 animate-pulse" />)
         ) : filteredRecs.length === 0 ? (
@@ -142,7 +142,7 @@ function RecommendationsPageContent() {
             const isApplied = appliedIds[rec.id];
 
             return (
-              <Card key={rec.id} className="bg-secondary/20 border-border flex flex-col justify-between hover:border-border/80 transition-colors">
+              <Card key={rec.id} className="bg-card border-border flex flex-col justify-between hover:border-border/80 transition-colors">
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <Badge className={cn('text-[10px] border', priority.className)}>

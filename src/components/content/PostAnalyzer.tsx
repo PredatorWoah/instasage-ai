@@ -147,7 +147,7 @@ export function PostAnalyzer({ id }: { id: string }) {
         </div>
       </div>
 
-      <Card className="bg-secondary/20 border-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-sm font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-400" /> AI analysis</CardTitle>
           <div className="flex items-center gap-3">

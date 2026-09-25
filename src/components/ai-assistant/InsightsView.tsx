@@ -22,8 +22,8 @@ export function InsightsView() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-foreground">AI Insights</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gemini&apos;s read on what is and isn&apos;t working in your recent posts</p>
+          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">AI Insights</h1>
+          <p className="text-[15px] text-muted-foreground mt-3">Gemini&apos;s read on what is and isn&apos;t working in your recent posts</p>
         </div>
         <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
       </div>
@@ -36,9 +36,9 @@ export function InsightsView() {
           <p className="text-xs text-muted-foreground">Gemini is analyzing your posts. This takes about 10 seconds.</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 stagger">
           {result?.items.map((insight, i) => (
-            <Card key={i} className="bg-secondary/20 border-border">
+            <Card key={i} className="bg-card border-border">
               <CardContent className="p-5 flex gap-4">
                 <div className="w-10 h-10 shrink-0 rounded-full bg-indigo-500/10 flex items-center justify-center">
                   <Zap className="w-5 h-5 text-indigo-400" />

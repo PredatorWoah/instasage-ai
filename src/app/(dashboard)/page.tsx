@@ -1,181 +1,182 @@
 import { redirect } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { getDashboardData } from '@/services/dashboard';
-import { getAccountScope } from '@/lib/scope';
-import { KPIGrid } from '@/components/dashboard/KPIGrid';
-import { RecentContent } from '@/components/dashboard/RecentContent';
-import { FollowersChart } from '@/components/charts/FollowersChart';
-import { ViewsChart } from '@/components/charts/ViewsChart';
-import { EngagementChart } from '@/components/charts/EngagementChart';
-import { PostingFrequencyChart } from '@/components/charts/PostingFrequencyChart';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Zap, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { formatNumber } from '@/utils/formatters';
-import type { KPIMetric } from '@/types';
-import { getCachedResult, type Insight } from '@/services/ai';
+import Image from 'next/image';
+import { getServerSession } from 'next-auth';
+import { ArrowRight, Sparkles } from 'lucide-react';
+import { authOptions } from '@/lib/auth';
+import { getAccountScope } from '@/lib/scope';
+import { getDashboardData } from '@/services/dashboard';
+import { getCachedResult, type AiRecommendation, type Insight } from '@/services/ai';
+import { FollowersChart } from '@/components/charts/FollowersChart';
+import { EngagementChart } from '@/components/charts/EngagementChart';
+import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
+import { formatNumber, getPerformanceLabel } from '@/utils/formatters';
 
-export const metadata = {
-  title: 'Dashboard — InstaSage AI',
-};
+export const metadata = { title: 'Overview · InstaSage' };
+
+const MONTH = new Date().toLocaleString('en-US', { month: 'long' });
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
-
-  if (!session || !session.user) {
-    redirect('/login');
-  }
+  if (!session || !session.user) redirect('/login');
 
   const scope = await getAccountScope(session.user.id);
-  const data = await getDashboardData(scope);
-  const cachedInsights = await getCachedResult<Insight>(session.user.id, 'insights', scope.key);
+  const [data, insights, ideas] = await Promise.all([
+    getDashboardData(scope),
+    getCachedResult<Insight>(session.user.id, 'insights', scope.key),
+    getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.key),
+  ]);
 
-  const { followersChange, followersStart } = data.kpis;
-  const followersChangePercent = followersStart > 0 ? Number(((Math.abs(followersChange) / followersStart) * 100).toFixed(1)) : 0;
+  const { kpis, timeSeries } = data;
+  const postsThisMonth = timeSeries.reduce((a, p) => a + (p.posts ?? 0), 0);
+  const reachDays = timeSeries.filter((p) => p.reach !== undefined);
+  const reach30 = reachDays.reduce((a, p) => a + (p.reach ?? 0), 0);
+  const recentViews = timeSeries.slice(-14);
+  const maxViews = Math.max(1, ...recentViews.map((p) => p.views ?? 0));
+  const hasData = data.profiles.length > 0;
+  const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
-  const metricsData: KPIMetric[] = [
-    {
-      id: 'followers',
-      label: 'Total Followers',
-      value: formatNumber(data.kpis.followers),
-      change: `${followersChange >= 0 ? '+' : '-'}${formatNumber(Math.abs(followersChange))}`,
-      changePercent: followersChangePercent,
-      trend: followersChange > 0 ? 'up' : followersChange < 0 ? 'down' : 'neutral',
-      icon: 'Users',
-      color: 'bg-indigo-500/10 text-indigo-500'
-    },
-    {
-      id: 'views',
-      label: 'Total Views',
-      value: formatNumber(data.kpis.views),
-      change: '',
-      note: 'Across all synced posts',
-      changePercent: 0,
-      trend: 'neutral' as const,
-      icon: 'Eye',
-      color: 'bg-emerald-500/10 text-emerald-500'
-    },
-    {
-      id: 'engagement',
-      label: 'Avg Engagement',
-      value: `${data.kpis.engagement.toFixed(1)}%`,
-      change: '',
-      note: 'Posts from the last 30 days',
-      changePercent: 0,
-      trend: 'neutral' as const,
-      icon: 'Heart',
-      color: 'bg-pink-500/10 text-pink-500'
-    },
-  ];
-
-  const timeSeriesData = data.timeSeries;
-
-  const filteredInsights = cachedInsights?.items.slice(0, 2) ?? [];
+  // The banner tells the month's story: the latest AI insight, or a line built from the numbers
+  const story =
+    insights?.items[0]?.title ??
+    (kpis.followersChange > 0
+      ? `You gained ${formatNumber(kpis.followersChange)} followers this month.`
+      : hasData
+        ? `${formatNumber(kpis.views)} views across your posts so far.`
+        : 'Connect Instagram to start your story.');
+  const idea = ideas?.items[0];
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {scope.key === 'all' ? 'All connected accounts' : `@${scope.profiles[0]?.username}`} · last 30 days
-        </p>
-      </div>
+    <div className="flex flex-col gap-4">
+      {/* Story banner */}
+      <section className="animate-rise relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-9 flex flex-col lg:flex-row lg:items-stretch justify-between gap-6 min-h-[250px]">
+        <div aria-hidden className="absolute right-[18%] -top-36 w-[420px] h-[420px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.55),transparent)]" />
+        <div className="relative flex flex-col justify-between gap-6 max-w-[720px]">
+          <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
+            <Sparkles className="w-3.5 h-3.5" /> Your {MONTH} story · {who}
+          </span>
+          <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
+          {insights?.items[0] && (
+            <Link href="/insights" transitionTypes={['nav-forward']} className="self-start text-sm font-semibold text-white/90 hover:text-white inline-flex items-center gap-1.5">
+              Read the full analysis <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
+        </div>
+        <div className="relative flex flex-row lg:flex-col gap-2.5 justify-end lg:w-[280px]">
+          <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
+            <span className="text-sm font-medium">New followers</span>
+            <span className="font-display font-extrabold text-[26px]">{kpis.followersChange >= 0 ? '+' : '−'}{formatNumber(Math.abs(kpis.followersChange))}</span>
+          </div>
+          <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
+            <span className="text-sm font-medium">Posts published</span>
+            <span className="font-display font-extrabold text-[26px]">{postsThisMonth}</span>
+          </div>
+        </div>
+      </section>
 
-      {/* KPI Grid */}
-      <KPIGrid metrics={metricsData} />
+      {/* Stat tiles */}
+      <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="prism-sunset rounded-[30px] p-5 flex flex-col justify-between min-h-[190px]">
+          <span className="self-start px-3 py-1.5 rounded-full bg-white/25 text-[13px] font-bold">Followers</span>
+          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
+        </div>
+        <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
+          <span className="self-start px-3 py-1.5 rounded-full bg-white/30 text-[13px] font-bold">Reach · 30 days</span>
+          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{reachDays.length ? formatNumber(reach30) : '—'}</span>
+        </div>
+        <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
+          <span className="self-start px-3 py-1.5 rounded-full bg-white/35 text-[13px] font-bold">Engagement</span>
+          <div className="flex items-end justify-between gap-2">
+            <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
+            {hasData && <span className="text-[13px] font-bold pb-1">{getPerformanceLabel(kpis.engagement)}</span>}
+          </div>
+        </div>
+        <div className="rounded-[30px] p-5 bg-card border border-white/[0.05] flex flex-col justify-between min-h-[190px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="px-3 py-1.5 rounded-full bg-white/[0.07] text-[13px] font-bold text-muted-foreground">Views</span>
+            <span className="font-display font-extrabold text-[22px]">{formatNumber(kpis.views)}</span>
+          </div>
+          <div className="flex items-end gap-1.5 h-[88px]" aria-label="Views on posts from the last 14 days">
+            {recentViews.map((p) => {
+              const v = p.views ?? 0;
+              const tall = v >= maxViews * 0.75;
+              return (
+                <div
+                  key={p.date}
+                  title={`${p.date}: ${formatNumber(v)} views`}
+                  className="flex-1 rounded-[6px]"
+                  style={{
+                    height: `${Math.max(6, (v / maxViews) * 100)}%`,
+                    background: v === 0 ? '#23232E' : tall ? 'linear-gradient(#FF5F8F, #7B61FF)' : '#34344A',
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+        <BestTimeTile />
+      </section>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ChartCard title="Followers Growth" subtitle="All platforms · 30 days">
-          <FollowersChart data={timeSeriesData} />
-        </ChartCard>
-        <ChartCard title="Total Views" subtitle="All platforms · 30 days">
-          <ViewsChart data={timeSeriesData} />
-        </ChartCard>
-        <ChartCard title="Engagement Rate" subtitle="% · 30 days">
-          <EngagementChart data={timeSeriesData} />
-        </ChartCard>
-        <ChartCard title="Posting Frequency" subtitle="Posts per day · 30 days">
-          <PostingFrequencyChart data={timeSeriesData} />
-        </ChartCard>
-      </div>
-
-      {/* AI Insights Quick Panel */}
-      {filteredInsights.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-indigo-400" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Top AI Insights
-              </h2>
+      {/* Top posts + AI */}
+      <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Top posts</h2>
+            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-[#FFE08A] hover:text-[#FFF0C2]">All content →</Link>
+          </div>
+          {data.topPosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8">No posts yet. Connect an account and press Sync on the Accounts page.</p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              {data.topPosts.map((post, i) => (
+                <Link
+                  key={post.id}
+                  href={`/content/${encodeURIComponent(post.id)}`}
+                  transitionTypes={['page-fade']}
+                  className="group relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]"
+                >
+                  {post.thumbnail && (
+                    <Image src={post.thumbnail} alt={post.caption.slice(0, 80)} fill unoptimized sizes="200px" className="object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
+                  )}
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white/90">#{i + 1}</span>
+                  <span className="absolute left-2 bottom-2 px-2.5 py-1 rounded-full bg-[rgba(10,10,15,0.8)] text-[12px] font-bold">
+                    {post.performanceScore.toFixed(1)}%
+                  </span>
+                  {post.isBoosted && <span className="absolute right-2 top-2 px-2 py-0.5 rounded-full bg-amber-500/90 text-[10px] font-bold text-black">Boosted</span>}
+                </Link>
+              ))}
             </div>
-            <Button variant="ghost" size="sm" className="text-xs gap-1.5 text-muted-foreground" asChild>
-              <Link href="/insights">
-                View All <ArrowRight className="w-3 h-3" />
-              </Link>
-            </Button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredInsights.map((insight, i) => (
-              <Card key={i} className="bg-secondary/20 border-border">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <h3 className="text-sm font-semibold leading-snug">{insight.title}</h3>
-                    <Badge className="shrink-0 text-[10px] bg-rose-500/10 text-rose-400 border-rose-500/20">
-                      {insight.impact === 'high' ? 'High Impact' : `${insight.impact} Impact`}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{insight.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
-      )}
+          )}
+        </div>
 
-      {/* Recent Content */}
-      <RecentContent posts={data.posts.map(p => ({
-          id: p.id,
-          type: p.type as any,
-          platform: p.platform as any,
-          thumbnail: p.thumbnail,
-          caption: p.caption,
-          views: p.views,
-          likes: p.likes,
-          comments: p.comments,
-          shares: p.shares,
-          saves: p.saves,
-          performanceScore: p.performanceScore,
-          isBoosted: p.isBoosted,
-          publishedAt: p.publishedAt.toISOString()
-        }))} />
+        <div className="rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
+          <span className="text-[13px] font-bold prism-text">AI recommends</span>
+          <p className="font-display font-extrabold text-[26px] leading-[1.05] tracking-[-0.03em]">
+            {idea ? idea.title : 'Get a personal game plan from Gemini, based on your own posts.'}
+          </p>
+          {idea?.description && <p className="text-sm text-[#4A4A5A] leading-relaxed line-clamp-3">{idea.description}</p>}
+          <Link
+            href="/recommendations"
+            transitionTypes={['nav-forward']}
+            className="mt-auto self-start inline-flex items-center gap-1.5 h-11 px-5 rounded-full bg-[#0A0A0F] text-white text-[13px] font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform"
+          >
+            {idea ? 'See all ideas' : 'Generate ideas'} <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* Trends */}
+      <section className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
+          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Followers</h2><span className="text-xs text-muted-foreground">30 days</span></div>
+          <FollowersChart data={timeSeries} />
+        </div>
+        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
+          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Engagement</h2><span className="text-xs text-muted-foreground">Posts per day vs your average</span></div>
+          <EngagementChart data={timeSeries} />
+        </div>
+      </section>
     </div>
-  );
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="bg-secondary/20 border-border">
-      <CardHeader className="pb-2 pt-4 px-4">
-        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-        {subtitle && <p className="text-[11px] text-muted-foreground">{subtitle}</p>}
-      </CardHeader>
-      <CardContent className="px-4 pb-4">
-        {children}
-      </CardContent>
-    </Card>
   );
 }

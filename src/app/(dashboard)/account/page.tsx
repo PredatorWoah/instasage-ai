@@ -86,7 +86,7 @@ export default function AccountPage() {
           </AvatarFallback>
         </Avatar>
         <div>
-          <h1 className="text-lg font-bold text-foreground leading-tight">{profile.name || 'Your Profile'}</h1>
+          <h1 className="text-[28px] leading-tight">{profile.name || 'Your Profile'}</h1>
           {profile.username && <p className="text-xs text-muted-foreground mt-0.5">@{profile.username}</p>}
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function AccountPage() {
 
         {/* PROFILE TAB */}
         <TabsContent value="profile">
-          <Card className="bg-secondary/20 border-border">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Profile Settings</CardTitle>
               <CardDescription className="text-[11px]">Update your public creator profile details</CardDescription>
@@ -137,7 +137,7 @@ export default function AccountPage() {
 
         {/* PLATFORMS TAB */}
         <TabsContent value="platforms">
-          <Card className="bg-secondary/20 border-border">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Connected Platforms</CardTitle>
               <CardDescription className="text-[11px]">Authorized social platform connections for analytical access</CardDescription>
@@ -150,7 +150,7 @@ export default function AccountPage() {
 
         {/* PREFERENCES TAB */}
         <TabsContent value="preferences">
-          <Card className="bg-secondary/20 border-border">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Preferences</CardTitle>
               <CardDescription className="text-[11px]">Tailor the application interface to your locale settings</CardDescription>
@@ -249,7 +249,7 @@ export default function AccountPage() {
 
         {/* SECURITY TAB */}
         <TabsContent value="security">
-          <Card className="bg-secondary/20 border-border">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Security Settings</CardTitle>
               <CardDescription className="text-[11px]">How the dashboard is protected</CardDescription>
@@ -275,7 +275,7 @@ export default function AccountPage() {
         <TabsContent value="billing">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Subscription */}
-            <Card className="bg-secondary/20 border-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold">Subscription Plan</CardTitle>
               </CardHeader>
@@ -301,7 +301,7 @@ export default function AccountPage() {
             </Card>
 
             {/* Usage */}
-            <Card className="bg-secondary/20 border-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold">Usage Limits</CardTitle>
               </CardHeader>

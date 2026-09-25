@@ -12,12 +12,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account, connections, and preferences</p>
+        <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Settings</h1>
+        <p className="text-[15px] text-muted-foreground mt-3">Manage your account, connections, and preferences</p>
       </div>
 
       {/* Connected Accounts */}
-      <Card className="bg-secondary/20 border-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">Connected Accounts</CardTitle>
         </CardHeader>
@@ -27,7 +27,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* AI */}
-      <Card className="bg-secondary/20 border-border" id="ai">
+      <Card className="bg-card border-border" id="ai">
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">AI (Google Gemini)</CardTitle>
           <p className="text-xs text-muted-foreground">Powers AI Insights, Recommendations and the chat assistant.</p>
@@ -38,7 +38,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Profile */}
-      <Card className="bg-secondary/20 border-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">Profile</CardTitle>
         </CardHeader>
@@ -51,7 +51,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Notifications */}
-      <Card className="bg-secondary/20 border-border">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5">
           <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
         </CardHeader>

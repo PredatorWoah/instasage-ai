@@ -66,14 +66,14 @@ export function AIChat() {
       <button
         onClick={() => setOpen((p) => !p)}
         aria-label={open ? 'Close assistant' : 'Open assistant'}
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-900/50 flex items-center justify-center transition-colors"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full prism-hero shadow-[0_10px_40px_-8px_rgba(178,59,232,0.8)] flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-300"
       >
         {open ? <X className="w-5 h-5 text-white" /> : <Sparkles className="w-5 h-5 text-white" />}
       </button>
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-22 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-background border border-border rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden" style={{ height: 420 }}>
+        <div className="fixed bottom-24 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-rise" style={{ height: 460 }}>
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 shrink-0">
             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">

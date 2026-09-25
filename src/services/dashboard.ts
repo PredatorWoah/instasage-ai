@@ -12,7 +12,7 @@ export async function getDashboardData(scope: AccountScope, days = 30) {
   since.setDate(since.getDate() - (days - 1));
   since.setHours(0, 0, 0, 0);
 
-  const [posts, windowPosts, viewTotals, metrics] = await Promise.all([
+  const [posts, windowPosts, viewTotals, metrics, topPosts] = await Promise.all([
     prisma.post.findMany({
       where: { socialProfileId: { in: profileIds } },
       orderBy: { publishedAt: 'desc' },
@@ -26,6 +26,11 @@ export async function getDashboardData(scope: AccountScope, days = 30) {
     prisma.metric.findMany({
       where: { socialProfileId: { in: profileIds }, date: { gte: since } },
       orderBy: { date: 'asc' },
+    }),
+    prisma.post.findMany({
+      where: { socialProfileId: { in: profileIds } },
+      orderBy: { performanceScore: 'desc' },
+      take: 5,
     }),
   ]);
 
@@ -89,6 +94,7 @@ export async function getDashboardData(scope: AccountScope, days = 30) {
   return {
     profiles,
     posts,
+    topPosts,
     timeSeries,
     kpis: {
       followers: totalFollowers,
