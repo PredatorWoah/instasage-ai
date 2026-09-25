@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getDashboardData } from '@/services/dashboard';
+import { getAccountScope } from '@/lib/scope';
 import { KPIGrid } from '@/components/dashboard/KPIGrid';
 import { RecentContent } from '@/components/dashboard/RecentContent';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -28,8 +29,9 @@ export default async function DashboardPage() {
     redirect('/login');
   }
 
-  const data = await getDashboardData(session.user.id);
-  const cachedInsights = await getCachedResult<Insight>(session.user.id, 'insights');
+  const scope = await getAccountScope(session.user.id);
+  const data = await getDashboardData(scope);
+  const cachedInsights = await getCachedResult<Insight>(session.user.id, 'insights', scope.key);
 
   const { followersChange, followersStart } = data.kpis;
   const followersChangePercent = followersStart > 0 ? Number(((Math.abs(followersChange) / followersStart) * 100).toFixed(1)) : 0;
@@ -79,7 +81,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Overview of your performance across all platforms — last 30 days
+          {scope.key === 'all' ? 'All connected accounts' : `@${scope.profiles[0]?.username}`} · last 30 days
         </p>
       </div>
 
@@ -149,6 +151,7 @@ export default async function DashboardPage() {
           shares: p.shares,
           saves: p.saves,
           performanceScore: p.performanceScore,
+          isBoosted: p.isBoosted,
           publishedAt: p.publishedAt.toISOString()
         }))} />
     </div>

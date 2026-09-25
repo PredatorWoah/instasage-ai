@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
+import { getAccountScope } from '@/lib/scope';
 import { getCachedResult, generateRecommendations } from '@/services/ai';
 
 // Leaves room for retries and model fallback when Gemini is busy
@@ -9,7 +10,8 @@ export const maxDuration = 60;
 export async function GET() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json(await getCachedResult(userId, 'recommendations'));
+  const scope = await getAccountScope(userId);
+  return NextResponse.json(await getCachedResult(userId, 'recommendations', scope.key));
 }
 
 // Generates a fresh result with Gemini and caches it
@@ -17,7 +19,7 @@ export async function POST() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
   try {
-    return NextResponse.json(await generateRecommendations(userId));
+    return NextResponse.json(await generateRecommendations(userId, await getAccountScope(userId)));
   } catch (error) {
     return aiErrorResponse(error);
   }

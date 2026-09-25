@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
+import { getAccountScope } from '@/lib/scope';
 import { chatWithAssistant, type ChatTurn } from '@/services/ai';
 
 // Leaves room for retries and model fallback when Gemini is busy
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     : [];
 
   try {
-    const reply = await chatWithAssistant(userId, turns, message.slice(0, 4000));
+    const reply = await chatWithAssistant(userId, await getAccountScope(userId), turns, message.slice(0, 4000));
     return NextResponse.json({ reply });
   } catch (error) {
     return aiErrorResponse(error);

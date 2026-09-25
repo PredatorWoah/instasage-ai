@@ -125,8 +125,9 @@ export async function saveGeminiKey(userId: string, rawKey: string) {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-async function buildContext(userId: string) {
-  const profiles = await prisma.socialProfile.findMany({ where: { userId } });
+// Only the accounts picked in the switcher (profileIds already belong to the user)
+async function buildContext(profileIds: string[]) {
+  const profiles = await prisma.socialProfile.findMany({ where: { id: { in: profileIds } } });
   const posts = await prisma.post.findMany({
     where: { socialProfileId: { in: profiles.map((p) => p.id) } },
     orderBy: { publishedAt: 'desc' },
@@ -174,12 +175,16 @@ export type AiRecommendation = {
 
 type Kind = 'insights' | 'recommendations';
 
-export async function getCachedResult<T>(userId: string, kind: Kind) {
-  const row = await prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind } } });
+// Results are cached per switcher selection: "insights:all", "insights:<profileId>"
+const cacheKind = (kind: Kind, scopeKey: string) => `${kind}:${scopeKey}`;
+
+export async function getCachedResult<T>(userId: string, kind: Kind, scopeKey: string) {
+  const row = await prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind: cacheKind(kind, scopeKey) } } });
   return row ? { items: row.content as T[], model: row.model, createdAt: row.createdAt } : null;
 }
 
-async function saveResult(userId: string, kind: Kind, items: unknown[], model: string) {
+async function saveResult(userId: string, kindName: Kind, scopeKey: string, items: unknown[], model: string) {
+  const kind = cacheKind(kindName, scopeKey);
   const data = { content: items as object[], model, createdAt: new Date() };
   const row = await prisma.aiResult.upsert({
     where: { userId_kind: { userId, kind } },
@@ -189,21 +194,23 @@ async function saveResult(userId: string, kind: Kind, items: unknown[], model: s
   return { items, model, createdAt: row.createdAt };
 }
 
-export async function generateInsights(userId: string) {
+type Scope = { key: string; profileIds: string[] };
+
+export async function generateInsights(userId: string, scope: Scope) {
   const config = await getGeminiConfig(userId);
-  const context = await buildContext(userId);
+  const context = await buildContext(scope.profileIds);
   const { text, model } = await generate(
     config,
     `${context}\n\nFind the 5 most useful insights in this data: what is working, what is not, and why. Look at post type, posting day and time, caption style, and saves/shares versus likes.\nReturn a JSON array of objects with keys: "title" (max 8 words), "description" (2 or 3 sentences with specific numbers), "impact" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth").`,
     { json: true, system: ANALYST },
   );
   const items = parseJson<Insight[]>(text).slice(0, 6);
-  return saveResult(userId, 'insights', items, model);
+  return saveResult(userId, 'insights', scope.key, items, model);
 }
 
-export async function generateRecommendations(userId: string) {
+export async function generateRecommendations(userId: string, scope: Scope) {
   const config = await getGeminiConfig(userId);
-  const context = await buildContext(userId);
+  const context = await buildContext(scope.profileIds);
   const { text, model } = await generate(
     config,
     `${context}\n\nGive 6 specific, actionable recommendations to grow this account over the next month. Each must follow from a pattern in the data.\nReturn a JSON array of objects with keys: "title" (an action, max 8 words), "description" (2 or 3 sentences: what to do and which data point justifies it), "priority" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth"), "impact" (short expected result), "effort" ("low" | "medium" | "high"), "estimatedGrowth" (short, e.g. "+10% reach").`,
@@ -212,18 +219,18 @@ export async function generateRecommendations(userId: string) {
   const items = parseJson<Omit<AiRecommendation, 'id'>[]>(text)
     .slice(0, 8)
     .map((r, i) => ({ ...r, id: `rec-${i}` }));
-  return saveResult(userId, 'recommendations', items, model);
+  return saveResult(userId, 'recommendations', scope.key, items, model);
 }
 
 // ---------- Chat ----------
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
-export async function chatWithAssistant(userId: string, history: ChatTurn[], message: string) {
+export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string) {
   const config = await getGeminiConfig(userId);
   let context: string;
   try {
-    context = await buildContext(userId);
+    context = await buildContext(scope.profileIds);
   } catch (error) {
     if (error instanceof AiError && error.code === 'no_data') context = 'No posts have been synced yet.';
     else throw error;
@@ -293,7 +300,7 @@ ${line('Comments', post.comments, b.comments)}
 ${line('Saves', post.saves, b.saves)}
 ${line('Shares', post.shares, b.shares)}
 Engagement: ${post.performanceScore.toFixed(1)}% (account average ${b.engagement.toFixed(1)}%)
-Rank by engagement: ${b.rank} of ${b.posts} synced posts
+Rank by engagement: ${b.rank} of ${b.posts} synced posts${post.isBoosted ? '\nThis post was boosted (paid promotion). The numbers above are organic only; paid views and likes are not included, so do not call it underperforming for that reason.' : ''}
 
 Judge the caption (hook, clarity, call to action, hashtags), the format and the timing against these numbers. You cannot see the image or video, so do not describe visuals.
 Return a JSON object with keys: "verdict" (one sentence on how it performed vs the account average), "whyItPerformed" (2-4 short bullet strings citing numbers), "improve" (2-4 specific changes for a similar post), "nextPostIdeas" (3 concrete follow-up post ideas), "bestFor" (one short phrase: what this post is good at, e.g. "reach", "saves", "conversation").`,

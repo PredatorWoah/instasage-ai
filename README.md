@@ -19,13 +19,17 @@ After logging in, connect accounts under Settings (or on the Accounts page), the
 
 ### Instagram
 
-Needs a Business or Creator Instagram account.
+Needs Business or Creator Instagram accounts. You can connect as many as you like; the switcher in the top bar shows one account or all of them.
 
-1. At developers.facebook.com, create an app with the Instagram use case.
-2. In the app, open Instagram → **API setup with Instagram login** → **Generate access tokens**, add your Instagram account and copy the token.
-3. Paste the token into the Instagram row in Settings.
+One-time setup of **Connect with Instagram**:
+1. At developers.facebook.com, create an app with the Instagram use case and add the `instagram_business_basic` and `instagram_business_manage_insights` permissions.
+2. Open Instagram → **API setup with Instagram login** → **Set up Instagram business login**. Add `https://<your-domain>/api/connect/instagram/callback` as a valid OAuth redirect URI.
+3. Copy the **Instagram app ID** and **Instagram app secret** into `INSTAGRAM_APP_ID` and `INSTAGRAM_APP_SECRET`, then redeploy.
+4. While the app is in Development mode, add each Instagram account under App roles → Roles → **Instagram Testers** and accept the invite on instagram.com.
 
-The token lasts 60 days, and each sync refreshes it automatically.
+Then click **Connect with Instagram** in Settings or on the Accounts page, log in, and the account is added and synced. Pasting a token from the Meta dashboard still works under "Advanced". Tokens last 60 days and are refreshed on every sync.
+
+Boosted posts are tagged: Instagram's API reports their organic results only.
 
 ### AI (Gemini)
 

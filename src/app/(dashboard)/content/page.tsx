@@ -266,9 +266,16 @@ function ContentLibraryContent() {
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
-                    <Badge className={cn('text-[10px] px-1.5 py-0 border', getPlatformColor(post.platform))}>
-                      {getPlatformLabel(post.platform)}
-                    </Badge>
+                    <div className="flex flex-col items-start gap-1">
+                      <Badge className={cn('text-[10px] px-1.5 py-0 border', getPlatformColor(post.platform))}>
+                        {getPlatformLabel(post.platform)}
+                      </Badge>
+                      {post.isBoosted && (
+                        <Badge className="text-[9px] px-1.5 py-0 border bg-amber-500/10 text-amber-400 border-amber-500/20" title="Promoted post: stats are organic only">
+                          Boosted
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="py-2 max-w-xs truncate text-xs font-normal">
                     <Link

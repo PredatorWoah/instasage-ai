@@ -46,6 +46,11 @@ export function PostCard({ post }: PostCardProps) {
           <Badge className={cn('text-[10px] px-1.5 py-0 border', getPlatformColor(post.platform))}>
             {getPlatformLabel(post.platform)}
           </Badge>
+            {post.isBoosted && (
+              <Badge className="ml-1 text-[10px] px-1.5 py-0 border bg-amber-500/80 text-white border-amber-500/40" title="Promoted post: stats are organic only">
+                Boosted
+              </Badge>
+            )}
         </div>
         <div className="absolute top-2 right-2">
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">

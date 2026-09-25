@@ -28,6 +28,7 @@ type PostData = {
     saves: number;
     shares: number;
     performanceScore: number;
+    isBoosted: boolean;
     username: string;
   };
   benchmarks: Record<'views' | 'reach' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement', number> & { posts: number; rank: number };
@@ -118,10 +119,16 @@ export function PostAnalyzer({ id }: { id: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={cn('text-[10px] border', getPlatformColor(post.platform))}>{getPlatformLabel(post.platform)}</Badge>
             <Badge variant="outline" className="text-[10px] capitalize">{post.type}</Badge>
+            {post.isBoosted && <Badge className="text-[10px] border bg-amber-500/10 text-amber-400 border-amber-500/20">Boosted</Badge>}
             <span className="text-xs text-muted-foreground">
               @{post.username} · {new Date(post.publishedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} · {formatRelativeTime(post.publishedAt)}
             </span>
           </div>
+          {post.isBoosted && (
+            <p className="text-xs text-amber-400/90 bg-amber-500/5 border border-amber-500/15 rounded-md px-3 py-2">
+              This post was promoted. Instagram&apos;s API only reports its organic results, so views and likes here can be lower than in the Instagram app, which adds the paid ones.
+            </p>
+          )}
           <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.caption || <span className="text-muted-foreground">No caption</span>}</p>
           <div className="flex items-center gap-2">
             <span className={cn('text-sm font-bold', getPerformanceColor(post.performanceScore))}>{post.performanceScore.toFixed(1)}% engagement</span>
