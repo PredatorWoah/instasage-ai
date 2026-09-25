@@ -7,8 +7,8 @@ import { prisma } from "@/lib/prisma";
 export const OWNER_ID = "owner";
 
 function passwordMatches(input: string) {
-  const expected = process.env.APP_PASSWORD;
-  if (!expected) return false;
+  const expected = process.env.APP_PASSWORD?.trim();
+  if (!expected) throw new Error("APP_PASSWORD is not set on the server. Add it in your hosting settings and redeploy.");
   // Hash both sides so the comparison is constant time regardless of length
   const a = createHash("sha256").update(input).digest();
   const b = createHash("sha256").update(expected).digest();
@@ -21,17 +21,22 @@ export const authOptions: NextAuthOptions = {
       name: "Password",
       credentials: { password: { label: "Password", type: "password" } },
       async authorize(credentials) {
-        if (!passwordMatches(credentials?.password ?? "")) {
+        if (!passwordMatches((credentials?.password ?? "").trim())) {
           // Slow down guessing
           await new Promise((resolve) => setTimeout(resolve, 1000));
           return null;
         }
-        const user = await prisma.user.upsert({
-          where: { id: OWNER_ID },
-          update: {},
-          create: { id: OWNER_ID, name: "Owner" },
-        });
-        return { id: user.id, name: user.name };
+        try {
+          const user = await prisma.user.upsert({
+            where: { id: OWNER_ID },
+            update: {},
+            create: { id: OWNER_ID, name: "Owner" },
+          });
+          return { id: user.id, name: user.name };
+        } catch (error) {
+          console.error("Login failed: could not load the owner user", error);
+          throw new Error("Password is correct, but the database is not ready. Check DATABASE_URL and that the tables exist (npx prisma db push).");
+        }
       },
     }),
   ],
