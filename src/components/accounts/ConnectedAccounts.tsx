@@ -14,15 +14,33 @@ type SocialProfile = {
 };
 
 const PLATFORMS = [
-  { id: 'youtube', name: 'YouTube', color: 'bg-red-500/10 text-red-400 border-red-500/20', available: true },
-  { id: 'instagram', name: 'Instagram', color: 'bg-pink-500/10 text-pink-400 border-pink-500/20', available: false },
-  { id: 'facebook', name: 'Facebook', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', available: false },
+  {
+    id: 'instagram',
+    name: 'Instagram',
+    color: 'bg-pink-500/10 text-pink-400 border-pink-500/20',
+    available: true,
+    field: 'token',
+    placeholder: 'Paste your Instagram access token',
+    secret: true,
+    help: 'Meta for Developers → your app → Instagram → API setup with Instagram login → Generate token.',
+  },
+  {
+    id: 'youtube',
+    name: 'YouTube',
+    color: 'bg-red-500/10 text-red-400 border-red-500/20',
+    available: true,
+    field: 'channel',
+    placeholder: '@yourhandle or channel URL',
+    secret: false,
+    help: '',
+  },
+  { id: 'facebook', name: 'Facebook', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', available: false, field: '', placeholder: '', secret: false, help: '' },
 ];
 
 export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
   const [profiles, setProfiles] = useState<SocialProfile[] | null>(null);
-  const [channel, setChannel] = useState('');
-  const [connecting, setConnecting] = useState(false);
+  const [inputs, setInputs] = useState<Record<string, string>>({});
+  const [connecting, setConnecting] = useState<string | null>(null);
 
   const load = async () => {
     const res = await fetch('/api/accounts');
@@ -41,23 +59,23 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
     };
   }, []);
 
-  const connect = async (e: React.FormEvent) => {
+  const connect = async (e: React.FormEvent, platform: (typeof PLATFORMS)[number]) => {
     e.preventDefault();
-    setConnecting(true);
+    setConnecting(platform.id);
     const res = await fetch('/api/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel }),
+      body: JSON.stringify({ platform: platform.id, [platform.field]: inputs[platform.id] ?? '' }),
     });
-    setConnecting(false);
+    setConnecting(null);
     if (res.ok) {
       const profile = await res.json();
-      toast.success(`${profile.displayName} connected`, { description: 'Hit Sync on the Accounts page to pull in videos.' });
-      setChannel('');
+      toast.success(`${profile.displayName} connected`, { description: 'Hit Sync on the Accounts page to pull in your posts.' });
+      setInputs((prev) => ({ ...prev, [platform.id]: '' }));
       load();
     } else {
       const { error } = await res.json().catch(() => ({ error: '' }));
-      toast.error('Could not connect channel', { description: error });
+      toast.error(`Could not connect ${platform.name}`, { description: error });
     }
   };
 
@@ -93,18 +111,23 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
               )}
             </div>
             {canConnect && (
-              <form onSubmit={connect} className="flex gap-2">
-                <Input
-                  id="youtube-channel"
-                  value={channel}
-                  onChange={(e) => setChannel(e.target.value)}
-                  placeholder="@yourhandle or channel URL"
-                  className="h-8 text-xs bg-secondary/50 border-border"
-                  required
-                />
-                <Button type="submit" size="sm" disabled={connecting} className="text-xs h-8 shrink-0">
-                  {connecting ? 'Connecting...' : 'Connect'}
-                </Button>
+              <form onSubmit={(e) => connect(e, platform)} className="space-y-1.5">
+                <div className="flex gap-2">
+                  <Input
+                    id={`${platform.id}-connect`}
+                    type={platform.secret ? 'password' : 'text'}
+                    autoComplete="off"
+                    value={inputs[platform.id] ?? ''}
+                    onChange={(e) => setInputs((prev) => ({ ...prev, [platform.id]: e.target.value }))}
+                    placeholder={platform.placeholder}
+                    className="h-8 text-xs bg-secondary/50 border-border"
+                    required
+                  />
+                  <Button type="submit" size="sm" disabled={connecting !== null} className="text-xs h-8 shrink-0">
+                    {connecting === platform.id ? 'Connecting...' : 'Connect'}
+                  </Button>
+                </div>
+                {platform.help && <p className="text-[10px] text-muted-foreground">{platform.help}</p>}
               </form>
             )}
           </div>

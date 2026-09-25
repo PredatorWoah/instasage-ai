@@ -1,5 +1,5 @@
 import { getYouTubeChannelInfo, getYouTubeVideos } from './youtube';
-import { getInstagramBusinessProfile, getInstagramBusinessMedia, getInstagramBusinessInsights } from './meta';
+import { getInstagramProfile, getInstagramMedia, getInstagramMediaInsights, refreshInstagramToken, type InstagramMedia } from './instagram';
 import { prisma } from '@/lib/prisma';
 
 export async function syncSocialProfile(profileId: string) {
@@ -118,85 +118,93 @@ async function syncYouTubeProfile(profile: any) {
   }
 }
 
+// Keeps the 60-day token alive: refresh once it is more than a week old
+async function freshInstagramToken(profile: { id: string; accessToken: string; tokenExpiresAt: Date | null }) {
+  const refreshAfter = Date.now() + 53 * 24 * 60 * 60 * 1000;
+  if (profile.tokenExpiresAt && profile.tokenExpiresAt.getTime() > refreshAfter) return profile.accessToken;
+  try {
+    const { token, expiresAt } = await refreshInstagramToken(profile.accessToken);
+    await prisma.socialProfile.update({ where: { id: profile.id }, data: { accessToken: token, tokenExpiresAt: expiresAt } });
+    return token;
+  } catch (error) {
+    // A token younger than 24 hours cannot be refreshed yet; keep using it
+    console.warn('Instagram token refresh skipped:', (error as Error).message);
+    return profile.accessToken;
+  }
+}
+
+function instagramPostType(m: InstagramMedia) {
+  if (m.media_product_type === 'REELS') return 'reel';
+  if (m.media_product_type === 'STORY') return 'story';
+  if (m.media_type === 'CAROUSEL_ALBUM') return 'carousel';
+  if (m.media_type === 'VIDEO') return 'video';
+  return 'post';
+}
+
 async function syncInstagramProfile(profile: any) {
-  // Using pageAccessToken for IG Graph API
-  const igProfile = await getInstagramBusinessProfile(profile.accessToken, profile.username /* Note: Usually graph api needs numerical IG ID, mapped from username or retrieved via accounts API */); // username here is acting as the IG Business ID if configured that way
+  const token = await freshInstagramToken(profile);
+  const ig = await getInstagramProfile(token);
 
   await prisma.socialProfile.update({
     where: { id: profile.id },
     data: {
-      followerCount: igProfile.followers_count,
-      profilePictureUrl: igProfile.profile_picture_url || profile.profilePictureUrl
+      username: ig.username,
+      displayName: ig.name || ig.username,
+      followerCount: ig.followers_count ?? profile.followerCount,
+      profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
     },
   });
+
+  const media = await getInstagramMedia(token);
+  let totalReach = 0;
+  let totalViews = 0;
+
+  for (const m of media) {
+    const insights = await getInstagramMediaInsights(token, m.id);
+    const likes = m.like_count ?? 0;
+    const comments = m.comments_count ?? 0;
+    const saves = insights.saved ?? 0;
+    const shares = insights.shares ?? 0;
+    const reach = insights.reach ?? 0;
+    const views = insights.views ?? reach;
+    totalReach += reach;
+    totalViews += views;
+
+    // Engagement rate by reach, the usual Instagram definition
+    const performanceScore = reach > 0 ? ((likes + comments + saves + shares) / reach) * 100 : 0;
+    const fields = {
+      views,
+      likes,
+      comments,
+      saves,
+      shares,
+      performanceScore,
+      thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
+      caption: m.caption || '',
+    };
+
+    await prisma.post.upsert({
+      where: { id: m.id },
+      update: fields,
+      create: {
+        ...fields,
+        id: m.id,
+        socialProfileId: profile.id,
+        platform: 'instagram',
+        type: instagramPostType(m),
+        publishedAt: new Date(m.timestamp),
+      },
+    });
+  }
 
   await prisma.metric.create({
     data: {
       socialProfileId: profile.id,
       date: new Date(),
-      followers: igProfile.followers_count,
-      postsCount: igProfile.media_count,
-    }
+      followers: ig.followers_count ?? null,
+      views: totalViews,
+      reach: totalReach,
+      postsCount: ig.media_count ?? media.length,
+    },
   });
-
-  const media = await getInstagramBusinessMedia(profile.accessToken, profile.username);
-  if (media && media.data) {
-    for (const m of media.data) {
-      // Basic metrics available without insights query
-      let views = 0;
-      let reach = 0;
-      let saves = 0;
-      const shares = 0;
-
-      try {
-        const insights = await getInstagramBusinessInsights(profile.accessToken, m.id);
-        if (insights && insights.data) {
-          const reachMetric = insights.data.find((i: any) => i.name === 'reach');
-          const savedMetric = insights.data.find((i: any) => i.name === 'saved');
-          const viewsMetric = insights.data.find((i: any) => i.name === 'video_views' || i.name === 'impressions');
-
-          if (reachMetric) reach = reachMetric.values[0].value;
-          if (savedMetric) saves = savedMetric.values[0].value;
-          if (viewsMetric) views = viewsMetric.values[0].value;
-        }
-      } catch {
-        // IG insights can throw errors for certain media types, fail gracefully
-      }
-
-      const likes = m.like_count || 0;
-      const comments = m.comments_count || 0;
-
-      const totalEngagements = likes + comments + saves + shares;
-      const performanceScore = reach > 0 ? (totalEngagements / reach) * 100 : 0;
-
-      await prisma.post.upsert({
-        where: { id: m.id },
-        update: {
-          views,
-          likes,
-          comments,
-          saves,
-          shares,
-          performanceScore,
-          thumbnail: m.thumbnail_url || m.media_url || '',
-          caption: m.caption || '',
-        },
-        create: {
-          id: m.id,
-          socialProfileId: profile.id,
-          platform: 'instagram',
-          type: m.media_type === 'VIDEO' ? 'reel' : m.media_type === 'CAROUSEL_ALBUM' ? 'carousel' : 'post',
-          publishedAt: new Date(m.timestamp || new Date()),
-          views,
-          likes,
-          comments,
-          saves,
-          shares,
-          performanceScore,
-          thumbnail: m.thumbnail_url || m.media_url || '',
-          caption: m.caption || '',
-        }
-      });
-    }
-  }
 }

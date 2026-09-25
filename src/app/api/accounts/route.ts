@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { connectYouTubeProfile } from '@/services/youtube';
+import { connectInstagramProfile } from '@/services/instagram';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -13,7 +14,8 @@ export async function GET() {
   try {
     const accounts = await prisma.socialProfile.findMany({
       where: { userId: session.user.id },
-      orderBy: { lastSyncedAt: 'desc' }
+      orderBy: { lastSyncedAt: 'desc' },
+      omit: { accessToken: true },
     });
     return NextResponse.json(accounts);
   } catch (error: any) {
@@ -27,12 +29,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { channel } = await req.json().catch(() => ({}));
-  if (typeof channel !== 'string' || !channel.trim()) {
-    return NextResponse.json({ error: 'Enter a YouTube @handle, channel ID or URL' }, { status: 400 });
-  }
+  const { platform = 'youtube', channel, token } = await req.json().catch(() => ({}));
 
   try {
+    if (platform === 'instagram') {
+      if (typeof token !== 'string' || !token.trim()) {
+        return NextResponse.json({ error: 'Paste your Instagram access token' }, { status: 400 });
+      }
+      const profile = await connectInstagramProfile(session.user.id, token);
+      return NextResponse.json({ ...profile, accessToken: undefined });
+    }
+
+    if (typeof channel !== 'string' || !channel.trim()) {
+      return NextResponse.json({ error: 'Enter a YouTube @handle, channel ID or URL' }, { status: 400 });
+    }
     const profile = await connectYouTubeProfile(session.user.id, channel);
     return NextResponse.json(profile);
   } catch (error: any) {
