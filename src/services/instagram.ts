@@ -223,8 +223,9 @@ export async function connectInstagramProfile(userId: string, rawToken: string) 
 export const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
 
 export function instagramOAuthConfig() {
-  const appId = process.env.INSTAGRAM_APP_ID;
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  // Trim: a stray space or newline from copy-paste makes Instagram reject the app ("Invalid platform app")
+  const appId = process.env.INSTAGRAM_APP_ID?.trim();
+  const appSecret = process.env.INSTAGRAM_APP_SECRET?.trim();
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
