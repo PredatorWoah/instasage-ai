@@ -103,7 +103,6 @@ function AccountsContent() {
     });
     if (error) toast.error('Instagram connection failed', { description: error });
     if (error || connected) router.replace('/accounts');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, router]);
 
   return (
