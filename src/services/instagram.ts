@@ -69,24 +69,102 @@ export async function getInstagramMedia(token: string, limit = 50) {
   return media.slice(0, limit);
 }
 
-// Per-post insights. Not every metric exists for every media type, so fall back to fewer metrics.
+const MEDIA_METRICS = ['views', 'reach', 'likes', 'comments', 'saved', 'shares'];
+
+type InsightRow = { name: string; values?: { value: number }[]; total_value?: { value: number } };
+const readValue = (m: InsightRow) => m.values?.[0]?.value ?? m.total_value?.value ?? 0;
+
+// Per-post insights. Ask for everything at once; if Instagram rejects any metric for this
+// media type, ask for each metric on its own so one unsupported metric never hides the rest.
 export async function getInstagramMediaInsights(token: string, mediaId: string) {
-  const attempts = ['reach,saved,shares,views', 'reach,saved,shares', 'reach'];
-  for (const metric of attempts) {
-    try {
-      const res = await igGet<{ data: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] }>(
-        `/${mediaId}/insights`,
-        token,
-        { metric },
-      );
-      const values: Record<string, number> = {};
-      for (const m of res.data) values[m.name] = m.values?.[0]?.value ?? m.total_value?.value ?? 0;
-      return values;
-    } catch {
-      // try the next, smaller metric set
-    }
+  const values: Record<string, number> = {};
+  try {
+    const res = await igGet<{ data: InsightRow[] }>(`/${mediaId}/insights`, token, { metric: MEDIA_METRICS.join(',') });
+    for (const m of res.data) values[m.name] = readValue(m);
+    return { values, failed: [] as string[] };
+  } catch {
+    // fall through to one request per metric
   }
-  return {};
+
+  const failed: string[] = [];
+  await Promise.all(
+    MEDIA_METRICS.map(async (metric) => {
+      try {
+        const res = await igGet<{ data: InsightRow[] }>(`/${mediaId}/insights`, token, { metric });
+        for (const m of res.data) values[m.name] = readValue(m);
+      } catch (error) {
+        failed.push(`${metric}: ${(error as Error).message}`);
+      }
+    }),
+  );
+  return { values, failed };
+}
+
+const day = (d: Date) => d.toISOString().slice(0, 10);
+
+// Daily account history for the last 30 days: accounts reached and new followers per day
+export async function getInstagramDailyInsights(token: string, igUserId: string) {
+  const until = Math.floor(Date.now() / 1000);
+  const since = until - 29 * 24 * 60 * 60;
+  const reach = new Map<string, number>();
+  const newFollowers = new Map<string, number>();
+  const warnings: string[] = [];
+
+  const series = async (metric: string, target: Map<string, number>) => {
+    try {
+      const res = await igGet<{ data: { values?: { value: number; end_time: string }[] }[] }>(`/${igUserId}/insights`, token, {
+        metric,
+        period: 'day',
+        metric_type: 'time_series',
+        since: String(since),
+        until: String(until),
+      });
+      for (const v of res.data[0]?.values ?? []) {
+        // end_time marks the end of the day being measured
+        target.set(day(new Date(new Date(v.end_time).getTime() - 1000)), v.value);
+      }
+    } catch (error) {
+      warnings.push(`${metric}: ${(error as Error).message}`);
+    }
+  };
+
+  await Promise.all([series('reach', reach), series('follower_count', newFollowers)]);
+  return { reach, newFollowers, warnings };
+}
+
+export type AudienceBreakdown = {
+  age: { label: string; value: number }[];
+  gender: { label: string; value: number }[];
+  country: { label: string; value: number }[];
+  city: { label: string; value: number }[];
+};
+
+// Follower demographics (Instagram only reports these for accounts with 100+ followers)
+export async function getInstagramDemographics(token: string, igUserId: string) {
+  const result: AudienceBreakdown = { age: [], gender: [], country: [], city: [] };
+  const warnings: string[] = [];
+
+  for (const breakdown of ['age', 'gender', 'country', 'city'] as const) {
+    let rows: { dimension_values: string[]; value: number }[] | undefined;
+    // Newer API versions reject "timeframe", older ones require it
+    for (const extra of [{}, { timeframe: 'this_month' }] as Record<string, string>[]) {
+      try {
+        const res = await igGet<{ data: { total_value?: { breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] }>(
+          `/${igUserId}/insights`,
+          token,
+          { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown, ...extra },
+        );
+        rows = res.data[0]?.total_value?.breakdowns?.[0]?.results ?? [];
+        break;
+      } catch (error) {
+        if (Object.keys(extra).length) warnings.push(`${breakdown}: ${(error as Error).message}`);
+      }
+    }
+    result[breakdown] = (rows ?? [])
+      .map((r) => ({ label: r.dimension_values[0], value: r.value }))
+      .sort((a, b) => b.value - a.value);
+  }
+  return { audience: result, warnings };
 }
 
 // Long-lived tokens last 60 days and can be refreshed once they are at least 24 hours old

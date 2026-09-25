@@ -12,6 +12,10 @@ type EngagementChartProps = {
 };
 
 export function EngagementChart({ data }: EngagementChartProps) {
+  // Your own average for the period, drawn as a dashed guide
+  const values = data.map((d) => d.engagement).filter((v): v is number => v != null);
+  const average = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -31,7 +35,15 @@ export function EngagementChart({ data }: EngagementChartProps) {
           axisLine={false}
           width={36}
         />
-        <ReferenceLine y={5.5} stroke="#64748b" strokeDasharray="3 3" strokeOpacity={0.5} />
+        {average !== null && (
+          <ReferenceLine
+            y={average}
+            stroke="#64748b"
+            strokeDasharray="3 3"
+            strokeOpacity={0.6}
+            label={{ value: `avg ${average.toFixed(1)}%`, position: 'insideTopRight', fontSize: 10, fill: '#64748b' }}
+          />
+        )}
         <Tooltip
           contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
@@ -42,7 +54,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
           dataKey="engagement"
           stroke="#ec4899"
           strokeWidth={2}
-          dot={false}
+          dot={{ r: 2.5, strokeWidth: 0, fill: '#ec4899' }}
           connectNulls
           activeDot={{ r: 4, fill: '#ec4899' }}
         />

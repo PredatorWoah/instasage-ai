@@ -48,7 +48,8 @@ export function FollowersChart({ data }: FollowersChartProps) {
           stroke="#6366f1"
           strokeWidth={2}
           fill="url(#followersGrad)"
-          dot={false}
+          connectNulls
+          dot={{ r: 2.5, strokeWidth: 0, fill: '#6366f1' }}
           activeDot={{ r: 4, fill: '#6366f1' }}
         />
       </AreaChart>

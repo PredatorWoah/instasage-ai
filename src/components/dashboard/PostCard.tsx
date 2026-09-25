@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, Heart, MessageCircle, Share2, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,7 +26,8 @@ export function PostCard({ post }: PostCardProps) {
   const scoreLabel = getPerformanceLabel(post.performanceScore);
 
   return (
-    <Card className="bg-secondary/20 border-border overflow-hidden group hover:border-border/80 transition-colors">
+    <Link href={`/content/${encodeURIComponent(post.id)}`} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-indigo-500">
+    <Card className="bg-secondary/20 border-border overflow-hidden group hover:border-indigo-500/40 transition-colors h-full">
       {/* Thumbnail */}
       <div className="relative aspect-square overflow-hidden bg-secondary">
         {post.thumbnail && (
@@ -79,6 +81,7 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </CardContent>
     </Card>
+    </Link>
   );
 }
 

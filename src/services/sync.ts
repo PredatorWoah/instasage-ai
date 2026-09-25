@@ -1,5 +1,13 @@
 import { getYouTubeChannelInfo, getYouTubeVideos } from './youtube';
-import { getInstagramProfile, getInstagramMedia, getInstagramMediaInsights, refreshInstagramToken, type InstagramMedia } from './instagram';
+import {
+  getInstagramProfile,
+  getInstagramMedia,
+  getInstagramMediaInsights,
+  getInstagramDailyInsights,
+  getInstagramDemographics,
+  refreshInstagramToken,
+  type InstagramMedia,
+} from './instagram';
 import { prisma } from '@/lib/prisma';
 
 export async function syncSocialProfile(profileId: string) {
@@ -67,14 +75,12 @@ async function syncYouTubeProfile(profile: any) {
     },
   });
 
-  await prisma.metric.create({
-    data: {
-      socialProfileId: profile.id,
-      date: new Date(),
-      followers: followerCount,
-      views: viewsCount,
-      postsCount: videoCount,
-    }
+  const metricId = `${profile.id}:${new Date().toISOString().slice(0, 10)}`;
+  const snapshot = { followers: followerCount, views: viewsCount, postsCount: videoCount };
+  await prisma.metric.upsert({
+    where: { id: metricId },
+    update: snapshot,
+    create: { ...snapshot, id: metricId, socialProfileId: profile.id, date: new Date() },
   });
 
   const videos = await getYouTubeVideos(profile.externalId);
@@ -141,44 +147,46 @@ function instagramPostType(m: InstagramMedia) {
   return 'post';
 }
 
+async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
+  for (let i = 0; i < items.length; i += size) {
+    await Promise.all(items.slice(i, i + size).map(fn));
+  }
+}
+
+const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+
 async function syncInstagramProfile(profile: any) {
   const token = await freshInstagramToken(profile);
   const ig = await getInstagramProfile(token);
-
-  await prisma.socialProfile.update({
-    where: { id: profile.id },
-    data: {
-      username: ig.username,
-      displayName: ig.name || ig.username,
-      followerCount: ig.followers_count ?? profile.followerCount,
-      profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
-    },
-  });
+  const igUserId = profile.externalId || ig.user_id;
 
   const media = await getInstagramMedia(token);
-  let totalReach = 0;
-  let totalViews = 0;
+  const failedMetrics = new Set<string>();
 
-  for (const m of media) {
-    const insights = await getInstagramMediaInsights(token, m.id);
-    const likes = m.like_count ?? 0;
-    const comments = m.comments_count ?? 0;
-    const saves = insights.saved ?? 0;
-    const shares = insights.shares ?? 0;
-    const reach = insights.reach ?? 0;
-    const views = insights.views ?? reach;
-    totalReach += reach;
-    totalViews += views;
+  await inBatches(media, 5, async (m) => {
+    const { values, failed } = await getInstagramMediaInsights(token, m.id);
+    failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
+    if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
+
+    // Public counters can lag or hide likes; insights are the source of truth when present
+    const likes = Math.max(m.like_count ?? 0, values.likes ?? 0);
+    const comments = Math.max(m.comments_count ?? 0, values.comments ?? 0);
+    const saves = values.saved ?? 0;
+    const shares = values.shares ?? 0;
+    const reach = values.reach ?? null;
+    const views = values.views ?? 0;
 
     // Engagement rate by reach, the usual Instagram definition
-    const performanceScore = reach > 0 ? ((likes + comments + saves + shares) / reach) * 100 : 0;
+    const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
     const fields = {
       views,
+      reach,
       likes,
       comments,
       saves,
       shares,
       performanceScore,
+      permalink: m.permalink ?? null,
       thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
       caption: m.caption || '',
     };
@@ -195,16 +203,48 @@ async function syncInstagramProfile(profile: any) {
         publishedAt: new Date(m.timestamp),
       },
     });
+  });
+  if (failedMetrics.size) console.warn('Instagram metrics unavailable on some posts:', [...failedMetrics].join(', '));
+
+  // Daily history: accounts reached per day, and follower totals rebuilt from daily new followers
+  const daily = await getInstagramDailyInsights(token, igUserId);
+  if (daily.warnings.length) console.warn('Instagram daily insights:', daily.warnings.join(' | '));
+
+  const followers = new Map<string, number>();
+  if (ig.followers_count != null) {
+    let running = ig.followers_count;
+    for (let i = 0; i < 30; i++) {
+      const key = dayKey(new Date(Date.now() - i * 86_400_000));
+      followers.set(key, running);
+      running -= daily.newFollowers.get(key) ?? 0;
+    }
   }
 
-  await prisma.metric.create({
+  const days = new Set([...daily.reach.keys(), ...followers.keys()]);
+  for (const key of days) {
+    const data = { followers: followers.get(key) ?? null, reach: daily.reach.get(key) ?? null };
+    await prisma.metric.upsert({
+      where: { id: `${profile.id}:${key}` },
+      update: data,
+      create: { ...data, id: `${profile.id}:${key}`, socialProfileId: profile.id, date: new Date(`${key}T12:00:00Z`) },
+    });
+  }
+  const todayId = `${profile.id}:${dayKey(new Date())}`;
+  await prisma.metric.update({ where: { id: todayId }, data: { postsCount: ig.media_count ?? media.length } }).catch(() => {});
+
+  const { audience, warnings } = await getInstagramDemographics(token, igUserId);
+  if (warnings.length) console.warn('Instagram demographics:', warnings.join(' | '));
+  const hasAudience = Object.values(audience).some((rows) => rows.length > 0);
+
+  await prisma.socialProfile.update({
+    where: { id: profile.id },
     data: {
-      socialProfileId: profile.id,
-      date: new Date(),
-      followers: ig.followers_count ?? null,
-      views: totalViews,
-      reach: totalReach,
-      postsCount: ig.media_count ?? media.length,
+      externalId: igUserId,
+      username: ig.username,
+      displayName: ig.name || ig.username,
+      followerCount: ig.followers_count ?? profile.followerCount,
+      profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
+      ...(hasAudience ? { audience } : {}),
     },
   });
 }

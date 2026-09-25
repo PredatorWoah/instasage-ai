@@ -17,6 +17,8 @@ export async function GET() {
       type: p.type,
       platform: p.platform,
       thumbnail: p.thumbnail,
+      permalink: p.permalink,
+      reach: p.reach,
       caption: p.caption,
       views: p.views,
       likes: p.likes,

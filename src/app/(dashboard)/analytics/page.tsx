@@ -39,22 +39,22 @@ export default function AnalyticsPage() {
   const charts = [
     {
       title: 'Platform Reach',
-      subtitle: `Accounts reached by your recent posts (Instagram), last ${days} days`,
+      subtitle: `Accounts your Instagram reached each day (Instagram keeps 30 days of history)`,
       component: <ReachChart data={series} />,
     },
     {
       title: 'Total Views',
-      subtitle: `Views across synced posts and channels, last ${days} days`,
+      subtitle: `Views on the posts published each day, last ${days} days`,
       component: <ViewsChart data={series} />,
     },
     {
       title: 'Engagement Rate',
-      subtitle: `Average engagement of posts published each day, last ${days} days`,
+      subtitle: `Engagement of posts published each day vs your average, last ${days} days`,
       component: <EngagementChart data={series} />,
     },
     {
       title: 'Followers Growth',
-      subtitle: `Followers across connected accounts, last ${days} days`,
+      subtitle: `Follower count per day, rebuilt from Instagram's daily new followers`,
       component: <FollowersChart data={series} />,
     },
     {

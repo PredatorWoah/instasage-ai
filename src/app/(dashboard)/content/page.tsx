@@ -44,7 +44,7 @@ function ContentLibraryContent() {
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const [platform, setPlatform] = useState<string>('all');
   const [postType, setPostType] = useState<string>('all');
-  const [sort, setSort] = useState<SortConfig>({ key: 'performanceScore', direction: 'desc' });
+  const [sort, setSort] = useState<SortConfig>({ key: 'publishedAt', direction: 'desc' });
   const [posts, setPosts] = useState<Post[] | null>(null);
 
   useEffect(() => {
@@ -186,6 +186,11 @@ function ContentLibraryContent() {
               <TableHead className="w-16 text-xs text-muted-foreground py-2.5">Thumbnail</TableHead>
               <TableHead className="w-24 text-xs text-muted-foreground py-2.5">Platform</TableHead>
               <TableHead className="text-xs text-muted-foreground py-2.5">Caption</TableHead>
+              <TableHead className="w-24 text-xs text-muted-foreground py-2.5">
+                <button onClick={() => handleSort('publishedAt')} className="inline-flex items-center gap-1 hover:text-foreground">
+                  Posted <ArrowUpDown className="w-3 h-3" />
+                </button>
+              </TableHead>
               <TableHead className="w-24 text-right text-xs text-muted-foreground py-2.5">
                 <button onClick={() => handleSort('views')} className="inline-flex items-center gap-1 hover:text-foreground">
                   Views <ArrowUpDown className="w-3 h-3" />
@@ -221,26 +226,31 @@ function ContentLibraryContent() {
           <TableBody className="divide-y divide-border">
             {posts === null ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-xs text-muted-foreground">
                   Loading posts...
                 </TableCell>
               </TableRow>
             ) : posts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-xs text-muted-foreground">
                   No posts yet. Connect an account and press Sync on the{' '}
                   <Link href="/accounts" className="text-indigo-400 hover:underline">Accounts page</Link>.
                 </TableCell>
               </TableRow>
             ) : processedPosts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
+                <TableCell colSpan={10} className="text-center py-8 text-xs text-muted-foreground">
                   No posts match these filters
                 </TableCell>
               </TableRow>
             ) : (
               processedPosts.map((post) => (
-                <TableRow key={post.id} className="hover:bg-secondary/30 transition-colors">
+                <TableRow
+                  key={post.id}
+                  onClick={() => router.push(`/content/${encodeURIComponent(post.id)}`)}
+                  className="hover:bg-secondary/30 transition-colors cursor-pointer"
+                  title="Open post analysis"
+                >
                   <TableCell className="py-2">
                     <div className="relative w-8 h-8 rounded overflow-hidden bg-secondary">
                       {post.thumbnail && (
@@ -261,7 +271,16 @@ function ContentLibraryContent() {
                     </Badge>
                   </TableCell>
                   <TableCell className="py-2 max-w-xs truncate text-xs font-normal">
-                    {post.caption}
+                    <Link
+                      href={`/content/${encodeURIComponent(post.id)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-indigo-400"
+                    >
+                      {post.caption || 'Untitled post'}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                    {new Date(post.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' })}
                   </TableCell>
                   <TableCell className="py-2 text-right text-xs font-medium">
                     {formatNumber(post.views)}
