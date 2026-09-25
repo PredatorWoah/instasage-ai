@@ -1,13 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  mockFollowersTimeSeries,
-  mockViewsTimeSeries,
-  mockEngagementTimeSeries,
-  mockReachTimeSeries,
-  mockPostingFrequency,
-} from '@/data/mockMetrics';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import type { TimeSeriesPoint } from '@/types';
 import { FollowersChart } from '@/components/charts/FollowersChart';
 import { ViewsChart } from '@/components/charts/ViewsChart';
 import { EngagementChart } from '@/components/charts/EngagementChart';
@@ -18,11 +13,21 @@ import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(30);
+  const [data, setData] = useState<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[] } | null>(null);
 
-  // Slice datasets based on selected time filter (last N days of 365 days available)
-  const filterData = <T,>(data: T[]): T[] => {
-    return data.slice(-days);
-  };
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/analytics?days=${days}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => !cancelled && setData(json))
+      .catch(() => !cancelled && setData(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
+
+  const series = data?.timeSeries ?? [];
+  const loading = data?.days !== days;
 
   const timeFilters = [
     { label: '7 Days', value: 7 },
@@ -34,28 +39,28 @@ export default function AnalyticsPage() {
   const charts = [
     {
       title: 'Platform Reach',
-      subtitle: `Unique accounts reached over last ${days} days`,
-      component: <ReachChart data={filterData(mockReachTimeSeries)} />,
+      subtitle: `Accounts reached by your recent posts (Instagram), last ${days} days`,
+      component: <ReachChart data={series} />,
     },
     {
       title: 'Total Views',
-      subtitle: `Video + post views over last ${days} days`,
-      component: <ViewsChart data={filterData(mockViewsTimeSeries)} />,
+      subtitle: `Views across synced posts and channels, last ${days} days`,
+      component: <ViewsChart data={series} />,
     },
     {
       title: 'Engagement Rate',
-      subtitle: `% engagement over last ${days} days`,
-      component: <EngagementChart data={filterData(mockEngagementTimeSeries)} />,
+      subtitle: `Average engagement of posts published each day, last ${days} days`,
+      component: <EngagementChart data={series} />,
     },
     {
       title: 'Followers Growth',
-      subtitle: `Total followers trend over last ${days} days`,
-      component: <FollowersChart data={filterData(mockFollowersTimeSeries)} />,
+      subtitle: `Followers across connected accounts, last ${days} days`,
+      component: <FollowersChart data={series} />,
     },
     {
       title: 'Posting Frequency',
-      subtitle: `Posts published per day over last ${days} days`,
-      component: <PostingFrequencyChart data={filterData(mockPostingFrequency)} />,
+      subtitle: `Posts published per day, last ${days} days`,
+      component: <PostingFrequencyChart data={series} />,
       fullWidth: true,
     },
   ];
@@ -83,8 +88,16 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {data && !data.hasData && (
+        <p className="text-sm text-muted-foreground p-4 rounded-xl border border-dashed border-border">
+          No data yet. Connect an account and press Sync on the{' '}
+          <Link href="/accounts" className="text-indigo-400 hover:underline">Accounts page</Link>. Follower and reach
+          history builds up with each sync, so these charts fill in over time.
+        </p>
+      )}
+
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${loading ? 'opacity-50' : ''}`}>
         {charts.map((chart) => (
           <Card
             key={chart.title}

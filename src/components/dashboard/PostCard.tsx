@@ -72,7 +72,7 @@ export function PostCard({ post }: PostCardProps) {
         {/* Footer: score + date */}
         <div className="flex items-center justify-between pt-2 border-t border-border">
           <div className="flex items-center gap-1.5">
-            <div className={cn('text-xs font-bold', scoreColor)}>{post.performanceScore}</div>
+            <div className={cn('text-xs font-bold', scoreColor)}>{post.performanceScore.toFixed(1)}%</div>
             <span className={cn('text-[10px]', scoreColor)}>{scoreLabel}</span>
           </div>
           <span className="text-[10px] text-muted-foreground">{formatRelativeTime(post.publishedAt)}</span>

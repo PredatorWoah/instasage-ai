@@ -4,6 +4,7 @@ import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
+import { AiSettings } from '@/components/settings/AiSettings';
 
 export const metadata = { title: 'Settings — InstaSage AI' };
 
@@ -22,6 +23,17 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <ConnectedAccounts />
+        </CardContent>
+      </Card>
+
+      {/* AI */}
+      <Card className="bg-secondary/20 border-border" id="ai">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">AI (Google Gemini)</CardTitle>
+          <p className="text-xs text-muted-foreground">Powers AI Insights, Recommendations and the chat assistant.</p>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <AiSettings />
         </CardContent>
       </Card>
 

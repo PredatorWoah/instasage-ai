@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/utils/formatters';
 import type { KPIMetric } from '@/types';
-import { generateInsights } from '@/services/ai';
+import { getCachedResult, type Insight } from '@/services/ai';
 
 export const metadata = {
   title: 'Dashboard — InstaSage AI',
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   }
 
   const data = await getDashboardData(session.user.id);
-  const insightsData = await generateInsights(session.user.id);
+  const cachedInsights = await getCachedResult<Insight>(session.user.id, 'insights');
 
   const { followersChange, followersStart } = data.kpis;
   const followersChangePercent = followersStart > 0 ? Number(((Math.abs(followersChange) / followersStart) * 100).toFixed(1)) : 0;
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
 
   const timeSeriesData = data.timeSeries;
 
-  const filteredInsights = Array.isArray(insightsData) ? insightsData.slice(0, 2) : [];
+  const filteredInsights = cachedInsights?.items.slice(0, 2) ?? [];
 
   return (
     <div className="space-y-8">
@@ -119,7 +119,7 @@ export default async function DashboardPage() {
             </Button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredInsights.map((insight: any, i: number) => (
+            {filteredInsights.map((insight, i) => (
               <Card key={i} className="bg-secondary/20 border-border">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">

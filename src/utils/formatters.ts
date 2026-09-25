@@ -25,17 +25,18 @@ export function formatRelativeTime(dateStr: string): string {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
+// Scores are engagement rates in percent; ~3% is healthy, 6%+ is excellent
 export function getPerformanceLabel(score: number): string {
-  if (score >= 90) return 'Excellent';
-  if (score >= 75) return 'Good';
-  if (score >= 60) return 'Average';
+  if (score >= 6) return 'Excellent';
+  if (score >= 3) return 'Good';
+  if (score >= 1) return 'Average';
   return 'Below Average';
 }
 
 export function getPerformanceColor(score: number): string {
-  if (score >= 90) return 'text-emerald-500';
-  if (score >= 75) return 'text-blue-500';
-  if (score >= 60) return 'text-amber-500';
+  if (score >= 6) return 'text-emerald-500';
+  if (score >= 3) return 'text-blue-500';
+  if (score >= 1) return 'text-amber-500';
   return 'text-red-500';
 }
 
