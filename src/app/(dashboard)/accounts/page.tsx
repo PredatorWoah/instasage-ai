@@ -33,6 +33,7 @@ const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
 function AccountsContent() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -43,41 +44,66 @@ function AccountsContent() {
       if (res.ok) {
         const data = await res.json();
         setAccounts(data);
+        return data as { id: string; username: string }[];
       }
     } catch {
       toast.error('Failed to load accounts');
     } finally {
       setIsLoading(false);
     }
+    return [];
   };
 
-  useEffect(() => {
-    fetchAccounts();
-    const error = searchParams.get('error');
-    if (error) {
-      toast.error('OAuth Connection Failed', { description: error });
-      router.replace('/accounts');
-    }
-  }, [searchParams, router]);
-
-  const handleSync = async (accId: string) => {
-    toast.info('Syncing account data...');
+  const syncProfile = async (accId: string, quiet = false) => {
+    setSyncing((prev) => ({ ...prev, [accId]: true }));
     try {
       const res = await fetch('/api/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profileId: accId })
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        toast.success('Sync complete');
-        fetchAccounts();
+        if (!quiet) toast.success('Sync complete');
       } else {
-        toast.error('Sync failed');
+        toast.error('Sync failed', { description: data.error });
       }
+      return res.ok;
     } catch {
-      toast.error('Sync failed');
+      toast.error('Sync failed', { description: 'Could not reach the server.' });
+      return false;
+    } finally {
+      setSyncing((prev) => ({ ...prev, [accId]: false }));
     }
   };
+
+  const handleSync = async (accId: string) => {
+    await syncProfile(accId);
+    fetchAccounts();
+  };
+
+  const syncAll = async () => {
+    toast.info(`Syncing ${accounts.length} accounts...`);
+    let ok = 0;
+    for (const acc of accounts) if (await syncProfile(acc.id, true)) ok += 1;
+    toast.success(`Synced ${ok} of ${accounts.length} accounts`);
+    fetchAccounts();
+  };
+
+  useEffect(() => {
+    const error = searchParams.get('error');
+    const connected = searchParams.get('connected');
+    fetchAccounts().then((list) => {
+      // Fresh from Instagram login: pull in posts straight away
+      const added = connected && list.find((a) => a.username === connected);
+      if (added) {
+        toast.success(`Connected @${connected}`, { description: 'Syncing posts and insights now...' });
+        syncProfile(added.id).then(() => fetchAccounts());
+      }
+    });
+    if (error) toast.error('Instagram connection failed', { description: error });
+    if (error || connected) router.replace('/accounts');
+  }, [searchParams, router]);
 
   return (
     <div className="space-y-6">
@@ -86,9 +112,14 @@ function AccountsContent() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-foreground">Connected Accounts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your connected social platforms and accounts credentials
+            Your connected accounts. Use the switcher in the top bar to view one account or all of them.
           </p>
         </div>
+        {accounts.length > 1 && (
+          <Button onClick={syncAll} disabled={Object.values(syncing).some(Boolean)} size="sm" className="text-xs h-8 gap-1.5 self-start bg-indigo-600 hover:bg-indigo-700">
+            <RefreshCw className={`w-3.5 h-3.5 ${Object.values(syncing).some(Boolean) ? 'animate-spin' : ''}`} /> Sync all
+          </Button>
+        )}
       </div>
 
       {/* Grid */}
@@ -97,7 +128,7 @@ function AccountsContent() {
            <div className="h-48 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />
         ) : accounts.length === 0 ? (
           <div className="col-span-full max-w-xl p-5 border border-dashed rounded-xl border-border space-y-3">
-             <p className="text-muted-foreground text-sm">No accounts connected yet. Add your YouTube channel to start syncing.</p>
+             <p className="text-muted-foreground text-sm">No accounts connected yet. Connect your Instagram to start.</p>
              <ConnectedAccounts onChange={fetchAccounts} />
           </div>
         ) : accounts.map((acc) => (
@@ -157,17 +188,29 @@ function AccountsContent() {
 
                 <Button
                   onClick={() => handleSync(acc.id)}
+                  disabled={syncing[acc.id]}
                   variant="outline"
                   size="sm"
                   className="text-xs h-8 px-3.5 gap-1.5 border-border text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" /> Sync
+                  <RefreshCw className={`w-3.5 h-3.5 ${syncing[acc.id] ? 'animate-spin' : ''}`} /> {syncing[acc.id] ? 'Syncing...' : 'Sync'}
                 </Button>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {accounts.length > 0 && (
+        <Card className="bg-secondary/20 border-border max-w-xl">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <h2 className="text-sm font-semibold">Add or remove accounts</h2>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <ConnectedAccounts onChange={fetchAccounts} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

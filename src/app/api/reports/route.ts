@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import Papa from 'papaparse';
+import { getAccountScope } from '@/lib/scope';
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -11,8 +12,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const type = url.searchParams.get('type') || 'csv';
 
-  const profiles = await prisma.socialProfile.findMany({ where: { userId: session.user.id } });
-  const profileIds = profiles.map(p => p.id);
+  const { profileIds } = await getAccountScope(session.user.id);
 
   const posts = await prisma.post.findMany({
     where: { socialProfileId: { in: profileIds } },

@@ -1,11 +1,5 @@
 export type Platform = 'all' | 'instagram' | 'facebook' | 'youtube';
 
-export type PlatformInfo = {
-  id: Platform;
-  label: string;
-  color: string;
-};
-
 export type MetricTrend = 'up' | 'down' | 'neutral';
 
 export type KPIMetric = {
@@ -31,6 +25,8 @@ export type TimeSeriesPoint = {
 
 export type Post = {
   permalink?: string | null;
+  isBoosted?: boolean;
+  username?: string;
   reach?: number | null;
   id: string;
   thumbnail: string;

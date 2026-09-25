@@ -6,6 +6,7 @@ import {
   getInstagramDailyInsights,
   getInstagramDemographics,
   refreshInstagramToken,
+  isBoosted,
   type InstagramMedia,
 } from './instagram';
 import { prisma } from '@/lib/prisma';
@@ -187,6 +188,7 @@ async function syncInstagramProfile(profile: any) {
       shares,
       performanceScore,
       permalink: m.permalink ?? null,
+      isBoosted: isBoosted(m),
       thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
       caption: m.caption || '',
     };

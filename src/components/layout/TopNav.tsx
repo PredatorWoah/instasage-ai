@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Bell, Search, ChevronDown, User, Settings, LogOut, LayoutDashboard } from 'lucide-react';
+import { Bell, Search, User, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -14,8 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PLATFORMS } from '@/constants/platforms';
 import { MobileSidebar } from './MobileSidebar';
+import { AccountSwitcher } from './AccountSwitcher';
 import { useSession, signOut } from 'next-auth/react';
 
 function GlobalSearchInput() {
@@ -72,31 +72,8 @@ export function TopNav() {
       </Suspense>
 
       <div className="flex items-center gap-3 ml-auto">
-        {/* Platform Selector */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 text-xs h-8 border-border bg-secondary/50"
-            >
-              <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
-              All Platforms
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            {PLATFORMS.map((p) => (
-              <DropdownMenuItem key={p.id} className="text-sm gap-2">
-                <span
-                  className="w-2 h-2 rounded-full inline-block shrink-0"
-                  style={{ backgroundColor: p.color }}
-                />
-                {p.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Account switcher: scopes every page to one account or all of them */}
+        <AccountSwitcher />
 
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative h-8 w-8">

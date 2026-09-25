@@ -41,7 +41,14 @@ export type InstagramMedia = {
   timestamp: string;
   like_count?: number;
   comments_count?: number;
+  boost_ads_list?: { data?: unknown[] } | unknown[];
 };
+
+export function isBoosted(m: InstagramMedia) {
+  const ads = m.boost_ads_list;
+  if (!ads) return false;
+  return Array.isArray(ads) ? ads.length > 0 : (ads.data?.length ?? 0) > 0;
+}
 
 export function getInstagramProfile(token: string) {
   return igGet<InstagramProfile>('/me', token, {
@@ -49,18 +56,29 @@ export function getInstagramProfile(token: string) {
   });
 }
 
+const MEDIA_FIELDS = 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count';
+
 export async function getInstagramMedia(token: string, limit = 50) {
+  // boost_ads_list marks promoted posts; fall back without it if this API version rejects the field
+  for (const fields of [`${MEDIA_FIELDS},boost_ads_list`, MEDIA_FIELDS]) {
+    try {
+      return await fetchMediaPages(token, fields, limit);
+    } catch (error) {
+      if (fields === MEDIA_FIELDS) throw error;
+      console.warn('Instagram media: boost_ads_list unavailable, continuing without it:', (error as Error).message);
+    }
+  }
+  return [];
+}
+
+async function fetchMediaPages(token: string, fields: string, limit: number) {
   const media: InstagramMedia[] = [];
   let after: string | undefined;
   while (media.length < limit) {
     const page = await igGet<{ data: InstagramMedia[]; paging?: { cursors?: { after?: string }; next?: string } }>(
       '/me/media',
       token,
-      {
-        fields: 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count',
-        limit: '25',
-        ...(after ? { after } : {}),
-      },
+      { fields, limit: '25', ...(after ? { after } : {}) },
     );
     media.push(...page.data);
     after = page.paging?.cursors?.after;
@@ -190,9 +208,61 @@ export async function connectInstagramProfile(userId: string, rawToken: string) 
     isConnected: true,
   };
 
-  const existing = await prisma.socialProfile.findFirst({ where: { userId, platform: 'instagram' } });
+  // One profile per Instagram account, so connecting another account adds it instead of replacing
+  const existing = await prisma.socialProfile.findFirst({
+    where: { userId, platform: 'instagram', OR: [{ externalId: ig.user_id }, { externalId: null, username: ig.username }] },
+  });
   if (existing) {
     return prisma.socialProfile.update({ where: { id: existing.id }, data });
   }
   return prisma.socialProfile.create({ data: { ...data, userId, platform: 'instagram' } });
+}
+
+// ---------- Instagram Business Login (OAuth) ----------
+
+export const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
+
+export function instagramOAuthConfig() {
+  const appId = process.env.INSTAGRAM_APP_ID;
+  const appSecret = process.env.INSTAGRAM_APP_SECRET;
+  return appId && appSecret ? { appId, appSecret } : null;
+}
+
+export function instagramAuthorizeUrl(appId: string, redirectUri: string, state: string) {
+  const url = new URL('https://www.instagram.com/oauth/authorize');
+  url.searchParams.set('client_id', appId);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', INSTAGRAM_SCOPES.join(','));
+  url.searchParams.set('state', state);
+  // Always show the login screen so a different Instagram account can be picked
+  url.searchParams.set('force_reauth', 'true');
+  return url.toString();
+}
+
+// Code -> short-lived token (1 hour) -> long-lived token (60 days)
+export async function exchangeInstagramCode(code: string, redirectUri: string) {
+  const config = instagramOAuthConfig();
+  if (!config) throw new Error('Instagram login is not set up. Add INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET.');
+
+  const form = new URLSearchParams({
+    client_id: config.appId,
+    client_secret: config.appSecret,
+    grant_type: 'authorization_code',
+    redirect_uri: redirectUri,
+    code: code.replace(/#_$/, ''),
+  });
+  const res = await fetch('https://api.instagram.com/oauth/access_token', { method: 'POST', body: form, cache: 'no-store' });
+  const body = await res.json().catch(() => ({}));
+  // Some API versions wrap the result in { data: [...] }
+  const short = Array.isArray(body?.data) ? body.data[0] : body;
+  if (!res.ok || !short?.access_token) {
+    throw new Error(body?.error_message || body?.error?.message || `Instagram login failed (${res.status})`);
+  }
+
+  const long = await igGet<{ access_token: string; expires_in: number }>('/access_token', short.access_token, {
+    grant_type: 'ig_exchange_token',
+    client_secret: config.appSecret,
+  });
+  return long.access_token;
 }

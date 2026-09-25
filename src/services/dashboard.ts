@@ -1,11 +1,12 @@
 import { prisma } from '@/lib/prisma';
 import type { TimeSeriesPoint } from '@/types';
+import type { AccountScope } from '@/lib/scope';
 
 const dayKey = (d: Date) => d.toISOString().split('T')[0];
 
-export async function getDashboardData(userId: string, days = 30) {
-  const profiles = await prisma.socialProfile.findMany({ where: { userId } });
-  const profileIds = profiles.map(p => p.id);
+// Stats for the accounts selected in the top bar switcher
+export async function getDashboardData(scope: AccountScope, days = 30) {
+  const { profiles, profileIds } = scope;
 
   const since = new Date();
   since.setDate(since.getDate() - (days - 1));

@@ -58,6 +58,7 @@ model Post {
   saves            Int
   shares           Int
   performanceScore Float
+  isBoosted        Boolean  @default(false) // Promoted posts: platform insights cover organic results only
   publishedAt      DateTime
   type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'story'
 }
