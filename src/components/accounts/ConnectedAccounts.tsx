@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 type SocialProfile = {
   id: string;
@@ -19,12 +19,15 @@ const PLATFORMS = [
   { id: 'facebook', name: 'Facebook', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20', available: false },
 ];
 
-export function ConnectedAccounts({ callbackUrl }: { callbackUrl: string }) {
+export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
   const [profiles, setProfiles] = useState<SocialProfile[] | null>(null);
+  const [channel, setChannel] = useState('');
+  const [connecting, setConnecting] = useState(false);
 
   const load = async () => {
     const res = await fetch('/api/accounts');
     setProfiles(res.ok ? await res.json() : []);
+    onChange?.();
   };
 
   useEffect(() => {
@@ -37,6 +40,26 @@ export function ConnectedAccounts({ callbackUrl }: { callbackUrl: string }) {
       cancelled = true;
     };
   }, []);
+
+  const connect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConnecting(true);
+    const res = await fetch('/api/accounts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel }),
+    });
+    setConnecting(false);
+    if (res.ok) {
+      const profile = await res.json();
+      toast.success(`${profile.displayName} connected`, { description: 'Hit Sync on the Accounts page to pull in videos.' });
+      setChannel('');
+      load();
+    } else {
+      const { error } = await res.json().catch(() => ({ error: '' }));
+      toast.error('Could not connect channel', { description: error });
+    }
+  };
 
   const disconnect = async (profile: SocialProfile) => {
     if (!confirm(`Disconnect ${profile.displayName}? Its synced posts and metrics will be deleted.`)) return;
@@ -53,27 +76,36 @@ export function ConnectedAccounts({ callbackUrl }: { callbackUrl: string }) {
     <div className="space-y-3">
       {PLATFORMS.map((platform) => {
         const profile = profiles?.find((p) => p.platform === platform.id);
+        const canConnect = platform.available && profiles !== null && !profile;
         return (
-          <div key={platform.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-            <div className="flex items-center gap-3">
-              <Badge className={`text-[11px] border ${platform.color}`}>{platform.name}</Badge>
-              <span className="text-xs text-muted-foreground">
-                {profiles === null ? 'Loading...' : profile ? profile.displayName : platform.available ? 'Not connected' : 'Coming soon'}
-              </span>
+          <div key={platform.id} className="py-2 border-b border-border last:border-0 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Badge className={`text-[11px] border ${platform.color}`}>{platform.name}</Badge>
+                <span className="text-xs text-muted-foreground truncate">
+                  {profiles === null ? 'Loading...' : profile ? profile.displayName : platform.available ? 'Not connected' : 'Coming soon'}
+                </span>
+              </div>
+              {profile && (
+                <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => disconnect(profile)}>
+                  Disconnect
+                </Button>
+              )}
             </div>
-            {profile ? (
-              <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => disconnect(profile)}>
-                Disconnect
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="text-xs h-7"
-                disabled={!platform.available || profiles === null}
-                onClick={() => signIn('google', { callbackUrl })}
-              >
-                Connect
-              </Button>
+            {canConnect && (
+              <form onSubmit={connect} className="flex gap-2">
+                <Input
+                  id="youtube-channel"
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  placeholder="@yourhandle or channel URL"
+                  className="h-8 text-xs bg-secondary/50 border-border"
+                  required
+                />
+                <Button type="submit" size="sm" disabled={connecting} className="text-xs h-8 shrink-0">
+                  {connecting ? 'Connecting...' : 'Connect'}
+                </Button>
+              </form>
             )}
           </div>
         );

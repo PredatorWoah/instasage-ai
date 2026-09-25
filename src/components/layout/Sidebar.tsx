@@ -19,7 +19,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
 export function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const displayName = session?.user?.name || session?.user?.email || 'Account';
+  const displayName = session?.user?.name || 'Owner';
 
   return (
     <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-[240px] bg-background border-r border-border z-30">
@@ -101,7 +101,7 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+            <p className="text-xs text-muted-foreground truncate">Signed in</p>
           </div>
         </div>
       </div>

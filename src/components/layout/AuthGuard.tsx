@@ -13,7 +13,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === 'loading') return;
 
-    const isAuthRoute = ['/login', '/register'].includes(pathname);
+    const isAuthRoute = ['/login'].includes(pathname);
 
     if (!session && !isAuthRoute) {
       setAuthorized(false);

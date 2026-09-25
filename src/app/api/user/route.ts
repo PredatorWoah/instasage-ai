@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const profileFields = { name: true, username: true, email: true, bio: true, image: true } as const;
+const profileFields = { name: true, username: true, bio: true, image: true } as const;
 
 export async function GET() {
   const session = await getServerSession(authOptions);

@@ -27,7 +27,7 @@ export default function AccountPage() {
   const { theme, setTheme } = useTheme();
 
   const { update: updateSession } = useSession();
-  const [profile, setProfile] = useState({ name: '', username: '', email: '', bio: '' });
+  const [profile, setProfile] = useState({ name: '', username: '', bio: '' });
 
   // Editable Profile Form State
   const [name, setName] = useState('');
@@ -39,7 +39,7 @@ export default function AccountPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((user) => {
         if (!user) return;
-        const loaded = { name: user.name || '', username: user.username || '', email: user.email || '', bio: user.bio || '' };
+        const loaded = { name: user.name || '', username: user.username || '', bio: user.bio || '' };
         setProfile(loaded);
         setName(loaded.name);
         setUsername(loaded.username);
@@ -82,12 +82,12 @@ export default function AccountPage() {
       <div className="flex items-center gap-4 bg-secondary/10 p-5 rounded-xl border border-border">
         <Avatar className="h-14 w-14 border border-border">
           <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-violet-600 text-white text-lg font-bold">
-            {(profile.name || profile.email || '?').substring(0, 2).toUpperCase()}
+            {(profile.name || '?').substring(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div>
           <h1 className="text-lg font-bold text-foreground leading-tight">{profile.name || 'Your Profile'}</h1>
-          <p className="text-xs text-muted-foreground mt-0.5">{profile.username && `@${profile.username} · `}{profile.email}</p>
+          {profile.username && <p className="text-xs text-muted-foreground mt-0.5">@{profile.username}</p>}
         </div>
       </div>
 
@@ -120,10 +120,6 @@ export default function AccountPage() {
                     <Input value={username} onChange={(e) => setUsername(e.target.value)} className="h-8 text-xs bg-secondary/50 border-border" />
                   </div>
                   <div className="space-y-1.5 col-span-2">
-                    <Label className="text-xs">Email Address</Label>
-                    <Input value={profile.email} readOnly disabled className="h-8 text-xs bg-secondary/50 border-border" />
-                  </div>
-                  <div className="space-y-1.5 col-span-2">
                     <Label className="text-xs">Bio</Label>
                     <textarea
                       value={bio}
@@ -147,7 +143,7 @@ export default function AccountPage() {
               <CardDescription className="text-[11px]">Authorized social platform connections for analytical access</CardDescription>
             </CardHeader>
             <CardContent className="pt-3">
-              <ConnectedAccounts callbackUrl="/account" />
+              <ConnectedAccounts />
             </CardContent>
           </Card>
         </TabsContent>
@@ -256,7 +252,7 @@ export default function AccountPage() {
           <Card className="bg-secondary/20 border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-sm font-semibold">Security Settings</CardTitle>
-              <CardDescription className="text-[11px]">How you sign in to InstaSage</CardDescription>
+              <CardDescription className="text-[11px]">How the dashboard is protected</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 pt-3">
               <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/15">
@@ -264,17 +260,9 @@ export default function AccountPage() {
                   <ShieldCheck className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-foreground">Signed in with Google{profile.email && ` as ${profile.email}`}</p>
-                  <p className="text-[10px] text-muted-foreground">Password and two-factor authentication are managed by your Google account.</p>
+                  <p className="text-xs font-medium text-foreground">Password protected</p>
+                  <p className="text-[10px] text-muted-foreground">To change the password, update APP_PASSWORD in your hosting environment and redeploy.</p>
                 </div>
-                <a
-                  href="https://myaccount.google.com/security"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-indigo-400 hover:underline shrink-0"
-                >
-                  Manage
-                </a>
               </div>
               <Button variant="outline" size="sm" onClick={() => signOut({ callbackUrl: '/login' })} className="text-xs h-8">
                 Sign out

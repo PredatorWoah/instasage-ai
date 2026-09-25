@@ -54,7 +54,7 @@ function GlobalSearchInput() {
 
 export function TopNav() {
   const { data: session } = useSession();
-  const userName = session?.user?.name || session?.user?.email || 'Account';
+  const userName = session?.user?.name || 'Owner';
   const initials = userName.substring(0, 2).toUpperCase();
 
   const handleLogout = () => {
@@ -118,7 +118,7 @@ export function TopNav() {
           <DropdownMenuContent align="end" className="w-48 bg-background border border-border p-1.5">
             <div className="px-2 py-1.5 mb-1">
               <p className="text-xs font-semibold text-foreground truncate">{userName}</p>
-              <p className="text-[10px] text-muted-foreground truncate">{session?.user?.email}</p>
+              <p className="text-[10px] text-muted-foreground truncate">Signed in</p>
             </div>
             <DropdownMenuSeparator className="bg-border" />
             <DropdownMenuItem asChild className="text-xs gap-2 py-2">

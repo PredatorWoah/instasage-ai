@@ -1,28 +1,38 @@
 import { NextAuthOptions } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import InstagramProvider from "next-auth/providers/instagram";
-import { PrismaAdapter } from "@auth/prisma-adapter";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { connectYouTubeProfile } from "@/services/youtube";
+
+// Single-owner app: one password from the environment, one user row
+export const OWNER_ID = "owner";
+
+function passwordMatches(input: string) {
+  const expected = process.env.APP_PASSWORD;
+  if (!expected) return false;
+  // Hash both sides so the comparison is constant time regardless of length
+  const a = createHash("sha256").update(input).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-      authorization: {
-        params: {
-          scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly",
-          // Needed so we get a refresh_token for background syncs
-          access_type: "offline",
-          prompt: "consent",
-        },
+    CredentialsProvider({
+      name: "Password",
+      credentials: { password: { label: "Password", type: "password" } },
+      async authorize(credentials) {
+        if (!passwordMatches(credentials?.password ?? "")) {
+          // Slow down guessing
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          return null;
+        }
+        const user = await prisma.user.upsert({
+          where: { id: OWNER_ID },
+          update: {},
+          create: { id: OWNER_ID, name: "Owner" },
+        });
+        return { id: user.id, name: user.name };
       },
-    }),
-    InstagramProvider({
-      clientId: process.env.INSTAGRAM_CLIENT_ID || "",
-      clientSecret: process.env.INSTAGRAM_CLIENT_SECRET || "",
     }),
   ],
   session: {
@@ -43,18 +53,6 @@ export const authOptions: NextAuthOptions = {
         token.name = session.name;
       }
       return token;
-    },
-  },
-  events: {
-    async signIn({ user, account }) {
-      if (account?.provider !== "google" || !account.access_token) return;
-      if (!account.scope?.includes("youtube.readonly")) return;
-      try {
-        await connectYouTubeProfile(user.id, account);
-      } catch (error) {
-        // A Google account without a YouTube channel is fine; just skip it
-        console.error("Failed to connect YouTube profile:", error);
-      }
     },
   },
   pages: {
