@@ -110,8 +110,8 @@ function AccountsContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">Connected Accounts</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Connected Accounts</h1>
+          <p className="text-[15px] text-muted-foreground mt-3">
             Accounts sync automatically every morning (around 6:30 AM IST). Use the switcher in the top bar to view one account or all of them.
           </p>
         </div>
@@ -123,7 +123,7 @@ function AccountsContent() {
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger">
         {isLoading ? (
            <div className="h-48 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />
         ) : accounts.length === 0 ? (
@@ -134,7 +134,7 @@ function AccountsContent() {
         ) : accounts.map((acc) => (
           <Card
             key={acc.id}
-            className="bg-secondary/20 border-border overflow-hidden hover:border-border/80 transition-colors flex flex-col justify-between"
+            className="bg-card border-border overflow-hidden hover:border-border/80 transition-colors flex flex-col justify-between"
           >
             <CardHeader className="pb-3 pt-5 px-5 flex flex-row items-center gap-4 space-y-0">
               <div className="relative w-12 h-12 rounded-full overflow-hidden border border-border shrink-0 bg-secondary">
@@ -202,7 +202,7 @@ function AccountsContent() {
       </div>
 
       {accounts.length > 0 && (
-        <Card className="bg-secondary/20 border-border max-w-xl">
+        <Card className="bg-card border-border max-w-xl">
           <CardHeader className="pb-2 pt-4 px-5">
             <h2 className="text-sm font-semibold">Add or remove accounts</h2>
           </CardHeader>

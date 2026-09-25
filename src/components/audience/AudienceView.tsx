@@ -16,11 +16,11 @@ type AudienceResponse = {
   audience: { age: Row[]; gender: Row[]; country: Row[]; city: Row[] } | null;
 } | null;
 
-const TOOLTIP = { background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12 };
+const TOOLTIP = { background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 };
 const GENDER: Record<string, { label: string; color: string }> = {
-  F: { label: 'Women', color: '#ec4899' },
-  M: { label: 'Men', color: '#6366f1' },
-  U: { label: 'Unspecified', color: '#64748b' },
+  F: { label: 'Women', color: '#FFD15C' },
+  M: { label: 'Men', color: '#FF7A8A' },
+  U: { label: 'Unspecified', color: '#8A8A9C' },
 };
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -40,7 +40,7 @@ function countryName(code: string) {
 function ShareList({ title, rows, format }: { title: string; rows: (Row & { share: number })[]; format?: (s: string) => string }) {
   const max = Math.max(...rows.map((r) => r.share), 1);
   return (
-    <Card className="bg-secondary/20 border-border">
+    <Card className="bg-card border-border">
       <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm font-semibold">{title}</CardTitle></CardHeader>
       <CardContent className="px-4 pb-4 space-y-3">
         {rows.slice(0, 7).map((r) => (
@@ -94,8 +94,8 @@ export function AudienceView() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Audience</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Audience</h1>
+        <p className="text-[15px] text-muted-foreground mt-3">
           {data ? `Who follows @${data.username} (${formatNumber(data.followerCount)} followers), from Instagram` : 'Who follows you, from Instagram'}
         </p>
       </div>
@@ -113,28 +113,28 @@ export function AudienceView() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card className="bg-secondary/20 border-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm font-semibold">Age</CardTitle></CardHeader>
               <CardContent className="px-4 pb-4">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={age} barSize={28} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8A8A9C' }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
                     <Tooltip contentStyle={TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v}%`, 'Followers']} />
-                    <Bar dataKey="share" fill="#6366f1" radius={[3, 3, 0, 0]} opacity={0.85} />
+                    <Bar dataKey="share" fill="#FF7A8A" radius={[3, 3, 0, 0]} opacity={0.85} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="bg-secondary/20 border-border">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-sm font-semibold">Gender</CardTitle></CardHeader>
               <CardContent className="px-4 pb-4 flex flex-col sm:flex-row items-center gap-4">
                 <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
                     <Pie data={gender} dataKey="share" nameKey="label" innerRadius={50} outerRadius={75} paddingAngle={2} stroke="none">
-                      {gender.map((g) => <Cell key={g.label} fill={GENDER[g.label]?.color ?? '#64748b'} />)}
+                      {gender.map((g) => <Cell key={g.label} fill={GENDER[g.label]?.color ?? '#8A8A9C'} />)}
                     </Pie>
                     <Tooltip contentStyle={TOOLTIP} formatter={(v, _n, item) => [`${v}%`, GENDER[item.payload.label]?.label ?? item.payload.label]} />
                   </PieChart>
@@ -142,7 +142,7 @@ export function AudienceView() {
                 <div className="space-y-2 shrink-0">
                   {gender.map((g) => (
                     <div key={g.label} className="flex items-center gap-2 text-xs">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: GENDER[g.label]?.color ?? '#64748b' }} />
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: GENDER[g.label]?.color ?? '#8A8A9C' }} />
                       <span>{GENDER[g.label]?.label ?? g.label}</span>
                       <span className="text-muted-foreground tabular-nums">{g.share}%</span>
                     </div>
@@ -160,7 +160,7 @@ export function AudienceView() {
       )}
 
       {posts.length > 0 && (
-        <Card className="bg-secondary/20 border-border">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">When your posts do best</CardTitle>
             <p className="text-[11px] text-muted-foreground">
@@ -172,15 +172,15 @@ export function AudienceView() {
             {[{ rows: timing.days, key: 'days' }, { rows: timing.hours, key: 'hours' }].map(({ rows, key }) => (
               <ResponsiveContainer key={key} width="100%" height={180}>
                 <BarChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} interval={key === 'hours' ? 3 : 0} />
-                  <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} interval={key === 'hours' ? 3 : 0} />
+                  <YAxis tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
                   <Tooltip
                     contentStyle={TOOLTIP}
                     cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                     formatter={(v, _n, item) => [`${v}% avg engagement (${item.payload.posts} posts)`, '']}
                   />
-                  <Bar dataKey="engagement" fill="#10b981" radius={[3, 3, 0, 0]} opacity={0.85} maxBarSize={28} />
+                  <Bar dataKey="engagement" fill="#4ADE9E" radius={[3, 3, 0, 0]} opacity={0.85} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             ))}

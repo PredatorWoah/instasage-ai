@@ -1,19 +1,5 @@
 export type Platform = 'all' | 'instagram' | 'facebook' | 'youtube';
 
-export type MetricTrend = 'up' | 'down' | 'neutral';
-
-export type KPIMetric = {
-  id: string;
-  label: string;
-  value: string;
-  change: string;
-  note?: string;
-  changePercent: number;
-  trend: MetricTrend;
-  icon: string;
-  color: string;
-};
-
 export type TimeSeriesPoint = {
   date: string;
   followers?: number;

@@ -130,8 +130,8 @@ function ContentLibraryContent() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold">Content Library</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Content Library</h1>
+        <p className="text-[15px] text-muted-foreground mt-3">
           Perform analytical checks, sort, search, and audit your social media content
         </p>
       </div>
@@ -179,7 +179,7 @@ function ContentLibraryContent() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-border bg-secondary/20 overflow-hidden">
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
         <Table>
           <TableHeader className="bg-secondary/40">
             <TableRow>

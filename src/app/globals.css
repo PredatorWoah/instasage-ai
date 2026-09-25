@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* ---------- Prism design tokens ---------- */
 @theme {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -20,36 +21,54 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  
+
+  /* The app's "indigo" accents become Prism iris/violet everywhere */
+  --color-indigo-300: #CFC4FF;
+  --color-indigo-400: #B3A2FF;
+  --color-indigo-500: #8E78FF;
+  --color-indigo-600: #6E53FF;
+  --color-indigo-700: #5B3BFF;
+
+  /* Prism palette */
+  --color-iris: #7B61FF;
+  --color-magenta: #B23BE8;
+  --color-rose: #FF5F8F;
+  --color-tangerine: #FF9F43;
+  --color-gold: #FFE066;
+  --color-mint: #4ADE9E;
+  --color-ocean: #1FA7E0;
+
+  --font-sans: var(--font-dmsans), system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-dmsans), system-ui, sans-serif;
+
   --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 10px);
 }
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 12%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 12%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.5rem;
-    --sidebar-width: 240px;
-    --topnav-height: 64px;
+    color-scheme: dark;
+    --background: 240 20% 4%;       /* #0A0A0F */
+    --foreground: 0 0% 100%;
+    --card: 240 15% 10.5%;          /* #17171F */
+    --card-foreground: 0 0% 100%;
+    --popover: 240 15% 9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 240 20% 4%;
+    --secondary: 240 14% 14%;       /* #1F1F29 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 14% 14%;
+    --muted-foreground: 240 9% 70%; /* #A9A9B8 */
+    --accent: 240 14% 16%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 350 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 14% 17%;          /* #262632 */
+    --input: 240 14% 17%;
+    --ring: 251 100% 69%;
+    --radius: 1.25rem;
   }
 }
 
@@ -61,20 +80,167 @@
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
+  h1, h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+  h1 {
+    font-weight: 800;
+  }
+  :focus-visible {
+    outline: 2px solid #8E78FF;
+    outline-offset: 2px;
+  }
 }
 
-/* Custom scrollbar */
+/* ---------- Prism surfaces ---------- */
+@utility prism-hero {
+  background: linear-gradient(120deg, #5B3BFF 0%, #B23BE8 45%, #FF5F8F 100%);
+}
+@utility prism-sunset {
+  background: linear-gradient(145deg, #FF9F43, #FF5F8F);
+}
+@utility prism-ocean {
+  background: linear-gradient(145deg, #4ADE9E, #1FA7E0);
+}
+@utility prism-gold {
+  background: linear-gradient(145deg, #FFE066, #FFA93A);
+}
+@utility prism-text {
+  background: linear-gradient(90deg, #8E78FF, #FF5F8F);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility glass-chip {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(12px);
+}
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* ---------- Motion ---------- */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes fade-blur {
+  from { opacity: 0; filter: blur(6px); }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes slide-x {
+  from { translate: var(--slide-offset) 0; }
+  to { translate: 0 0; }
+}
+@keyframes rise-y {
+  from { translate: 0 14px; }
+  to { translate: 0 0; }
+}
+@keyframes via-blur {
+  40% { filter: blur(2px); }
+}
+
+@utility animate-rise {
+  animation: rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* Children of .stagger rise one after another */
+.stagger > * {
+  animation: rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+.stagger > *:nth-child(7) { animation-delay: 300ms; }
+.stagger > *:nth-child(n + 8) { animation-delay: 340ms; }
+
+/* ---------- Page transitions (View Transitions API) ---------- */
+:root {
+  --vt-exit: 180ms;
+  --vt-enter: 420ms;
+  --vt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Moving to a tab on the right: old page drifts left and dissolves, new one glides in from the right */
+::view-transition-old(.nav-forward) {
+  --slide-offset: -48px;
+  animation: var(--vt-exit) ease-in both fade-blur reverse, 420ms var(--vt-ease) both slide-x reverse;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 64px;
+  animation: var(--vt-enter) var(--vt-ease) 90ms both fade-blur, 560ms var(--vt-ease) both slide-x;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 48px;
+  animation: var(--vt-exit) ease-in both fade-blur reverse, 420ms var(--vt-ease) both slide-x reverse;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -64px;
+  animation: var(--vt-enter) var(--vt-ease) 90ms both fade-blur, 560ms var(--vt-ease) both slide-x;
+}
+
+/* Links inside a page (a post, "view all"): soft rise and dissolve */
+::view-transition-old(.page-fade) {
+  animation: var(--vt-exit) ease-in both fade-blur reverse;
+}
+::view-transition-new(.page-fade) {
+  animation: var(--vt-enter) var(--vt-ease) 80ms both fade-blur, 520ms var(--vt-ease) both rise-y;
+}
+
+/* The white tab pill morphs from the old tab to the new one */
+::view-transition-group(nav-pill) {
+  animation-duration: 520ms;
+  animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+::view-transition-image-pair(nav-pill) {
+  animation-name: via-blur;
+}
+
+/* The header stays put as an anchor while pages move under it */
+::view-transition-group(site-header) {
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .stagger > *,
+  .animate-rise {
+    animation: none !important;
+  }
+}
+
+/* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(217.2 32.6% 25%);
-  border-radius: 2px;
+  background: #2E2E3C;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(217.2 32.6% 35%);
+  background: #3C3C4E;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
 }

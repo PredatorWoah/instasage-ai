@@ -70,8 +70,8 @@ export default function AnalyticsPage() {
       {/* Header with time filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Deep-dive performance graphs across all platforms</p>
+          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Analytics</h1>
+          <p className="text-[15px] text-muted-foreground mt-3">Deep-dive performance graphs across all platforms</p>
         </div>
         <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-lg border border-border self-start shrink-0">
           {timeFilters.map((filter) => (
@@ -97,11 +97,11 @@ export default function AnalyticsPage() {
       )}
 
       {/* Grid */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${loading ? 'opacity-50' : ''}`}>
+      <div className={`stagger grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${loading ? 'opacity-50' : ''}`}>
         {charts.map((chart) => (
           <Card
             key={chart.title}
-            className={`bg-secondary/20 border-border ${
+            className={`bg-card border-border ${
               chart.fullWidth ? 'md:col-span-2' : ''
             }`}
           >

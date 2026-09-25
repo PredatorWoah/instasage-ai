@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bricolage', weight: ['500', '600', '700', '800'] });
+const sans = DM_Sans({ subsets: ['latin'], variable: '--font-dmsans' });
 
 export const metadata: Metadata = {
-  title: 'InstaSage AI — Social Media Intelligence Dashboard',
+  title: 'InstaSage',
   description: 'Production-grade social media analytics dashboard for creators. Track performance, get AI insights, and grow faster.',
 };
 
@@ -19,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${display.variable} ${sans.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
         <Toaster theme="dark" position="top-right" richColors closeButton />
       </body>

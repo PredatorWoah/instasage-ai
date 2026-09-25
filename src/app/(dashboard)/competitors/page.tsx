@@ -7,11 +7,11 @@ export default function CompetitorsPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-xl font-bold">Competitors</h1>
-        <p className="text-sm text-muted-foreground mt-1">Compare other accounts with yours</p>
+        <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Competitors</h1>
+        <p className="text-[15px] text-muted-foreground mt-3">Compare other accounts with yours</p>
       </div>
 
-      <Card className="bg-secondary/20 border-border">
+      <Card className="bg-card border-border">
         <CardContent className="p-5 flex gap-4">
           <div className="w-10 h-10 shrink-0 rounded-full bg-indigo-500/10 flex items-center justify-center">
             <Swords className="w-5 h-5 text-indigo-400" />

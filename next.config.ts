@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // Animated page changes (React <ViewTransition>): tabs glide and the active pill morphs
+    viewTransition: true,
+  },
 };
 
 export default nextConfig;
