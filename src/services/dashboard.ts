@@ -1,15 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import type { TimeSeriesPoint } from '@/types';
 
-const DAYS = 30;
 const dayKey = (d: Date) => d.toISOString().split('T')[0];
 
-export async function getDashboardData(userId: string) {
+export async function getDashboardData(userId: string, days = 30) {
   const profiles = await prisma.socialProfile.findMany({ where: { userId } });
   const profileIds = profiles.map(p => p.id);
 
   const since = new Date();
-  since.setDate(since.getDate() - (DAYS - 1));
+  since.setDate(since.getDate() - (days - 1));
   since.setHours(0, 0, 0, 0);
 
   const [posts, windowPosts, viewTotals, metrics] = await Promise.all([
@@ -30,10 +29,11 @@ export async function getDashboardData(userId: string) {
   ]);
 
   // Latest snapshot per profile per day, so repeated syncs don't double count
-  const snapshots = new Map<string, Map<string, { followers: number | null; views: number | null }>>();
+  type Snapshot = { followers: number | null; views: number | null; reach: number | null };
+  const snapshots = new Map<string, Map<string, Snapshot>>();
   for (const m of metrics) {
     const byDay = snapshots.get(m.socialProfileId) ?? new Map();
-    byDay.set(dayKey(m.date), { followers: m.followers, views: m.views });
+    byDay.set(dayKey(m.date), { followers: m.followers, views: m.views, reach: m.reach });
     snapshots.set(m.socialProfileId, byDay);
   }
 
@@ -44,9 +44,9 @@ export async function getDashboardData(userId: string) {
   }
 
   // Carry each profile's last known value forward; days before any sync stay empty
-  const lastKnown = new Map<string, { followers: number | null; views: number | null }>();
+  const lastKnown = new Map<string, Snapshot>();
   const timeSeries: TimeSeriesPoint[] = [];
-  for (let i = 0; i < DAYS; i++) {
+  for (let i = 0; i < days; i++) {
     const d = new Date(since);
     d.setDate(since.getDate() + i);
     const key = dayKey(d);
@@ -56,7 +56,7 @@ export async function getDashboardData(userId: string) {
       if (snap) lastKnown.set(profileId, snap);
     }
     const known = [...lastKnown.values()];
-    const sum = (field: 'followers' | 'views') => {
+    const sum = (field: 'followers' | 'views' | 'reach') => {
       const values = known.map(k => k[field]).filter((v): v is number => v != null);
       return values.length ? values.reduce((a, b) => a + b, 0) : undefined;
     };
@@ -66,6 +66,7 @@ export async function getDashboardData(userId: string) {
       date: key,
       followers: sum('followers'),
       views: sum('views'),
+      reach: sum('reach'),
       engagement: scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : undefined,
       posts: scores.length,
     });

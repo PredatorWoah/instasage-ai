@@ -12,7 +12,6 @@ This is a single-user app: one password, no signup.
    * `APP_PASSWORD`: the password you log in with
    * `NEXTAUTH_SECRET`: any long random string (`openssl rand -base64 32`)
    * `YOUTUBE_API_KEY`: a YouTube Data API v3 key from Google Cloud Console
-   * `GEMINI_API_KEY` (optional): enables AI insights
 3. Create the tables: `npx prisma db push`
 4. Start the app: `npm run dev` and open http://localhost:3000
 
@@ -28,12 +27,16 @@ Needs a Business or Creator Instagram account.
 
 The token lasts 60 days, and each sync refreshes it automatically.
 
+### AI (Gemini)
+
+Get a free key at https://aistudio.google.com/apikey and paste it under Settings → AI. It is tested before saving, and the newest Flash model your key can use is picked automatically. Insights and recommendations are cached; press Regenerate after a sync to refresh them.
+
 ### YouTube
 
 Paste your channel's @handle. This needs `YOUTUBE_API_KEY`.
 
 ## What is real vs. sample data
 
-* Real: password login, Dashboard, AI Insights, Accounts, Account and Settings (connections, profile, delete account), CSV export at `/api/reports`
-* Sample data for now: Analytics, Content Library, Recommendations, Audience, Competitors, Reports charts, and the AI chat assistant
+* Real: password login, Dashboard, Analytics, Content Library, AI Insights, Recommendations, the AI chat assistant, Accounts, Account and Settings, CSV export at `/api/reports`
+* Sample data for now: Audience, Competitors and the Reports charts
 * Facebook connections are not available yet

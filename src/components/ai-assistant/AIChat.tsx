@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -14,21 +13,18 @@ const SUGGESTED_PROMPTS = [
   'How can I grow my engagement?',
 ];
 
-const MOCK_RESPONSES: Record<string, string> = {
-  default: "Based on your analytics, your Reels under 30 seconds are outperforming longer content by 43%. I'd recommend posting your next Reel on Tuesday around 7 PM for maximum reach. Would you like a full content calendar suggestion?",
-  engagement: "Your engagement rate of 6.8% is above the industry average of ~3.5% for your niche. The biggest driver is carousel posts — they get 2.8× more saves. I'd suggest creating 2 carousels per week to sustain this.",
-  post: "Your optimal posting window is Tuesday 7–9 PM based on 30 days of audience activity data. Wednesdays at 12 PM are a secondary peak. Aim for at least 4–5 posts per week across all platforms.",
-  growth: "To accelerate growth, focus on three things: (1) cross-post your top Instagram Reels to YouTube Shorts, (2) use trending audio on your next Reel, and (3) reply to comments within 30 minutes to boost algorithmic reach by ~29%.",
-};
+let nextId = 1;
+const newId = () => String(nextId++);
 
 export function AIChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
+  const [thinking, setThinking] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '0',
       role: 'assistant',
-      content: "Hi! I'm your InstaSage AI assistant. Ask me anything about your performance, content strategy, or growth opportunities.",
+      content: "Hi! I'm your InstaSage assistant, powered by Gemini. Ask me anything about your posts, what to post next, or how to grow.",
       timestamp: new Date(),
     },
   ]);
@@ -38,34 +34,30 @@ export function AIChat() {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, thinking]);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || thinking) return;
 
-    const userMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: text,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
+    const history = messages.slice(1).map((m) => ({ role: m.role, content: m.content }));
+    setMessages((prev) => [...prev, { id: newId(), role: 'user', content: text, timestamp: new Date() }]);
     setInput('');
+    setThinking(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const lower = text.toLowerCase();
-      let response = MOCK_RESPONSES.default;
-      if (lower.includes('engag')) response = MOCK_RESPONSES.engagement;
-      if (lower.includes('post') || lower.includes('when')) response = MOCK_RESPONSES.post;
-      if (lower.includes('grow') || lower.includes('follower')) response = MOCK_RESPONSES.growth;
-
-      setMessages((prev) => [
-        ...prev,
-        { id: (Date.now() + 1).toString(), role: 'assistant', content: response, timestamp: new Date() },
-      ]);
-    }, 800);
+    let reply: string;
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, history }),
+      });
+      const data = await res.json().catch(() => ({}));
+      reply = res.ok ? data.reply : data.error || 'Something went wrong. Try again.';
+    } catch {
+      reply = 'Could not reach the server. Check your connection and try again.';
+    }
+    setThinking(false);
+    setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: reply, timestamp: new Date() }]);
   };
 
   return (
@@ -73,6 +65,7 @@ export function AIChat() {
       {/* Floating button */}
       <button
         onClick={() => setOpen((p) => !p)}
+        aria-label={open ? 'Close assistant' : 'Open assistant'}
         className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-900/50 flex items-center justify-center transition-colors"
       >
         {open ? <X className="w-5 h-5 text-white" /> : <Sparkles className="w-5 h-5 text-white" />}
@@ -80,7 +73,7 @@ export function AIChat() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-22 right-6 z-50 w-80 bg-background border border-border rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden" style={{ height: 420 }}>
+        <div className="fixed bottom-22 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-background border border-border rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden" style={{ height: 420 }}>
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 shrink-0">
             <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
@@ -88,13 +81,13 @@ export function AIChat() {
             </div>
             <div>
               <p className="text-xs font-semibold">InstaSage AI</p>
-              <p className="text-[10px] text-emerald-400">● Online</p>
+              <p className="text-[10px] text-muted-foreground">Gemini · knows your synced posts</p>
             </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 px-4 py-3">
-            <div ref={scrollRef} className="space-y-3">
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
+            <div className="space-y-3">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -102,7 +95,7 @@ export function AIChat() {
                 >
                   <div
                     className={cn(
-                      'max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed',
+                      'max-w-[85%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap',
                       msg.role === 'user'
                         ? 'bg-indigo-600 text-white rounded-br-sm'
                         : 'bg-secondary/60 text-foreground rounded-bl-sm'
@@ -112,8 +105,15 @@ export function AIChat() {
                   </div>
                 </div>
               ))}
+              {thinking && (
+                <div className="flex justify-start">
+                  <div className="rounded-xl rounded-bl-sm px-3 py-2 text-xs bg-secondary/60 text-muted-foreground animate-pulse">
+                    Thinking...
+                  </div>
+                </div>
+              )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Suggested prompts */}
           <div className="px-3 py-2 flex gap-1.5 flex-wrap border-t border-border shrink-0">
@@ -121,6 +121,7 @@ export function AIChat() {
               <button
                 key={p}
                 onClick={() => sendMessage(p)}
+                disabled={thinking}
                 className="text-[10px] px-2 py-1 rounded-full bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors border border-border"
               >
                 {p}
@@ -141,6 +142,8 @@ export function AIChat() {
               size="icon"
               className="h-8 w-8 bg-indigo-600 hover:bg-indigo-700 shrink-0"
               onClick={() => sendMessage(input)}
+              disabled={thinking}
+              aria-label="Send"
             >
               <Send className="w-3.5 h-3.5" />
             </Button>

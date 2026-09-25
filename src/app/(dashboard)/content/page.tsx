@@ -4,7 +4,7 @@ import { Suspense, useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, ArrowUpDown, Flame } from 'lucide-react';
-import { mockPosts } from '@/data/mockPosts';
+import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -45,6 +45,14 @@ function ContentLibraryContent() {
   const [platform, setPlatform] = useState<string>('all');
   const [postType, setPostType] = useState<string>('all');
   const [sort, setSort] = useState<SortConfig>({ key: 'performanceScore', direction: 'desc' });
+  const [posts, setPosts] = useState<Post[] | null>(null);
+
+  useEffect(() => {
+    fetch('/api/posts')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setPosts)
+      .catch(() => setPosts([]));
+  }, []);
 
   // Keep search input state in sync with URL search query parameter
   useEffect(() => {
@@ -67,12 +75,12 @@ function ContentLibraryContent() {
     } else {
       params.delete('q');
     }
-    router.push(`${pathname}?${params.toString()}`);
+    router.replace(`${pathname}?${params.toString()}`);
   };
 
   // Filtered & Sorted posts
   const processedPosts = useMemo(() => {
-    let result = [...mockPosts];
+    let result = [...(posts ?? [])];
 
     // Search filter (using url parameter or local input state)
     const urlQuery = searchParams.get('q') || '';
@@ -116,7 +124,7 @@ function ContentLibraryContent() {
     });
 
     return result;
-  }, [searchParams, platform, postType, sort]);
+  }, [searchParams, platform, postType, sort, posts]);
 
   return (
     <div className="space-y-6">
@@ -205,16 +213,29 @@ function ContentLibraryContent() {
               </TableHead>
               <TableHead className="w-28 text-right text-xs text-muted-foreground py-2.5">
                 <button onClick={() => handleSort('performanceScore')} className="inline-flex items-center gap-1 hover:text-foreground">
-                  Score <ArrowUpDown className="w-3 h-3" />
+                  Eng. % <ArrowUpDown className="w-3 h-3" />
                 </button>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-border">
-            {processedPosts.length === 0 ? (
+            {posts === null ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
-                  No posts found matching the criteria
+                  Loading posts...
+                </TableCell>
+              </TableRow>
+            ) : posts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
+                  No posts yet. Connect an account and press Sync on the{' '}
+                  <Link href="/accounts" className="text-indigo-400 hover:underline">Accounts page</Link>.
+                </TableCell>
+              </TableRow>
+            ) : processedPosts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center py-8 text-xs text-muted-foreground">
+                  No posts match these filters
                 </TableCell>
               </TableRow>
             ) : (
@@ -222,14 +243,16 @@ function ContentLibraryContent() {
                 <TableRow key={post.id} className="hover:bg-secondary/30 transition-colors">
                   <TableCell className="py-2">
                     <div className="relative w-8 h-8 rounded overflow-hidden bg-secondary">
-                      <Image
-                        src={post.thumbnail}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="32px"
-                        unoptimized
-                      />
+                      {post.thumbnail && (
+                        <Image
+                          src={post.thumbnail}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="32px"
+                          unoptimized
+                        />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="py-2">
@@ -259,7 +282,7 @@ function ContentLibraryContent() {
                     <div className="inline-flex items-center gap-1 justify-end">
                       <Flame className={cn('w-3.5 h-3.5 shrink-0', getPerformanceColor(post.performanceScore))} />
                       <span className={cn('text-xs font-bold', getPerformanceColor(post.performanceScore))}>
-                        {post.performanceScore}
+                        {post.performanceScore.toFixed(1)}%
                       </span>
                     </div>
                   </TableCell>

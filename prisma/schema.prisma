@@ -16,9 +16,12 @@ model User {
   image         String?
   username      String?
   bio           String?
+  geminiApiKey  String?
+  geminiModel   String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
+  aiResults     AiResult[]
 }
 
 model SocialProfile {
@@ -76,4 +79,17 @@ model SyncJob {
   startedAt       DateTime       @default(now())
   completedAt     DateTime?
   errorMessage    String?
+}
+
+// Cached Gemini output (insights, recommendations) so pages load instantly
+model AiResult {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   // 'insights' | 'recommendations'
+  content   Json
+  model     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind])
 }
