@@ -22,8 +22,10 @@ export default function LoginPage() {
     setLoading(false);
     if (res?.ok) {
       router.replace('/');
+    } else if (!res?.error || res.error === 'CredentialsSignin') {
+      setError('Wrong password.');
     } else {
-      setError('Wrong password. Check APP_PASSWORD in your environment settings.');
+      setError(res.error);
     }
   };
 
