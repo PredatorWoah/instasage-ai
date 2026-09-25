@@ -30,6 +30,8 @@ export type TimeSeriesPoint = {
 };
 
 export type Post = {
+  permalink?: string | null;
+  reach?: number | null;
   id: string;
   thumbnail: string;
   caption: string;
@@ -53,31 +55,6 @@ export type Recommendation = {
   impact: string; // Expected Impact
   effort: 'low' | 'medium' | 'high'; // Difficulty
   estimatedGrowth: string; // e.g. "+12% Followers"
-};
-
-export type AudienceData = {
-  ageGroups: { label: string; percentage: number }[];
-  gender: { label: string; value: number; color: string }[];
-  countries: { country: string; code: string; percentage: number }[];
-  cities: { city: string; country: string; percentage: number }[];
-  peakHours: { hour: string; activity: number }[];
-  interests: { category: string; percentage: number }[];
-};
-
-export type Competitor = {
-  id: string;
-  name: string;
-  handle: string;
-  avatar: string;
-  platform: Platform;
-  followers: number;
-  followersGrowth: number;
-  engagementRate: number;
-  postsPerWeek: number;
-  avgLikes: number;
-  avgComments: number;
-  avgViews: number; // Avg Views
-  topContentType: string;
 };
 
 export type Report = {

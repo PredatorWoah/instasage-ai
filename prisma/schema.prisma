@@ -38,6 +38,7 @@ model SocialProfile {
   lastSyncedAt      DateTime  @default(now())
   accessToken       String?
   tokenExpiresAt    DateTime?
+  audience          Json?     // Follower demographics from the platform, refreshed on sync
   posts             Post[]
   metrics           Metric[]
 }
@@ -47,9 +48,11 @@ model Post {
   socialProfileId  String
   socialProfile    SocialProfile  @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
   thumbnail        String
+  permalink        String?
   caption          String
   platform         String
   views            Int
+  reach            Int?
   likes            Int
   comments         Int
   saves            Int
@@ -59,6 +62,7 @@ model Post {
   type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'story'
 }
 
+// One row per profile per day (id = "<profileId>:<yyyy-mm-dd>")
 model Metric {
   id              String         @id @default(uuid())
   socialProfileId String

@@ -46,31 +46,57 @@ function explainGeminiError(status: number, body: { error?: { message?: string; 
   const message = body?.error?.message || `Gemini request failed (${status})`;
   if (status === 400 && /api key not valid/i.test(message)) return 'That API key is not valid. Copy it again from Google AI Studio.';
   if (status === 403) return `Gemini refused the key: ${message}`;
-  if (status === 429) return 'Gemini quota reached. Wait a minute (or until tomorrow on the free tier) and try again.';
+  if (status === 429) return 'Gemini quota reached on every available model. Wait a minute (or until tomorrow on the free tier) and try again.';
+  if (status === 503) return 'Google\'s Gemini servers are overloaded right now (this is on Google\'s side, not your key). Try again in a few minutes.';
   return message;
 }
+
+// Other models to try when the chosen one is overloaded or out of free quota
+const BACKUP_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
+const RETRYABLE = new Set([429, 500, 503, 504]);
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function generate(config: GeminiConfig, prompt: string, options: { json?: boolean; system?: string; history?: ChatTurn[] } = {}) {
   const contents = [
     ...(options.history ?? []).map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.content }] })),
     { role: 'user', parts: [{ text: prompt }] },
   ];
-  const res = await fetch(`${API}/models/${config.model}:generateContent`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
-    body: JSON.stringify({
-      contents,
-      ...(options.system ? { systemInstruction: { parts: [{ text: options.system }] } } : {}),
-      generationConfig: options.json ? { responseMimeType: 'application/json', temperature: 0.4 } : { temperature: 0.7 },
-    }),
-    cache: 'no-store',
+  const payload = JSON.stringify({
+    contents,
+    ...(options.system ? { systemInstruction: { parts: [{ text: options.system }] } } : {}),
+    generationConfig: options.json ? { responseMimeType: 'application/json', temperature: 0.4 } : { temperature: 0.7 },
   });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new AiError('api', explainGeminiError(res.status, body));
 
-  const text: string = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-  if (!text) throw new AiError('api', 'Gemini returned an empty answer. Try again.');
-  return text;
+  const models = [config.model, ...BACKUP_MODELS.filter((m) => m !== config.model)];
+  let lastError: AiError | null = null;
+
+  for (const model of models) {
+    // One quick retry on the same model, then move on to the next one
+    for (const wait of [0, 1500]) {
+      if (wait) await sleep(wait);
+      const res = await fetch(`${API}/models/${model}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
+        body: payload,
+        cache: 'no-store',
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        const text: string = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
+        if (text) return { text, model };
+        lastError = new AiError('api', 'Gemini returned an empty answer. Try again.');
+        break;
+      }
+
+      lastError = new AiError('api', explainGeminiError(res.status, body));
+      // A retired or unknown model name: skip straight to the next model
+      if (res.status === 404) break;
+      if (!RETRYABLE.has(res.status)) throw lastError;
+      console.warn(`Gemini ${model} returned ${res.status}; retrying`);
+    }
+  }
+  throw lastError ?? new AiError('api', 'Gemini is not responding. Try again in a few minutes.');
 }
 
 function parseJson<T>(text: string): T {
@@ -166,19 +192,19 @@ async function saveResult(userId: string, kind: Kind, items: unknown[], model: s
 export async function generateInsights(userId: string) {
   const config = await getGeminiConfig(userId);
   const context = await buildContext(userId);
-  const text = await generate(
+  const { text, model } = await generate(
     config,
     `${context}\n\nFind the 5 most useful insights in this data: what is working, what is not, and why. Look at post type, posting day and time, caption style, and saves/shares versus likes.\nReturn a JSON array of objects with keys: "title" (max 8 words), "description" (2 or 3 sentences with specific numbers), "impact" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth").`,
     { json: true, system: ANALYST },
   );
   const items = parseJson<Insight[]>(text).slice(0, 6);
-  return saveResult(userId, 'insights', items, config.model);
+  return saveResult(userId, 'insights', items, model);
 }
 
 export async function generateRecommendations(userId: string) {
   const config = await getGeminiConfig(userId);
   const context = await buildContext(userId);
-  const text = await generate(
+  const { text, model } = await generate(
     config,
     `${context}\n\nGive 6 specific, actionable recommendations to grow this account over the next month. Each must follow from a pattern in the data.\nReturn a JSON array of objects with keys: "title" (an action, max 8 words), "description" (2 or 3 sentences: what to do and which data point justifies it), "priority" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth"), "impact" (short expected result), "effort" ("low" | "medium" | "high"), "estimatedGrowth" (short, e.g. "+10% reach").`,
     { json: true, system: ANALYST },
@@ -186,7 +212,7 @@ export async function generateRecommendations(userId: string) {
   const items = parseJson<Omit<AiRecommendation, 'id'>[]>(text)
     .slice(0, 8)
     .map((r, i) => ({ ...r, id: `rec-${i}` }));
-  return saveResult(userId, 'recommendations', items, config.model);
+  return saveResult(userId, 'recommendations', items, model);
 }
 
 // ---------- Chat ----------
@@ -202,8 +228,89 @@ export async function chatWithAssistant(userId: string, history: ChatTurn[], mes
     if (error instanceof AiError && error.code === 'no_data') context = 'No posts have been synced yet.';
     else throw error;
   }
-  return generate(config, message, {
+  const { text } = await generate(config, message, {
     history: history.slice(-10),
     system: `${ANALYST}\nYou are chatting inside the creator's analytics dashboard. Keep answers short and practical (under 150 words), use plain text with simple dashes for lists, and refer to their real numbers.\n\n${context}`,
   });
+  return text;
+}
+
+// ---------- Single post analysis ----------
+
+export type PostAnalysis = {
+  verdict: string;
+  whyItPerformed: string[];
+  improve: string[];
+  nextPostIdeas: string[];
+  bestFor: string;
+};
+
+export async function getPostWithBenchmarks(userId: string, postId: string) {
+  const post = await prisma.post.findFirst({ where: { id: postId, socialProfile: { userId } }, include: { socialProfile: true } });
+  if (!post) return null;
+
+  const siblings = await prisma.post.findMany({
+    where: { socialProfileId: post.socialProfileId },
+    select: { id: true, views: true, reach: true, likes: true, comments: true, saves: true, shares: true, performanceScore: true },
+  });
+  const avg = (pick: (p: (typeof siblings)[number]) => number) =>
+    siblings.length ? siblings.reduce((a, p) => a + pick(p), 0) / siblings.length : 0;
+  const rank = [...siblings].sort((a, b) => b.performanceScore - a.performanceScore).findIndex((p) => p.id === post.id) + 1;
+
+  return {
+    post,
+    benchmarks: {
+      posts: siblings.length,
+      rank,
+      views: avg((p) => p.views),
+      reach: avg((p) => p.reach ?? 0),
+      likes: avg((p) => p.likes),
+      comments: avg((p) => p.comments),
+      saves: avg((p) => p.saves),
+      shares: avg((p) => p.shares),
+      engagement: avg((p) => p.performanceScore),
+    },
+  };
+}
+
+export async function analyzePost(userId: string, postId: string) {
+  const config = await getGeminiConfig(userId);
+  const data = await getPostWithBenchmarks(userId, postId);
+  if (!data) throw new AiError('no_data', 'Post not found. Try syncing again.');
+  const { post, benchmarks: b } = data;
+
+  const line = (label: string, value: number, average: number) =>
+    `${label}: ${Math.round(value)} (account average ${Math.round(average)})`;
+  const { text, model } = await generate(
+    config,
+    `Analyze this single ${post.platform} ${post.type} for the creator @${post.socialProfile.username}.
+Posted: ${post.publishedAt.toISOString()} (${DAYS[post.publishedAt.getUTCDay()]}, UTC)
+Caption: "${post.caption.slice(0, 1500)}"
+${line('Views', post.views, b.views)}
+${line('Reach', post.reach ?? 0, b.reach)}
+${line('Likes', post.likes, b.likes)}
+${line('Comments', post.comments, b.comments)}
+${line('Saves', post.saves, b.saves)}
+${line('Shares', post.shares, b.shares)}
+Engagement: ${post.performanceScore.toFixed(1)}% (account average ${b.engagement.toFixed(1)}%)
+Rank by engagement: ${b.rank} of ${b.posts} synced posts
+
+Judge the caption (hook, clarity, call to action, hashtags), the format and the timing against these numbers. You cannot see the image or video, so do not describe visuals.
+Return a JSON object with keys: "verdict" (one sentence on how it performed vs the account average), "whyItPerformed" (2-4 short bullet strings citing numbers), "improve" (2-4 specific changes for a similar post), "nextPostIdeas" (3 concrete follow-up post ideas), "bestFor" (one short phrase: what this post is good at, e.g. "reach", "saves", "conversation").`,
+    { json: true, system: ANALYST },
+  );
+  const analysis = parseJson<PostAnalysis>(text);
+
+  const kind = `post:${postId}`;
+  const row = await prisma.aiResult.upsert({
+    where: { userId_kind: { userId, kind } },
+    update: { content: analysis as object, model, createdAt: new Date() },
+    create: { userId, kind, content: analysis as object, model },
+  });
+  return { analysis, model: row.model, createdAt: row.createdAt };
+}
+
+export async function getCachedPostAnalysis(userId: string, postId: string) {
+  const row = await prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind: `post:${postId}` } } });
+  return row ? { analysis: row.content as PostAnalysis, model: row.model, createdAt: row.createdAt } : null;
 }

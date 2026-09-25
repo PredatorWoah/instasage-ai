@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
 import { getCachedResult, generateRecommendations } from '@/services/ai';
 
+// Leaves room for retries and model fallback when Gemini is busy
+export const maxDuration = 60;
+
 // Returns the cached result; null means nothing has been generated yet
 export async function GET() {
   const userId = await requireUserId();

@@ -60,7 +60,6 @@ export default function SettingsPage() {
             { label: 'Weekly Performance Report', description: 'Get a weekly email summary of your stats', defaultChecked: true },
             { label: 'New AI Insights', description: 'Be notified when new insights are detected', defaultChecked: true },
             { label: 'Posting Reminders', description: 'Reminders when your optimal posting window opens', defaultChecked: false },
-            { label: 'Competitor Alerts', description: 'Alerts when competitors show unusual activity', defaultChecked: false },
           ].map((n, i) => (
             <div key={i} className="flex items-center justify-between">
               <div>

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
 import { chatWithAssistant, type ChatTurn } from '@/services/ai';
 
+// Leaves room for retries and model fallback when Gemini is busy
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();

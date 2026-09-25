@@ -1,23 +1,23 @@
 import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
-import { getCachedResult, generateInsights } from '@/services/ai';
+import { analyzePost, getCachedPostAnalysis } from '@/services/ai';
 
 // Leaves room for retries and model fallback when Gemini is busy
 export const maxDuration = 60;
 
-// Returns the cached result; null means nothing has been generated yet
-export async function GET() {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
-  return NextResponse.json(await getCachedResult(userId, 'insights'));
+  const { id } = await ctx.params;
+  return NextResponse.json(await getCachedPostAnalysis(userId, id));
 }
 
-// Generates a fresh result with Gemini and caches it
-export async function POST() {
+export async function POST(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
+  const { id } = await ctx.params;
   try {
-    return NextResponse.json(await generateInsights(userId));
+    return NextResponse.json(await analyzePost(userId, id));
   } catch (error) {
     return aiErrorResponse(error);
   }

@@ -48,7 +48,8 @@ export function ReachChart({ data }: ReachChartProps) {
           stroke="#8b5cf6"
           strokeWidth={2}
           fill="url(#reachGrad)"
-          dot={false}
+          connectNulls
+          dot={{ r: 2.5, strokeWidth: 0, fill: '#8b5cf6' }}
           activeDot={{ r: 4, fill: '#8b5cf6' }}
         />
       </AreaChart>

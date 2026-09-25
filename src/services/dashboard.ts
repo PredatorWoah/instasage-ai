@@ -19,7 +19,7 @@ export async function getDashboardData(userId: string, days = 30) {
     }),
     prisma.post.findMany({
       where: { socialProfileId: { in: profileIds }, publishedAt: { gte: since } },
-      select: { publishedAt: true, performanceScore: true },
+      select: { publishedAt: true, performanceScore: true, views: true },
     }),
     prisma.post.aggregate({ where: { socialProfileId: { in: profileIds } }, _sum: { views: true } }),
     prisma.metric.findMany({
@@ -37,10 +37,10 @@ export async function getDashboardData(userId: string, days = 30) {
     snapshots.set(m.socialProfileId, byDay);
   }
 
-  const postsByDay = new Map<string, number[]>();
+  const postsByDay = new Map<string, { score: number; views: number }[]>();
   for (const p of windowPosts) {
     const key = dayKey(p.publishedAt);
-    postsByDay.set(key, [...(postsByDay.get(key) ?? []), p.performanceScore]);
+    postsByDay.set(key, [...(postsByDay.get(key) ?? []), { score: p.performanceScore, views: p.views }]);
   }
 
   // Carry each profile's last known value forward; days before any sync stay empty
@@ -51,24 +51,29 @@ export async function getDashboardData(userId: string, days = 30) {
     d.setDate(since.getDate() + i);
     const key = dayKey(d);
 
+    const today: Snapshot[] = [];
     for (const [profileId, byDay] of snapshots) {
       const snap = byDay.get(key);
-      if (snap) lastKnown.set(profileId, snap);
+      if (snap) {
+        lastKnown.set(profileId, snap);
+        today.push(snap);
+      }
     }
-    const known = [...lastKnown.values()];
-    const sum = (field: 'followers' | 'views' | 'reach') => {
-      const values = known.map(k => k[field]).filter((v): v is number => v != null);
+    const sum = (rows: Snapshot[], field: 'followers' | 'reach') => {
+      const values = rows.map(k => k[field]).filter((v): v is number => v != null);
       return values.length ? values.reduce((a, b) => a + b, 0) : undefined;
     };
-    const scores = postsByDay.get(key) ?? [];
+    const dayPosts = postsByDay.get(key) ?? [];
 
     timeSeries.push({
       date: key,
-      followers: sum('followers'),
-      views: sum('views'),
-      reach: sum('reach'),
-      engagement: scores.length ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)) : undefined,
-      posts: scores.length,
+      // Follower totals carry forward between syncs; reach is a per-day figure, so it doesn't
+      followers: sum([...lastKnown.values()], 'followers'),
+      reach: sum(today, 'reach'),
+      // Views of the posts published that day (their lifetime views so far)
+      views: dayPosts.length ? dayPosts.reduce((a, p) => a + p.views, 0) : undefined,
+      engagement: dayPosts.length ? Number((dayPosts.reduce((a, p) => a + p.score, 0) / dayPosts.length).toFixed(2)) : undefined,
+      posts: dayPosts.length,
     });
   }
 
