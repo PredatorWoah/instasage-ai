@@ -31,6 +31,10 @@ Then click **Connect with Instagram** in Settings or on the Accounts page, log i
 
 Boosted posts are tagged: Instagram's API reports their organic results only.
 
+### Daily auto-sync
+
+`vercel.json` schedules `/api/cron/sync` every day at 01:00 UTC. Set `CRON_SECRET` in Vercel (any long random string) and redeploy; Vercel sends it with each run, and the route refuses requests without it. It syncs every account, oldest first, then refreshes AI insights when a Gemini key is saved. Runs show up under the project's Cron Jobs and Logs in Vercel.
+
 ### AI (Gemini)
 
 Get a free key at https://aistudio.google.com/apikey and paste it under Settings → AI. It is tested before saving, and the newest Flash model your key can use is picked automatically. Insights and recommendations are cached; press Regenerate after a sync to refresh them.
