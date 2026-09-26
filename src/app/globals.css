@@ -1,0 +1,375 @@
+@import "tailwindcss";
+
+/* ---------- Prism design tokens ---------- */
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  /* The app's "indigo" accents become Prism iris/violet everywhere */
+  --color-indigo-300: #CFC4FF;
+  --color-indigo-400: #B3A2FF;
+  --color-indigo-500: #8E78FF;
+  --color-indigo-600: #6E53FF;
+  --color-indigo-700: #5B3BFF;
+
+  /* Prism palette */
+  --color-iris: #7B61FF;
+  --color-magenta: #B23BE8;
+  --color-rose: #FF5F8F;
+  --color-tangerine: #FF9F43;
+  --color-gold: #FFE066;
+  --color-mint: #4ADE9E;
+  --color-ocean: #1FA7E0;
+
+  --font-sans: var(--font-dmsans), system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-dmsans), system-ui, sans-serif;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 6px);
+  --radius-sm: calc(var(--radius) - 10px);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --background: 240 20% 4%;       /* #0A0A0F */
+    --foreground: 0 0% 100%;
+    --card: 240 15% 10.5%;          /* #17171F */
+    --card-foreground: 0 0% 100%;
+    --popover: 240 15% 9%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 240 20% 4%;
+    --secondary: 240 14% 14%;       /* #1F1F29 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 14% 14%;
+    --muted-foreground: 240 9% 70%; /* #A9A9B8 */
+    --accent: 240 14% 16%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 350 80% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 14% 17%;          /* #262632 */
+    --input: 240 14% 17%;
+    --ring: 251 100% 69%;
+    --radius: 1.25rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+  h1 {
+    font-weight: 800;
+  }
+  :focus-visible {
+    outline: 2px solid #8E78FF;
+    outline-offset: 2px;
+  }
+}
+
+/* ---------- Prism surfaces ---------- */
+@utility prism-hero {
+  background: linear-gradient(120deg, #5B3BFF 0%, #B23BE8 45%, #FF5F8F 100%);
+}
+@utility prism-sunset {
+  background: linear-gradient(145deg, #FF9F43, #FF5F8F);
+}
+@utility prism-ocean {
+  background: linear-gradient(145deg, #4ADE9E, #1FA7E0);
+}
+@utility prism-gold {
+  background: linear-gradient(145deg, #FFE066, #FFA93A);
+}
+@utility prism-text {
+  background: linear-gradient(90deg, #8E78FF, #FF5F8F);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility glass-chip {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(12px);
+}
+@utility font-display {
+  font-family: var(--font-display);
+}
+
+/* Frosted acrylic: translucent tint, heavy blur, a soft top sheen and a hairline edge */
+@utility acrylic-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 40%),
+    rgba(18, 18, 26, 0.68);
+  backdrop-filter: blur(36px) saturate(180%);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- Sage, the AI orb ---------- */
+@property --sage-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.sage {
+  position: relative;
+  display: inline-block;
+  animation: sage-bob 4.5s ease-in-out infinite;
+}
+.sage-body,
+.sage-gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 46% 54% 52% 48% / 55% 45% 55% 45%;
+  animation: sage-morph 7s ease-in-out infinite alternate;
+}
+.sage-body {
+  background: conic-gradient(from var(--sage-angle), #7B61FF, #FF5F8F, #FFB86B, #FFE066, #4ADE9E, #4CC9F0, #7B61FF);
+  box-shadow: 0 10px 34px -6px rgba(178, 59, 232, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  animation: sage-morph 7s ease-in-out infinite alternate, sage-spin 8s linear infinite, sage-glow 3.2s ease-in-out infinite;
+}
+.sage-gloss {
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 32%),
+    radial-gradient(circle at 70% 85%, rgba(10, 10, 15, 0.28), rgba(10, 10, 15, 0) 55%);
+}
+.sage-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18%;
+  padding-top: 6%;
+  animation: sage-look 9s ease-in-out infinite;
+}
+.sage-eye {
+  width: 13%;
+  height: 21%;
+  border-radius: 999px;
+  background: #0A0A0F;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+  transform-origin: center 60%;
+  transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1), border-radius 260ms;
+  animation: sage-blink 4.6s infinite;
+}
+.sage-eye + .sage-eye {
+  animation-delay: 40ms;
+}
+/* Hover: happy squint and a quicker swirl */
+.sage-button:hover .sage-eye,
+.sage-button:focus-visible .sage-eye {
+  animation: none;
+  transform: scaleY(0.42) translateY(-12%);
+  border-radius: 999px 999px 40% 40%;
+}
+.sage-button:hover .sage-body {
+  animation-duration: 7s, 3s, 3.2s;
+}
+.sage-button {
+  transition: transform 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.sage-button:hover {
+  transform: scale(1.08) rotate(-4deg);
+}
+.sage-button:active {
+  transform: scale(0.94);
+}
+/* Chat open: contented closed eyes */
+.sage-sleeping .sage-eye {
+  animation: none;
+  transform: scaleY(0.16);
+}
+@keyframes sage-spin {
+  to { --sage-angle: 360deg; }
+}
+@keyframes sage-morph {
+  0% { border-radius: 46% 54% 52% 48% / 55% 45% 55% 45%; }
+  50% { border-radius: 58% 42% 45% 55% / 45% 58% 42% 55%; }
+  100% { border-radius: 42% 58% 60% 40% / 52% 40% 60% 48%; }
+}
+@keyframes sage-glow {
+  0%, 100% { box-shadow: 0 10px 34px -6px rgba(178, 59, 232, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.18) inset; }
+  50% { box-shadow: 0 12px 44px -4px rgba(255, 95, 143, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.24) inset; }
+}
+@keyframes sage-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
+}
+@keyframes sage-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes sage-look {
+  0%, 30%, 100% { transform: translate3d(0, 0, 0); }
+  38%, 52% { transform: translate3d(-9%, 1%, 0); }
+  62%, 76% { transform: translate3d(9%, -2%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sage, .sage-body, .sage-gloss, .sage-face, .sage-eye {
+    animation: none !important;
+  }
+}
+
+/* ---------- Motion ---------- */
+/* Only opacity and transforms: both run on the GPU, so they stay smooth on phones */
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes drop-in {
+  from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes slide-from {
+  from { transform: translate3d(var(--slide-offset), 0, 0); }
+  to { transform: none; }
+}
+@keyframes slide-to {
+  from { transform: none; }
+  to { transform: translate3d(var(--slide-offset), 0, 0); }
+}
+@keyframes rise-y {
+  from { transform: translate3d(0, 16px, 0); }
+  to { transform: none; }
+}
+
+@utility animate-rise {
+  animation: rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* Children of .stagger rise one after another */
+.stagger > * {
+  animation: rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 230ms; }
+
+/* ---------- Page transitions (View Transitions API) ---------- */
+:root {
+  --vt-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-old(*),
+::view-transition-new(*) {
+  will-change: transform, opacity;
+}
+
+/* Tab to the right: old page slips left and fades, new page glides in from the right */
+::view-transition-old(.nav-forward) {
+  --slide-offset: -40px;
+  animation: 160ms ease-in both fade-out, 260ms var(--vt-ease) both slide-to;
+}
+::view-transition-new(.nav-forward) {
+  --slide-offset: 48px;
+  animation: 300ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both slide-from;
+}
+::view-transition-old(.nav-back) {
+  --slide-offset: 40px;
+  animation: 160ms ease-in both fade-out, 260ms var(--vt-ease) both slide-to;
+}
+::view-transition-new(.nav-back) {
+  --slide-offset: -48px;
+  animation: 300ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both slide-from;
+}
+
+/* Links inside a page (a post, "view all"): a soft rise */
+::view-transition-old(.page-fade) {
+  animation: 150ms ease-in both fade-out;
+}
+::view-transition-new(.page-fade) {
+  animation: 280ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both rise-y;
+}
+
+/* The white tab pill morphs from the old tab to the new one with a small overshoot */
+::view-transition-group(nav-pill) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.34, 1.25, 0.64, 1);
+}
+::view-transition-old(nav-pill),
+::view-transition-new(nav-pill) {
+  animation-duration: 420ms;
+}
+
+/* The header stays put as an anchor while pages move under it */
+::view-transition-group(site-header) {
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+  .stagger > *,
+  .animate-rise {
+    animation: none !important;
+  }
+}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2E2E3C;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3C3C4E;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

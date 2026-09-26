@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String?   @unique
+  image         String?
+  username      String?
+  bio           String?
+  geminiApiKey  String?
+  geminiModel   String?
+  timezone      String?   // IANA zone, e.g. "Asia/Kolkata": AI wording, reports and the daily cron use it
+  timezoneAuto  Boolean   @default(true) // false once picked by hand in Settings, so the browser stops overriding it
+  aiProvider    String?   // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
+  youtubeApiKey String?   // YouTube Data API v3 key (falls back to YOUTUBE_API_KEY)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  socialProfiles SocialProfile[]
+  aiResults     AiResult[]
+  aiCredentials AiCredential[]
+  ideaThreads   IdeaThread[]
+  savedIdeas    SavedIdea[]
+  metaLink      MetaLink?
+  competitors   Competitor[]
+}
+
+model SocialProfile {
+  id                String    @id @default(uuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform          String    // 'instagram' | 'facebook' | 'youtube'
+  externalId        String?   // Platform's own ID, e.g. the YouTube channel ID
+  username          String
+  displayName       String
+  profilePictureUrl String
+  followerCount     Int
+  isConnected       Boolean   @default(true)
+  lastSyncedAt      DateTime  @default(now())
+  accessToken       String?
+  tokenExpiresAt    DateTime?
+  audience          Json?     // Follower demographics from the platform, refreshed on sync
+  posts             Post[]
+  metrics           Metric[]
+}
+
+model Post {
+  id               String         @id @default(uuid())
+  socialProfileId  String
+  socialProfile    SocialProfile  @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
+  thumbnail        String
+  permalink        String?
+  caption          String
+  platform         String
+  views            Int
+  reach            Int?
+  likes            Int
+  comments         Int
+  saves            Int
+  shares           Int
+  performanceScore Float
+  isBoosted        Boolean  @default(false) // Promoted posts: platform insights cover organic results only
+  publishedAt      DateTime
+  type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'story'
+}
+
+// One row per profile per day (id = "<profileId>:<yyyy-mm-dd>")
+model Metric {
+  id              String         @id @default(uuid())
+  socialProfileId String
+  socialProfile   SocialProfile  @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
+  date            DateTime
+  followers       Int?
+  views           Int?
+  reach           Int?
+  engagement      Float?
+  postsCount      Int?
+}
+
+model SyncJob {
+  id              String         @id @default(uuid())
+  socialProfileId String?
+  platform        String
+  status          String         // 'pending' | 'running' | 'completed' | 'failed'
+  startedAt       DateTime       @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+}
+
+// Cached AI output (insights, recommendations, game plan, report summaries) so pages load instantly
+model AiResult {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String   // '<kind>:<scope>' or 'post:<id>'
+  content   Json
+  model     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind])
+}
+
+// One API key per AI provider; the active one is User.aiProvider
+model AiCredential {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String
+  apiKey    String
+  model     String
+  models    Json?    // Model ids this key can use, fetched when it was saved
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+// Ideas Studio: brainstorm conversations with the AI
+model IdeaThread {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  scopeKey  String        @default("all")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  IdeaMessage[]
+}
+
+model IdeaMessage {
+  id        String     @id @default(uuid())
+  threadId  String
+  thread    IdeaThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String     // 'user' | 'assistant'
+  content   String
+  model     String?
+  createdAt DateTime   @default(now())
+}
+
+// Ideas the creator kept, moved along a small board
+model SavedIdea {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  notes     String   @default("")
+  format    String?
+  status    String   @default("idea") // 'idea' | 'planned' | 'posted'
+  source    String   @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Facebook Login link used only for Business Discovery (looking up other Instagram accounts)
+model MetaLink {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken String    // long-lived Facebook user token (about 60 days)
+  expiresAt   DateTime?
+  igUserId    String    // your Instagram professional account, linked to the Page
+  igUsername  String
+  pageName    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Public numbers of rival Instagram accounts, refreshed by sync
+model Competitor {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username          String
+  name              String?
+  biography         String?
+  profilePictureUrl String?
+  followers         Int      @default(0)
+  mediaCount        Int      @default(0)
+  stats             Json?    // averages, cadence and format mix worked out from recent posts
+  posts             Json?    // recent posts (caption, likes, comments, type, permalink, timestamp)
+  error             String?
+  lastSyncedAt      DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, username])
+}
