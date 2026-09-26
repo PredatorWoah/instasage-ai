@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { cookies } from 'next/headers';
 import { AiError } from '@/services/ai';
+import { prisma } from '@/lib/prisma';
 
 export async function requireUserId() {
   const session = await getServerSession(authOptions);
@@ -18,4 +20,17 @@ export function aiErrorResponse(error: unknown) {
   }
   console.error('AI request failed:', error);
   return NextResponse.json({ error: 'Something went wrong talking to Gemini.', code: 'api' }, { status: 500 });
+}
+
+// The browser reports its timezone in a cookie; keep it on the user so the AI (and the
+// daily cron, which has no browser) talk about posting times in local time
+export async function rememberTimeZone(userId: string) {
+  const tz = (await cookies()).get('tz')?.value;
+  if (!tz) return;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+  } catch {
+    return;
+  }
+  await prisma.user.updateMany({ where: { id: userId, OR: [{ timezone: null }, { NOT: { timezone: tz } }] }, data: { timezone: tz } });
 }

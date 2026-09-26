@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
+import { requireUserId, unauthorized, aiErrorResponse, rememberTimeZone } from '@/lib/api';
 import { getAccountScope } from '@/lib/scope';
 import { chatWithAssistant, type ChatTurn } from '@/services/ai';
 
@@ -9,6 +9,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
+  await rememberTimeZone(userId);
 
   const { message, history } = await req.json().catch(() => ({}));
   if (typeof message !== 'string' || !message.trim()) {

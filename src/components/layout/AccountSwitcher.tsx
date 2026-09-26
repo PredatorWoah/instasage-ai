@@ -44,7 +44,7 @@ export function AccountSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 text-[13px] h-11 px-4 border-white/[0.06] bg-card hover:bg-secondary max-w-[220px]">
+        <Button variant="outline" size="sm" className="gap-2 text-[13px] h-11 px-4 border-white/[0.06] bg-card hover:bg-secondary max-w-[132px] sm:max-w-[220px]">
           <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: current ? DOT[current.platform] : '#6366f1' }} />
           <span className="truncate">{current ? `@${current.username}` : 'All accounts'}</span>
           <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />

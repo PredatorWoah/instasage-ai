@@ -11,13 +11,13 @@ export class AiError extends Error {
 
 // ---------- Key and model ----------
 
-type GeminiConfig = { apiKey: string; model: string };
+type GeminiConfig = { apiKey: string; model: string; timeZone: string };
 
 export async function getGeminiConfig(userId: string): Promise<GeminiConfig> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true, geminiModel: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true, geminiModel: true, timezone: true } });
   const apiKey = user?.geminiApiKey || process.env.GEMINI_API_KEY;
   if (!apiKey) throw new AiError('no_key', 'Add your Gemini API key in Settings to use AI features.');
-  return { apiKey, model: user?.geminiModel || process.env.GEMINI_MODEL || FALLBACK_MODEL };
+  return { apiKey, model: user?.geminiModel || process.env.GEMINI_MODEL || FALLBACK_MODEL, timeZone: user?.timezone || 'UTC' };
 }
 
 function versionScore(name: string) {
@@ -113,7 +113,7 @@ export async function saveGeminiKey(userId: string, rawKey: string) {
   if (apiKey.length < 20) throw new AiError('api', 'That does not look like a Gemini API key. It usually starts with "AIza".');
 
   const model = process.env.GEMINI_MODEL || (await pickModel(apiKey));
-  await generate({ apiKey, model }, 'Reply with the single word OK.');
+  await generate({ apiKey, model, timeZone: 'UTC' }, 'Reply with the single word OK.');
 
   await prisma.user.update({ where: { id: userId }, data: { geminiApiKey: apiKey, geminiModel: model } });
   // Old results came from a different key or model; let them regenerate
@@ -123,10 +123,13 @@ export async function saveGeminiKey(userId: string, rawKey: string) {
 
 // ---------- Data context ----------
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+// "Tue 18:45" in the creator's own timezone, so AI advice about timing reads naturally
+function localTime(d: Date, timeZone: string) {
+  return new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+}
 
 // Only the accounts picked in the switcher (profileIds already belong to the user)
-async function buildContext(profileIds: string[]) {
+async function buildContext(profileIds: string[], timeZone: string) {
   const profiles = await prisma.socialProfile.findMany({ where: { id: { in: profileIds } } });
   const posts = await prisma.post.findMany({
     where: { socialProfileId: { in: profiles.map((p) => p.id) } },
@@ -143,7 +146,7 @@ async function buildContext(profileIds: string[]) {
     return [
       p.platform,
       p.type,
-      `${DAYS[d.getUTCDay()]} ${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`,
+      localTime(d, timeZone),
       `views ${p.views}`,
       `likes ${p.likes}`,
       `comments ${p.comments}`,
@@ -154,7 +157,7 @@ async function buildContext(profileIds: string[]) {
     ].join(' | ');
   });
 
-  return `Accounts:\n${accounts}\n\nRecent posts, newest first (platform | type | posted | stats | caption):\n${rows.join('\n')}`;
+  return `All times are in the creator's timezone (${timeZone}); always talk about times in that timezone, in 12-hour format like "7 PM", and never mention UTC.\n\nAccounts:\n${accounts}\n\nRecent posts, newest first (platform | type | posted | stats | caption):\n${rows.join('\n')}`;
 }
 
 const ANALYST = 'You are a sharp social media growth analyst for a solo creator. Base every point on the data given, cite concrete numbers from it, and never invent metrics that are not in the data. Engagement rate is (likes + comments + saves + shares) / reach for Instagram and (likes + comments) / views for YouTube.';
@@ -198,7 +201,7 @@ type Scope = { key: string; profileIds: string[] };
 
 export async function generateInsights(userId: string, scope: Scope) {
   const config = await getGeminiConfig(userId);
-  const context = await buildContext(scope.profileIds);
+  const context = await buildContext(scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
     `${context}\n\nFind the 5 most useful insights in this data: what is working, what is not, and why. Look at post type, posting day and time, caption style, and saves/shares versus likes.\nReturn a JSON array of objects with keys: "title" (max 8 words), "description" (2 or 3 sentences with specific numbers), "impact" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth").`,
@@ -210,7 +213,7 @@ export async function generateInsights(userId: string, scope: Scope) {
 
 export async function generateRecommendations(userId: string, scope: Scope) {
   const config = await getGeminiConfig(userId);
-  const context = await buildContext(scope.profileIds);
+  const context = await buildContext(scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
     `${context}\n\nGive 6 specific, actionable recommendations to grow this account over the next month. Each must follow from a pattern in the data.\nReturn a JSON array of objects with keys: "title" (an action, max 8 words), "description" (2 or 3 sentences: what to do and which data point justifies it), "priority" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth"), "impact" (short expected result), "effort" ("low" | "medium" | "high"), "estimatedGrowth" (short, e.g. "+10% reach").`,
@@ -230,7 +233,7 @@ export async function chatWithAssistant(userId: string, scope: Scope, history: C
   const config = await getGeminiConfig(userId);
   let context: string;
   try {
-    context = await buildContext(scope.profileIds);
+    context = await buildContext(scope.profileIds, config.timeZone);
   } catch (error) {
     if (error instanceof AiError && error.code === 'no_data') context = 'No posts have been synced yet.';
     else throw error;
@@ -291,7 +294,7 @@ export async function analyzePost(userId: string, postId: string) {
   const { text, model } = await generate(
     config,
     `Analyze this single ${post.platform} ${post.type} for the creator @${post.socialProfile.username}.
-Posted: ${post.publishedAt.toISOString()} (${DAYS[post.publishedAt.getUTCDay()]}, UTC)
+Posted: ${localTime(post.publishedAt, config.timeZone)} (creator's timezone ${config.timeZone}; talk about times in 12-hour format in that timezone and never mention UTC)
 Caption: "${post.caption.slice(0, 1500)}"
 ${line('Views', post.views, b.views)}
 ${line('Reach', post.reach ?? 0, b.reach)}

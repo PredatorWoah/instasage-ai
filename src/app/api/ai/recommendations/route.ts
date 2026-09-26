@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
+import { requireUserId, unauthorized, aiErrorResponse, rememberTimeZone } from '@/lib/api';
 import { getAccountScope } from '@/lib/scope';
 import { getCachedResult, generateRecommendations } from '@/services/ai';
 
@@ -18,6 +18,7 @@ export async function GET() {
 export async function POST() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
+  await rememberTimeZone(userId);
   try {
     return NextResponse.json(await generateRecommendations(userId, await getAccountScope(userId)));
   } catch (error) {

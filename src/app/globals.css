@@ -121,6 +121,123 @@
   font-family: var(--font-display);
 }
 
+/* Frosted acrylic: translucent tint, heavy blur, a soft top sheen and a hairline edge */
+@utility acrylic-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 40%),
+    rgba(18, 18, 26, 0.68);
+  backdrop-filter: blur(36px) saturate(180%);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- Sage, the AI orb ---------- */
+@property --sage-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.sage {
+  position: relative;
+  display: inline-block;
+  animation: sage-bob 4.5s ease-in-out infinite;
+}
+.sage-body,
+.sage-gloss {
+  position: absolute;
+  inset: 0;
+  border-radius: 46% 54% 52% 48% / 55% 45% 55% 45%;
+  animation: sage-morph 7s ease-in-out infinite alternate;
+}
+.sage-body {
+  background: conic-gradient(from var(--sage-angle), #7B61FF, #FF5F8F, #FFB86B, #FFE066, #4ADE9E, #4CC9F0, #7B61FF);
+  box-shadow: 0 10px 34px -6px rgba(178, 59, 232, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  animation: sage-morph 7s ease-in-out infinite alternate, sage-spin 8s linear infinite, sage-glow 3.2s ease-in-out infinite;
+}
+.sage-gloss {
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 32%),
+    radial-gradient(circle at 70% 85%, rgba(10, 10, 15, 0.28), rgba(10, 10, 15, 0) 55%);
+}
+.sage-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18%;
+  padding-top: 6%;
+  animation: sage-look 9s ease-in-out infinite;
+}
+.sage-eye {
+  width: 13%;
+  height: 21%;
+  border-radius: 999px;
+  background: #0A0A0F;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+  transform-origin: center 60%;
+  transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1), border-radius 260ms;
+  animation: sage-blink 4.6s infinite;
+}
+.sage-eye + .sage-eye {
+  animation-delay: 40ms;
+}
+/* Hover: happy squint and a quicker swirl */
+.sage-button:hover .sage-eye,
+.sage-button:focus-visible .sage-eye {
+  animation: none;
+  transform: scaleY(0.42) translateY(-12%);
+  border-radius: 999px 999px 40% 40%;
+}
+.sage-button:hover .sage-body {
+  animation-duration: 7s, 3s, 3.2s;
+}
+.sage-button {
+  transition: transform 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.sage-button:hover {
+  transform: scale(1.08) rotate(-4deg);
+}
+.sage-button:active {
+  transform: scale(0.94);
+}
+/* Chat open: contented closed eyes */
+.sage-sleeping .sage-eye {
+  animation: none;
+  transform: scaleY(0.16);
+}
+@keyframes sage-spin {
+  to { --sage-angle: 360deg; }
+}
+@keyframes sage-morph {
+  0% { border-radius: 46% 54% 52% 48% / 55% 45% 55% 45%; }
+  50% { border-radius: 58% 42% 45% 55% / 45% 58% 42% 55%; }
+  100% { border-radius: 42% 58% 60% 40% / 52% 40% 60% 48%; }
+}
+@keyframes sage-glow {
+  0%, 100% { box-shadow: 0 10px 34px -6px rgba(178, 59, 232, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.18) inset; }
+  50% { box-shadow: 0 12px 44px -4px rgba(255, 95, 143, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.24) inset; }
+}
+@keyframes sage-bob {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -3px, 0); }
+}
+@keyframes sage-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes sage-look {
+  0%, 30%, 100% { transform: translate3d(0, 0, 0); }
+  38%, 52% { transform: translate3d(-9%, 1%, 0); }
+  62%, 76% { transform: translate3d(9%, -2%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sage, .sage-body, .sage-gloss, .sage-face, .sage-eye {
+    animation: none !important;
+  }
+}
+
 /* ---------- Motion ---------- */
 /* Only opacity and transforms: both run on the GPU, so they stay smooth on phones */
 @keyframes rise {
@@ -130,6 +247,10 @@
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes drop-in {
+  from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.96); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes fade-out {
   from { opacity: 1; }

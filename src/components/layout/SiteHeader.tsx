@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
+import { MobileNav } from './MobileNav';
 import { prefetchJson } from '@/lib/useCachedJson';
 
 // Data each tab needs, fetched as soon as a finger or pointer lands on the tab
@@ -40,6 +41,8 @@ export function SiteHeader() {
 
   // Phones have no hover, so preload every tab (page + data) once the app is idle
   useEffect(() => {
+    // Share the device timezone so AI advice uses local times
+    document.cookie = `tz=${Intl.DateTimeFormat().resolvedOptions().timeZone}; path=/; max-age=31536000; samesite=lax`;
     NAV_TABS.forEach((tab) => router.prefetch(tab.href));
     const warmAll = () => Object.keys(TAB_DATA).forEach(warm);
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1200));
@@ -54,13 +57,19 @@ export function SiteHeader() {
       style={{ viewTransitionName: 'site-header' }}
       className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-white/[0.04]"
     >
-      <div className="max-w-[1480px] mx-auto px-4 sm:px-6 h-[72px] flex items-center gap-4 sm:gap-6">
+      <div className="max-w-[1480px] mx-auto px-3 sm:px-6 h-[72px] flex items-center gap-2.5 sm:gap-6">
         <Link href="/" transitionTypes={directionTo(0, current)} className="flex items-center gap-2.5 shrink-0" aria-label="InstaSage home">
           <span className="w-9 h-9 rounded-[12px] shadow-[0_0_24px_rgba(123,97,255,0.45)]" style={{ background: 'conic-gradient(from 180deg, #FF6B9A, #FF9F43, #FFE066, #4ADE9E, #4CC9F0, #7B61FF, #FF6B9A)' }} />
-          <span className="font-display font-extrabold text-[22px] tracking-[-0.03em] hidden md:inline">instasage</span>
+          <span className="font-display font-extrabold text-[22px] tracking-[-0.03em] hidden xl:inline">instasage</span>
         </Link>
 
-        <nav aria-label="Main" className="min-w-0 flex-1 flex justify-center">
+        {/* Phones: glass menu pill */}
+        <div className="md:hidden min-w-0 flex-1">
+          <MobileNav onWarm={warm} />
+        </div>
+
+        {/* Tablets and up: the pill tab bar */}
+        <nav aria-label="Main" className="hidden md:flex min-w-0 flex-1 justify-center">
           <div className="flex gap-1 p-1.5 rounded-full bg-card border border-white/[0.04] overflow-x-auto no-scrollbar max-w-full">
             {NAV_TABS.map((tab, i) => {
               const active = i === current;
