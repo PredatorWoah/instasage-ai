@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bot, X, Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { SageOrb } from './SageOrb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/types';
@@ -24,7 +25,7 @@ export function AIChat() {
     {
       id: '0',
       role: 'assistant',
-      content: "Hi! I'm your InstaSage assistant, powered by Gemini. Ask me anything about your posts, what to post next, or how to grow.",
+      content: "Hey, I'm Sage! I've read your synced posts. Ask me what's working, what to post next, or how to grow.",
       timestamp: new Date(),
     },
   ]);
@@ -64,23 +65,23 @@ export function AIChat() {
     <>
       {/* Floating button */}
       <button
+        type="button"
         onClick={() => setOpen((p) => !p)}
-        aria-label={open ? 'Close assistant' : 'Open assistant'}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full prism-hero shadow-[0_10px_40px_-8px_rgba(178,59,232,0.8)] flex items-center justify-center hover:scale-110 active:scale-95 transition-transform duration-300"
+        aria-label={open ? 'Close Sage, the AI assistant' : 'Ask Sage, the AI assistant'}
+        aria-expanded={open}
+        className="sage-button fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 rounded-full"
       >
-        {open ? <X className="w-5 h-5 text-white" /> : <Sparkles className="w-5 h-5 text-white" />}
+        <SageOrb sleeping={open} />
       </button>
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-rise" style={{ height: 460 }}>
+        <div className="fixed bottom-[92px] right-4 sm:right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-rise" style={{ height: 460 }}>
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 shrink-0">
-            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
+            <SageOrb size={34} className="shrink-0" />
             <div>
-              <p className="text-xs font-semibold">InstaSage AI</p>
+              <p className="text-sm font-display font-extrabold">Sage</p>
               <p className="text-[10px] text-muted-foreground">Gemini · knows your synced posts</p>
             </div>
           </div>

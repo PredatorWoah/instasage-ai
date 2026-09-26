@@ -18,6 +18,7 @@ model User {
   bio           String?
   geminiApiKey  String?
   geminiModel   String?
+  timezone      String?   // IANA zone from the browser, used for AI date wording
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
