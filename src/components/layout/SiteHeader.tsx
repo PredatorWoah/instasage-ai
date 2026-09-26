@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import {
@@ -13,6 +14,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
+import { prefetchJson } from '@/lib/useCachedJson';
+
+// Data each tab needs, fetched as soon as a finger or pointer lands on the tab
+const TAB_DATA: Record<string, string[]> = {
+  analytics: ['/api/analytics?days=30'],
+  content: ['/api/posts'],
+  insights: ['/api/ai/insights'],
+  recommendations: ['/api/ai/recommendations'],
+  audience: ['/api/audience', '/api/posts'],
+};
+const warm = (id: string) => TAB_DATA[id]?.forEach(prefetchJson);
 import { cn } from '@/lib/utils';
 
 // Tabs to the right slide in from the right, tabs to the left from the left
@@ -23,7 +35,17 @@ function directionTo(target: number, current: number) {
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
+
+  // Phones have no hover, so preload every tab (page + data) once the app is idle
+  useEffect(() => {
+    NAV_TABS.forEach((tab) => router.prefetch(tab.href));
+    const warmAll = () => Object.keys(TAB_DATA).forEach(warm);
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1200));
+    const handle = idle(warmAll);
+    return () => (window.cancelIdleCallback ?? window.clearTimeout)(handle as number);
+  }, [router]);
   const current = activeTabIndex(pathname);
   const name = session?.user?.name || 'Owner';
 
@@ -47,6 +69,10 @@ export function SiteHeader() {
                   key={tab.id}
                   href={tab.href}
                   transitionTypes={directionTo(i, current)}
+                  prefetch
+                  onPointerEnter={() => warm(tab.id)}
+                  onTouchStart={() => warm(tab.id)}
+                  onFocus={() => warm(tab.id)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'relative shrink-0 px-4 py-2 rounded-full text-sm transition-colors duration-300',

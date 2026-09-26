@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+import { useCachedJson } from '@/lib/useCachedJson';
 import Link from 'next/link';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,24 +19,18 @@ const DOT: Record<string, string> = { instagram: '#ec4899', youtube: '#ef4444', 
 
 type Profile = { id: string; platform: string; username: string; displayName: string };
 
+const noopSubscribe = () => () => {};
+
 function readCookie() {
   return document.cookie.split('; ').find((c) => c.startsWith(`${COOKIE}=`))?.split('=')[1] ?? 'all';
 }
 
 export function AccountSwitcher() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [selected, setSelected] = useState('all');
-
-  useEffect(() => {
-    fetch('/api/accounts')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: Profile[]) => {
-        setProfiles(list);
-        const current = readCookie();
-        setSelected(list.some((p) => p.id === current) ? current : 'all');
-      })
-      .catch(() => {});
-  }, []);
+  const { data } = useCachedJson<Profile[]>('/api/accounts');
+  const profiles = data ?? [];
+  // Read the cookie without a mismatch between the server render ("all") and the browser
+  const cookie = useSyncExternalStore(noopSubscribe, readCookie, () => 'all');
+  const selected = profiles.some((p) => p.id === cookie) ? cookie : 'all';
 
   const choose = (id: string) => {
     if (id === selected) return;

@@ -122,81 +122,89 @@
 }
 
 /* ---------- Motion ---------- */
+/* Only opacity and transforms: both run on the GPU, so they stay smooth on phones */
 @keyframes rise {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); filter: blur(4px); }
-  to { opacity: 1; transform: none; filter: blur(0); }
+  from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.985); }
+  to { opacity: 1; transform: none; }
 }
-@keyframes fade-blur {
-  from { opacity: 0; filter: blur(6px); }
-  to { opacity: 1; filter: blur(0); }
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-@keyframes slide-x {
-  from { translate: var(--slide-offset) 0; }
-  to { translate: 0 0; }
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes slide-from {
+  from { transform: translate3d(var(--slide-offset), 0, 0); }
+  to { transform: none; }
+}
+@keyframes slide-to {
+  from { transform: none; }
+  to { transform: translate3d(var(--slide-offset), 0, 0); }
 }
 @keyframes rise-y {
-  from { translate: 0 14px; }
-  to { translate: 0 0; }
-}
-@keyframes via-blur {
-  40% { filter: blur(2px); }
+  from { transform: translate3d(0, 16px, 0); }
+  to { transform: none; }
 }
 
 @utility animate-rise {
-  animation: rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 /* Children of .stagger rise one after another */
 .stagger > * {
-  animation: rise 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.stagger > *:nth-child(2) { animation-delay: 50ms; }
-.stagger > *:nth-child(3) { animation-delay: 100ms; }
-.stagger > *:nth-child(4) { animation-delay: 150ms; }
-.stagger > *:nth-child(5) { animation-delay: 200ms; }
-.stagger > *:nth-child(6) { animation-delay: 250ms; }
-.stagger > *:nth-child(7) { animation-delay: 300ms; }
-.stagger > *:nth-child(n + 8) { animation-delay: 340ms; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n + 7) { animation-delay: 230ms; }
 
 /* ---------- Page transitions (View Transitions API) ---------- */
 :root {
-  --vt-exit: 180ms;
-  --vt-enter: 420ms;
   --vt-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
+::view-transition-old(*),
+::view-transition-new(*) {
+  will-change: transform, opacity;
+}
 
-/* Moving to a tab on the right: old page drifts left and dissolves, new one glides in from the right */
+/* Tab to the right: old page slips left and fades, new page glides in from the right */
 ::view-transition-old(.nav-forward) {
-  --slide-offset: -48px;
-  animation: var(--vt-exit) ease-in both fade-blur reverse, 420ms var(--vt-ease) both slide-x reverse;
+  --slide-offset: -40px;
+  animation: 160ms ease-in both fade-out, 260ms var(--vt-ease) both slide-to;
 }
 ::view-transition-new(.nav-forward) {
-  --slide-offset: 64px;
-  animation: var(--vt-enter) var(--vt-ease) 90ms both fade-blur, 560ms var(--vt-ease) both slide-x;
+  --slide-offset: 48px;
+  animation: 300ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both slide-from;
 }
 ::view-transition-old(.nav-back) {
-  --slide-offset: 48px;
-  animation: var(--vt-exit) ease-in both fade-blur reverse, 420ms var(--vt-ease) both slide-x reverse;
+  --slide-offset: 40px;
+  animation: 160ms ease-in both fade-out, 260ms var(--vt-ease) both slide-to;
 }
 ::view-transition-new(.nav-back) {
-  --slide-offset: -64px;
-  animation: var(--vt-enter) var(--vt-ease) 90ms both fade-blur, 560ms var(--vt-ease) both slide-x;
+  --slide-offset: -48px;
+  animation: 300ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both slide-from;
 }
 
-/* Links inside a page (a post, "view all"): soft rise and dissolve */
+/* Links inside a page (a post, "view all"): a soft rise */
 ::view-transition-old(.page-fade) {
-  animation: var(--vt-exit) ease-in both fade-blur reverse;
+  animation: 150ms ease-in both fade-out;
 }
 ::view-transition-new(.page-fade) {
-  animation: var(--vt-enter) var(--vt-ease) 80ms both fade-blur, 520ms var(--vt-ease) both rise-y;
+  animation: 280ms var(--vt-ease) 40ms both fade-in, 420ms var(--vt-ease) both rise-y;
 }
 
-/* The white tab pill morphs from the old tab to the new one */
+/* The white tab pill morphs from the old tab to the new one with a small overshoot */
 ::view-transition-group(nav-pill) {
-  animation-duration: 520ms;
-  animation-timing-function: cubic-bezier(0.34, 1.3, 0.64, 1);
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.34, 1.25, 0.64, 1);
 }
-::view-transition-image-pair(nav-pill) {
-  animation-name: via-blur;
+::view-transition-old(nav-pill),
+::view-transition-new(nav-pill) {
+  animation-duration: 420ms;
 }
 
 /* The header stays put as an anchor while pages move under it */
