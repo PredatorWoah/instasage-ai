@@ -29,16 +29,19 @@ const MENU_ICONS: Record<string, React.ElementType> = {
 // Phones: one glass pill naming the current page; tapping it drops a frosted panel of every page
 export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // Remember which page the menu was opened on, so moving to another page closes it
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn === pathname;
+  const setOpen = (next: boolean | ((v: boolean) => boolean)) =>
+    setOpenOn((prev) => ((typeof next === 'function' ? next(prev === pathname) : next) ? pathname : null));
   const current = activeTabIndex(pathname);
   const currentLabel =
     current >= 0 ? NAV_TABS[current].label : MENU_LINKS.find((m) => pathname.startsWith(m.href))?.label ?? 'Menu';
 
-  // Close when the page changes or Escape is pressed
-  useEffect(() => setOpen(false), [pathname]);
+  // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpenOn(null);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);

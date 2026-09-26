@@ -18,8 +18,8 @@ export async function GET() {
       omit: { accessToken: true },
     });
     return NextResponse.json(accounts);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -45,8 +45,8 @@ export async function POST(req: Request) {
     }
     const profile = await connectYouTubeProfile(session.user.id, channel);
     return NextResponse.json(profile);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }
 

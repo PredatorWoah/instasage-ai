@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { cn } from '@/lib/utils';
+import { formatLabel } from '@/lib/platform';
 import { formatNumber, formatRelativeTime, getPerformanceColor, getPerformanceLabel, getPlatformColor, getPlatformLabel } from '@/utils/formatters';
 import type { PostAnalysis } from '@/services/ai';
 
@@ -97,16 +98,17 @@ export function PostAnalyzer({ id }: { id: string }) {
   }
 
   const { post, benchmarks: b } = data;
+  const yt = post.platform === 'youtube';
   return (
     <div className="space-y-6 max-w-5xl">
       <Link href="/content" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
         <ArrowLeft className="w-3.5 h-3.5" /> Content Library
       </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6">
+      <div className={cn('grid grid-cols-1 gap-6', yt ? 'md:grid-cols-[360px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
         <div className="space-y-3">
-          <div className="relative aspect-[4/5] rounded-xl overflow-hidden border border-border bg-secondary">
-            {post.thumbnail && <Image src={post.thumbnail} alt="" fill className="object-cover" sizes="280px" unoptimized />}
+          <div className={cn('relative rounded-xl overflow-hidden border border-border bg-secondary', yt && post.type !== 'short' ? 'aspect-video' : yt ? 'aspect-[9/16] max-w-[240px]' : 'aspect-[4/5]')}>
+            {post.thumbnail && <Image src={post.thumbnail} alt="" fill className="object-cover" sizes="360px" unoptimized />}
           </div>
           {post.permalink && (
             <a href={post.permalink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline">
@@ -118,7 +120,7 @@ export function PostAnalyzer({ id }: { id: string }) {
         <div className="space-y-4 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className={cn('text-[10px] border', getPlatformColor(post.platform))}>{getPlatformLabel(post.platform)}</Badge>
-            <Badge variant="outline" className="text-[10px] capitalize">{post.type}</Badge>
+            <Badge variant="outline" className="text-[10px]">{formatLabel(post.type)}</Badge>
             {post.isBoosted && <Badge className="text-[10px] border bg-amber-500/10 text-amber-400 border-amber-500/20">Boosted</Badge>}
             <span className="text-xs text-muted-foreground">
               @{post.username} · {new Date(post.publishedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })} · {formatRelativeTime(post.publishedAt)}
@@ -129,19 +131,19 @@ export function PostAnalyzer({ id }: { id: string }) {
               This post was promoted. Instagram&apos;s API only reports its organic results, so views and likes here can be lower than in the Instagram app, which adds the paid ones.
             </p>
           )}
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.caption || <span className="text-muted-foreground">No caption</span>}</p>
+          <p className={cn('leading-relaxed whitespace-pre-wrap', yt ? 'text-lg font-bold' : 'text-sm')}>{post.caption || <span className="text-muted-foreground">{yt ? 'Untitled video' : 'No caption'}</span>}</p>
           <div className="flex items-center gap-2">
             <span className={cn('text-sm font-bold', getPerformanceColor(post.performanceScore))}>{post.performanceScore.toFixed(1)}% engagement</span>
             <span className={cn('text-xs', getPerformanceColor(post.performanceScore))}>{getPerformanceLabel(post.performanceScore)}</span>
-            {b.rank > 0 && <span className="text-xs text-muted-foreground">· #{b.rank} of {b.posts} posts</span>}
+            {b.rank > 0 && <span className="text-xs text-muted-foreground">· #{b.rank} of {b.posts} {yt ? 'videos' : 'posts'}</span>}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <StatTile label="Views" value={post.views} average={b.views} />
             {post.reach != null && <StatTile label="Reach" value={post.reach} average={b.reach} />}
             <StatTile label="Likes" value={post.likes} average={b.likes} />
             <StatTile label="Comments" value={post.comments} average={b.comments} />
-            <StatTile label="Saves" value={post.saves} average={b.saves} />
-            <StatTile label="Shares" value={post.shares} average={b.shares} />
+            {!yt && <StatTile label="Saves" value={post.saves} average={b.saves} />}
+            {!yt && <StatTile label="Shares" value={post.shares} average={b.shares} />}
             <StatTile label="Engagement" value={post.performanceScore} average={b.engagement} percent />
           </div>
         </div>

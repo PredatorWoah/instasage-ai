@@ -9,6 +9,7 @@ import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { Markdown } from './Markdown';
 import { saveIdea } from './saveIdea';
 import { cn } from '@/lib/utils';
+import { usePlatform } from '@/lib/usePlatform';
 import { formatRelativeTime } from '@/utils/formatters';
 
 type Thread = { id: string; title: string; updatedAt: string; messages: number };
@@ -25,6 +26,15 @@ const STARTERS = [
   { title: 'One bold experiment', prompt: 'What is one bold experiment I should try this month that could break my usual numbers? Make the case with my data.' },
 ];
 
+const STARTERS_YT = [
+  { title: 'Next 3 videos', prompt: 'What should my next 3 videos be? Give each a title, a thumbnail concept and the first 10 seconds, based on what already works on my channel.' },
+  { title: 'Fix my titles', prompt: 'Rate my last 5 video titles honestly, then rewrite the weakest one five different ways.' },
+  { title: 'Shorts vs long form', prompt: 'Should I make more Shorts or more long videos? Make the case from my numbers and suggest a weekly mix.' },
+  { title: 'Turn a hit into a series', prompt: 'Take my best performing video and turn it into a series. Give each episode a title and thumbnail idea.' },
+  { title: 'Why did these flop?', prompt: 'Look at my weakest videos. Why did they underperform, and what title or format change would have saved each one?' },
+  { title: 'Shorts that feed long form', prompt: 'Give me 5 Shorts ideas that pull viewers into my long videos, with the hook line for each.' },
+];
+
 // Title for a board card: the first heading or line of the reply
 const ideaTitle = (text: string) =>
   (text.split('\n').map((l) => l.replace(/^[#>*\-\d.)\s]+/, '').replace(/\*\*/g, '').trim()).find((l) => l.length > 3) ?? 'Brainstorm idea').slice(0, 120);
@@ -32,6 +42,8 @@ const ideaTitle = (text: string) =>
 export function Brainstorm() {
   const { data: threadsData, refresh } = useCachedJson<Thread[]>(THREADS_URL);
   const threads = threadsData ?? [];
+  const { t } = usePlatform();
+  const starters = t.yt ? STARTERS_YT : STARTERS;
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingThread, setLoadingThread] = useState(false);
@@ -168,7 +180,7 @@ export function Brainstorm() {
                 </p>
               </div>
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-2 w-full max-w-3xl pt-2 stagger">
-                {STARTERS.map((s) => (
+                {starters.map((s) => (
                   <button
                     key={s.title}
                     onClick={() => send(s.prompt)}

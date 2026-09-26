@@ -4,7 +4,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 // Single-owner app: one password from the environment, one user row
-export const OWNER_ID = "owner";
+const OWNER_ID = "owner";
 
 function passwordMatches(input: string) {
   const expected = process.env.APP_PASSWORD?.trim();

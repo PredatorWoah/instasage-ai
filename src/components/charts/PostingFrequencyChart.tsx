@@ -9,9 +9,10 @@ import type { TimeSeriesPoint } from '@/types';
 
 type PostingFrequencyChartProps = {
   data: TimeSeriesPoint[];
+  label?: string;
 };
 
-export function PostingFrequencyChart({ data }: PostingFrequencyChartProps) {
+export function PostingFrequencyChart({ data, label = 'Posts' }: PostingFrequencyChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }} barSize={6}>
@@ -34,7 +35,7 @@ export function PostingFrequencyChart({ data }: PostingFrequencyChartProps) {
         <Tooltip
           contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
-          formatter={(v: any) => [v, 'Posts']}
+          formatter={(v) => [v, label]}
         />
         <Bar dataKey="posts" fill="#4ADE9E" radius={[3, 3, 0, 0]} opacity={0.85} />
       </BarChart>

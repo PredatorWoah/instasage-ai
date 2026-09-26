@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { AiError, generate, getAiConfig, parseJson, type ChatTurn } from '@/services/llm';
 import { analysisToPrompt, buildAnalysis, localTime } from '@/services/analysis';
+import { competitorsToPrompt } from '@/services/competitors';
 
 export { AiError, type ChatTurn };
 
@@ -8,12 +9,18 @@ type Scope = { key: string; profileIds: string[] };
 
 const ANALYST = `You are a sharp, honest social media strategist for a solo creator. Base every point on the numbers given, cite them, and never invent metrics that are not in the data. When a sample is small (under 3 posts), say so instead of overclaiming. Engagement rate is (likes + comments + saves + shares) / reach for Instagram and (likes + comments) / views for YouTube. Saves and shares signal content people value; comments signal conversation.`;
 
-async function context(profileIds: string[], timeZone: string) {
-  const analysis = await buildAnalysis(profileIds, timeZone);
+// Your bio and numbers, plus tracked competitors for the strategy features
+async function context(userId: string, profileIds: string[], timeZone: string, withRivals = false) {
+  const [analysis, rivals, user] = await Promise.all([
+    buildAnalysis(profileIds, timeZone),
+    withRivals ? competitorsToPrompt(userId) : Promise.resolve(''),
+    prisma.user.findUnique({ where: { id: userId }, select: { bio: true } }),
+  ]);
   if (analysis.totals.posts === 0) {
     throw new AiError('no_data', 'Connect an account and press Sync first, so there are posts to analyze.');
   }
-  return analysisToPrompt(analysis);
+  const about = user?.bio?.trim() ? `About the creator, in their own words: ${user.bio.trim().slice(0, 600)}\n` : '';
+  return about + analysisToPrompt(analysis) + rivals;
 }
 
 // JSON answers come back as an object; lists sit under "items"
@@ -66,7 +73,7 @@ export type AiRecommendation = {
 
 export async function generateInsights(userId: string, scope: Scope) {
   const config = await getAiConfig(userId);
-  const data = await context(scope.profileIds, config.timeZone);
+  const data = await context(userId, scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
     `${data}\n\nFind the 5 most useful insights in these numbers: what is working, what is not, and why. Prefer the biggest differences between groups (format, weekday, time of day, caption style, hashtags, calls to action) and any momentum change. Every insight must quote the numbers behind it.\nReturn a JSON object: {"items": [{"title": max 8 words, "description": 2 or 3 sentences with specific numbers, "impact": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth"}]}`,
@@ -77,7 +84,7 @@ export async function generateInsights(userId: string, scope: Scope) {
 
 export async function generateRecommendations(userId: string, scope: Scope) {
   const config = await getAiConfig(userId);
-  const data = await context(scope.profileIds, config.timeZone);
+  const data = await context(userId, scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
     `${data}\n\nGive 6 quick wins: specific actions this creator can take this week, each following from a pattern in the numbers above.\nReturn a JSON object: {"items": [{"title": an action, max 8 words, "description": 2 or 3 sentences (what to do and which number justifies it), "priority": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth", "impact": short expected result, "effort": "low" | "medium" | "high", "estimatedGrowth": short, e.g. "+10% reach"}]}`,
@@ -108,7 +115,7 @@ export async function getCachedPlan(userId: string, scopeKey: string) {
 
 export async function generateGamePlan(userId: string, scope: Scope) {
   const config = await getAiConfig(userId);
-  const data = await context(scope.profileIds, config.timeZone);
+  const data = await context(userId, scope.profileIds, config.timeZone, true);
   const { text, model } = await generate(
     config,
     `${data}
@@ -133,13 +140,49 @@ Return a JSON object with exactly these keys:
   return { plan, model, createdAt: row.createdAt };
 }
 
+// ---------- Competitor takeaways ----------
+
+export type CompetitorTakeaways = {
+  summary: string;
+  theyDoBetter: { title: string; detail: string }[];
+  youDoBetter: { title: string; detail: string }[];
+  steal: { idea: string; from: string; how: string }[];
+  avoid: string[];
+};
+
+export async function getCachedTakeaways(userId: string) {
+  const row = await read(userId, 'competitors');
+  return row ? { takeaways: row.content as CompetitorTakeaways, model: row.model, createdAt: row.createdAt } : null;
+}
+
+export async function generateCompetitorTakeaways(userId: string, scope: Scope) {
+  const config = await getAiConfig(userId);
+  const rivals = await competitorsToPrompt(userId);
+  if (!rivals) throw new AiError('no_data', 'Add at least one competitor first.');
+  const data = await context(userId, scope.profileIds, config.timeZone).catch((error) => {
+    if (error instanceof AiError && error.code === 'no_data') return 'The creator has no synced posts yet.';
+    throw error;
+  });
+  const { text, model } = await generate(
+    config,
+    `${data}${rivals}
+
+Compare the creator with these competitors. Compare like with like: for competitors only likes and comments per follower are known, so judge the creator on the same basis (their likes and comments vs followers), not on reach based engagement. Be specific and cite numbers.
+Return a JSON object: {"summary": 2 or 3 sentences on where the creator stands, "theyDoBetter": 2 to 4 [{"title", "detail"}], "youDoBetter": 2 to 3 [{"title", "detail"}], "steal": 3 to 5 concrete ideas worth adapting [{"idea", "from": "@username", "how": how to make it the creator's own}], "avoid": 2 or 3 things competitors do that the creator should not copy}`,
+    { json: true, system: ANALYST },
+  );
+  const takeaways = parseJson<CompetitorTakeaways>(text);
+  const row = await write(userId, 'competitors', takeaways, model);
+  return { takeaways, model, createdAt: row.createdAt };
+}
+
 // ---------- Chat widget ----------
 
 export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string) {
   const config = await getAiConfig(userId);
   let data: string;
   try {
-    data = await context(scope.profileIds, config.timeZone);
+    data = await context(userId, scope.profileIds, config.timeZone);
   } catch (error) {
     if (error instanceof AiError && error.code === 'no_data') data = 'No posts have been synced yet.';
     else throw error;
@@ -156,7 +199,7 @@ export async function chatWithAssistant(userId: string, scope: Scope, history: C
 export async function brainstormReply(userId: string, scope: Scope, history: ChatTurn[], message: string) {
   const config = await getAiConfig(userId);
   const [data, plan, saved] = await Promise.all([
-    context(scope.profileIds, config.timeZone).catch((error) => {
+    context(userId, scope.profileIds, config.timeZone, true).catch((error) => {
       if (error instanceof AiError && error.code === 'no_data') return 'No posts have been synced yet, so ideas cannot lean on past results.';
       throw error;
     }),

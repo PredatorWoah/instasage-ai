@@ -86,7 +86,7 @@ function groupBy(posts: PostRow[], key: (p: PostRow) => string | null, baseline:
 const HASHTAG = /#[\p{L}\p{N}_]+/gu;
 const CTA = /\b(comment|save|share|follow|tag|link in bio|dm|subscribe|let me know|tell me)\b/i;
 
-export function captionLength(caption: string) {
+function captionLength(caption: string) {
   const n = caption.replace(HASHTAG, '').trim().length;
   return n < 60 ? 'Short (under 60 chars)' : n < 250 ? 'Medium (60-250 chars)' : 'Long (250+ chars)';
 }
@@ -233,31 +233,41 @@ export async function buildAnalysis(profileIds: string[], timeZone: string) {
 
 // ---------- The same numbers as compact text for a prompt ----------
 
-const fmtGroup = (g: GroupStat) =>
-  `${g.label}: ${g.posts} posts, avg ${g.avgViews} views (${g.viewsLift >= 0 ? '+' : ''}${g.viewsLift}% vs avg), ${g.avgEngagement}% engagement, ${g.avgSaves} saves, ${g.avgShares} shares, ${g.avgComments} comments`;
-
-const fmtPost = (p: ReturnType<typeof postSummary>) =>
-  `[${p.type}, ${p.postedLocal}] ${p.views} views, ${p.likes} likes, ${p.comments} comments, ${p.saves} saves, ${p.shares} shares, ${p.engagement}% eng${p.isBoosted ? ', BOOSTED (organic numbers only)' : ''} | "${p.caption}"`;
+const PLATFORM_NOTES = {
+  youtube: 'Platform: YouTube. Each item\'s text is the video TITLE (not a caption). Formats are "short" (YouTube Shorts) and "video" (long-form). YouTube does not report saves, shares or reach, so never mention them. Engagement = (likes + comments) / views. Talk about subscribers, titles, thumbnails, the first seconds of the video, Shorts vs long-form, and upload schedule.',
+  mixed: 'Accounts span Instagram and YouTube. Keep advice for each platform separate: Instagram formats are reel, carousel and post; YouTube formats are short and video, and YouTube has no saves, shares or reach.',
+  instagram: 'Platform: Instagram. Formats are reel, carousel, post (single photo) and video.',
+};
 
 export function analysisToPrompt(a: Analysis) {
+  const platforms = new Set(a.accounts.map((x) => x.platform));
+  const yt = platforms.size === 1 && platforms.has('youtube');
+  const note = platforms.size > 1 ? PLATFORM_NOTES.mixed : yt ? PLATFORM_NOTES.youtube : PLATFORM_NOTES.instagram;
+  const unit = yt ? 'videos' : 'posts';
+  const fmtGroup = (g: GroupStat) =>
+    `${g.label}: ${g.posts} ${unit}, avg ${g.avgViews} views (${g.viewsLift >= 0 ? '+' : ''}${g.viewsLift}% vs avg), ${g.avgEngagement}% engagement, ${yt ? '' : `${g.avgSaves} saves, ${g.avgShares} shares, `}${g.avgComments} comments`;
+  const fmtPost = (p: ReturnType<typeof postSummary>) =>
+    `[${p.type}, ${p.postedLocal}] ${p.views} views, ${p.likes} likes, ${p.comments} comments, ${yt ? '' : `${p.saves} saves, ${p.shares} shares, `}${p.engagement}% eng${p.isBoosted ? ', BOOSTED (organic numbers only)' : ''} | ${yt ? 'title ' : ''}"${p.caption}"`;
+
   const section = (title: string, rows: string[]) => (rows.length ? `\n## ${title}\n${rows.join('\n')}` : '');
   const t = a.totals;
   return [
     `Creator's timezone: ${a.timeZone}. Every time below is already local. Talk about times in 12-hour format like "7 PM" and never mention UTC.`,
-    section('Accounts', a.accounts.map((x) => `${x.platform} @${x.username}: ${x.followers} followers`)),
+    note,
+    section('Accounts', a.accounts.map((x) => `${x.platform} @${x.username}: ${x.followers} ${x.platform === 'youtube' ? 'subscribers' : 'followers'}`)),
     section('Overall (organic posts)', [
       `${t.organicPosts} organic posts analyzed${t.boostedPosts ? ` (${t.boostedPosts} boosted posts left out of the patterns: their stats are organic only)` : ''}`,
-      `Average views ${t.avgViews}, median ${t.medianViews}. Average engagement ${t.avgEngagement}%. Avg saves ${t.avgSaves}, avg shares ${t.avgShares}.`,
-      a.followers.change30 != null ? `Followers: ${a.followers.now} now, ${a.followers.change30 >= 0 ? '+' : ''}${a.followers.change30} over the last 30 days.` : `Followers: ${a.followers.now}.`,
+      `Average views ${t.avgViews}, median ${t.medianViews}. Average engagement ${t.avgEngagement}%.${yt ? '' : ` Avg saves ${t.avgSaves}, avg shares ${t.avgShares}.`}`,
+      a.followers.change30 != null ? `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now} now, ${a.followers.change30 >= 0 ? '+' : ''}${a.followers.change30} over the last 30 days.` : `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now}.`,
       a.followers.reach30 ? `Accounts reached, last 30 days (sum of daily reach): ${a.followers.reach30}.` : '',
     ].filter(Boolean)),
     section('By format', a.byFormat.map(fmtGroup)),
     section('By weekday posted', a.byWeekday.map(fmtGroup)),
     section('By time of day posted', a.bySlot.map(fmtGroup)),
     section('Best specific hours (2+ posts)', a.byHour.map(fmtGroup)),
-    section('Caption length', a.byCaption.map(fmtGroup)),
+    section(yt ? 'Title length' : 'Caption length', a.byCaption.map(fmtGroup)),
     section('Hashtag count', a.byHashtags.map(fmtGroup)),
-    section('Caption hook', a.byHook.map(fmtGroup)),
+    section(yt ? 'Title style' : 'Caption hook', a.byHook.map(fmtGroup)),
     section('Call to action', a.byCta.map(fmtGroup)),
     section('Hashtags used 2+ times, best first', a.hashtags.map(fmtGroup)),
     section('Momentum', a.momentum ? [
@@ -270,8 +280,8 @@ export function analysisToPrompt(a: Analysis) {
     section('Audience', a.audience ? [
       `Top ages ${a.audience.age.join(', ')}; gender split order ${a.audience.gender.join(', ')} (F women, M men, U unspecified); top countries ${a.audience.countries.join(', ')}; top cities ${a.audience.cities.join(', ')}`,
     ] : []),
-    section('Top 5 posts by views', a.top.map(fmtPost)),
-    section('Weakest 5 posts by views', a.bottom.map(fmtPost)),
-    section('15 most recent posts, newest first', a.recent.map(fmtPost)),
+    section(`Top 5 ${unit} by views`, a.top.map(fmtPost)),
+    section(`Weakest 5 ${unit} by views`, a.bottom.map(fmtPost)),
+    section(`15 most recent ${unit}, newest first`, a.recent.map(fmtPost)),
   ].join('\n');
 }

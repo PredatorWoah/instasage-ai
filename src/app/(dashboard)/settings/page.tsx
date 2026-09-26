@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
@@ -7,7 +6,7 @@ import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
 import { AiSettings } from '@/components/settings/AiSettings';
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
 
-export const metadata = { title: 'Settings — InstaSage AI' };
+export const metadata = { title: 'Settings · InstaSage' };
 
 export default function SettingsPage() {
   return (
@@ -61,27 +60,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notifications */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5 space-y-4">
-          {[
-            { label: 'Weekly Performance Report', description: 'Get a weekly email summary of your stats', defaultChecked: true },
-            { label: 'New AI Insights', description: 'Be notified when new insights are detected', defaultChecked: true },
-            { label: 'Posting Reminders', description: 'Reminders when your optimal posting window opens', defaultChecked: false },
-          ].map((n, i) => (
-            <div key={i} className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">{n.label}</p>
-                <p className="text-xs text-muted-foreground">{n.description}</p>
-              </div>
-              <Switch defaultChecked={n.defaultChecked} />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
 
       <Separator className="border-border" />
 

@@ -47,7 +47,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
         <Tooltip
           contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
-          formatter={(v: any) => [`${v}%`, 'Engagement Rate']}
+          formatter={(v) => [`${v}%`, 'Engagement Rate']}
         />
         <Line
           type="monotone"

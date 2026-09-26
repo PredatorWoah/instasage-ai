@@ -6,6 +6,7 @@ import { ArrowRight, Sparkles } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { getAccountScope } from '@/lib/scope';
 import { getTimeZone } from '@/lib/api';
+import { terms } from '@/lib/platform';
 import { getDashboardData } from '@/services/dashboard';
 import { getCachedResult, type AiRecommendation, type Insight } from '@/services/ai';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -34,16 +35,17 @@ export default async function DashboardPage() {
   const recentViews = timeSeries.slice(-14);
   const maxViews = Math.max(1, ...recentViews.map((p) => p.views ?? 0));
   const hasData = data.profiles.length > 0;
+  const t = terms(scope.mode);
   const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
   // The banner tells the month's story: the latest AI insight, or a line built from the numbers
   const story =
     insights?.items[0]?.title ??
     (kpis.followersChange > 0
-      ? `You gained ${formatNumber(kpis.followersChange)} followers this month.`
+      ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} this month.`
       : hasData
-        ? `${formatNumber(kpis.views)} views across your posts so far.`
-        : 'Connect Instagram to start your story.');
+        ? `${formatNumber(kpis.views)} views across your ${t.posts} so far.`
+        : 'Connect Instagram or YouTube to start your story.');
   const idea = ideas?.items[0];
 
   return (
@@ -64,11 +66,11 @@ export default async function DashboardPage() {
         </div>
         <div className="relative flex flex-row lg:flex-col gap-2.5 justify-end lg:w-[280px]">
           <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
-            <span className="text-sm font-medium">New followers</span>
+            <span className="text-sm font-medium">New {t.followersLower}</span>
             <span className="font-display font-extrabold text-[26px]">{kpis.followersChange >= 0 ? '+' : '−'}{formatNumber(Math.abs(kpis.followersChange))}</span>
           </div>
           <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
-            <span className="text-sm font-medium">Posts published</span>
+            <span className="text-sm font-medium">{t.Posts} published</span>
             <span className="font-display font-extrabold text-[26px]">{postsThisMonth}</span>
           </div>
         </div>
@@ -77,12 +79,14 @@ export default async function DashboardPage() {
       {/* Stat tiles */}
       <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="prism-sunset rounded-[30px] p-5 flex flex-col justify-between min-h-[190px]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-white/25 text-[13px] font-bold">Followers</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-white/25 text-[13px] font-bold">{t.followers}</span>
           <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
         </div>
         <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-white/30 text-[13px] font-bold">Reach · 30 days</span>
-          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{reachDays.length ? formatNumber(reach30) : '—'}</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-white/30 text-[13px] font-bold">{t.yt ? 'Channel views · 30 days' : 'Reach · 30 days'}</span>
+          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
+            {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : reachDays.length ? formatNumber(reach30) : '—'}
+          </span>
         </div>
         <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
           <span className="self-start px-3 py-1.5 rounded-full bg-white/35 text-[13px] font-bold">Engagement</span>
@@ -96,7 +100,7 @@ export default async function DashboardPage() {
             <span className="px-3 py-1.5 rounded-full bg-white/[0.07] text-[13px] font-bold text-muted-foreground">Views</span>
             <span className="font-display font-extrabold text-[22px]">{formatNumber(kpis.views)}</span>
           </div>
-          <div className="flex items-end gap-1.5 h-[88px]" aria-label="Views on posts from the last 14 days">
+          <div className="flex items-end gap-1.5 h-[88px]" aria-label={`Views on ${t.posts} from the last 14 days`}>
             {recentViews.map((p) => {
               const v = p.views ?? 0;
               const tall = v >= maxViews * 0.75;
@@ -121,19 +125,19 @@ export default async function DashboardPage() {
       <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Top posts</h2>
+            <h2 className="text-xl font-bold">Top {t.posts}</h2>
             <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-[#FFE08A] hover:text-[#FFF0C2]">All content →</Link>
           </div>
           {data.topPosts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8">No posts yet. Connect an account and press Sync on the Accounts page.</p>
+            <p className="text-sm text-muted-foreground py-8">Nothing synced yet. Connect an account and press Sync on the Accounts page.</p>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            <div className={t.yt ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' : 'grid grid-cols-3 sm:grid-cols-5 gap-3'}>
               {data.topPosts.map((post, i) => (
                 <Link
                   key={post.id}
                   href={`/content/${encodeURIComponent(post.id)}`}
                   transitionTypes={['page-fade']}
-                  className="group relative aspect-[4/5] rounded-[20px] overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]"
+                  className={`group relative ${post.platform === 'youtube' ? 'aspect-video' : 'aspect-[4/5]'} rounded-[20px] overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]`}
                 >
                   {post.thumbnail && (
                     <Image src={post.thumbnail} alt={post.caption.slice(0, 80)} fill unoptimized sizes="200px" className="object-cover transition-transform duration-500 group-hover:scale-[1.06]" />
@@ -169,11 +173,11 @@ export default async function DashboardPage() {
       {/* Trends */}
       <section className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
-          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Followers</h2><span className="text-xs text-muted-foreground">30 days</span></div>
-          <FollowersChart data={timeSeries} />
+          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">{t.followers}</h2><span className="text-xs text-muted-foreground">30 days</span></div>
+          <FollowersChart data={timeSeries} label={t.followers} />
         </div>
         <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
-          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Engagement</h2><span className="text-xs text-muted-foreground">Posts per day vs your average</span></div>
+          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Engagement</h2><span className="text-xs text-muted-foreground">{t.Posts} per day vs your average</span></div>
           <EngagementChart data={timeSeries} />
         </div>
       </section>

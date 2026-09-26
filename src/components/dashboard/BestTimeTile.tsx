@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
+import { usePlatform } from '@/lib/usePlatform';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -9,6 +10,7 @@ type Slot = { day: string; hour: string; engagement: number; posts: number };
 
 // Nebula-style glowing tile: the weekday + hour your posts do best, in the viewer's own timezone
 export function BestTimeTile() {
+  const { t } = usePlatform();
   const { data: posts } = useCachedJson<{ publishedAt: string; performanceScore: number }[]>('/api/posts');
 
   const slot = useMemo<Slot | null | undefined>(() => {
@@ -45,11 +47,11 @@ export function BestTimeTile() {
             {slot.day}<br />{slot.hour}
           </div>
           <p className="text-[12px] text-muted-foreground mt-2">
-            {slot.engagement.toFixed(1)}% avg engagement · {slot.posts} post{slot.posts === 1 ? '' : 's'}
+            {slot.engagement.toFixed(1)}% avg engagement · {slot.posts} {slot.posts === 1 ? t.post : t.posts}
           </p>
         </div>
       ) : (
-        <p className="relative text-sm text-muted-foreground">Sync a few posts to find your best slot.</p>
+        <p className="relative text-sm text-muted-foreground">Sync a few {t.posts} to find your best slot.</p>
       )}
     </div>
   );

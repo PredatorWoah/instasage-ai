@@ -3,10 +3,10 @@
 import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, PlaySquare, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
-import { clearJsonCache } from '@/lib/useCachedJson';
+import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,30 +31,29 @@ const InstagramIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+type Account = {
+  id: string;
+  platform: string;
+  username: string;
+  displayName: string;
+  profilePictureUrl: string;
+  followerCount: number;
+  isConnected: boolean;
+  lastSyncedAt: string | null;
+};
+
 function AccountsContent() {
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data, refresh } = useCachedJson<Account[]>('/api/accounts');
+  const accounts = data ?? [];
+  const isLoading = data === undefined;
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  // Synced or changed accounts make every cached page stale
   const fetchAccounts = async () => {
-    // Synced or changed accounts make every cached page stale
     clearJsonCache();
-    setIsLoading(true);
-    try {
-      const res = await fetch('/api/accounts');
-      if (res.ok) {
-        const data = await res.json();
-        setAccounts(data);
-        return data as { id: string; username: string }[];
-      }
-    } catch {
-      toast.error('Failed to load accounts');
-    } finally {
-      setIsLoading(false);
-    }
-    return [];
+    await refresh();
   };
 
   const syncProfile = async (accId: string, quiet = false) => {
@@ -96,16 +95,20 @@ function AccountsContent() {
   useEffect(() => {
     const error = searchParams.get('error');
     const connected = searchParams.get('connected');
-    fetchAccounts().then((list) => {
+    if (connected) {
       // Fresh from Instagram login: pull in posts straight away
-      const added = connected && list.find((a) => a.username === connected);
-      if (added) {
-        toast.success(`Connected @${connected}`, { description: 'Syncing posts and insights now...' });
-        syncProfile(added.id).then(() => fetchAccounts());
-      }
-    });
-    if (error) toast.error('Instagram connection failed', { description: error });
+      fetch('/api/accounts')
+        .then((res) => (res.ok ? res.json() : []))
+        .then((list: Account[]) => {
+          const added = list.find((a) => a.username === connected);
+          if (!added) return;
+          toast.success(`Connected @${connected}`, { description: 'Syncing posts and insights now...' });
+          syncProfile(added.id).then(() => fetchAccounts());
+        });
+    }
+    if (error) toast.error('Connection failed', { description: error });
     if (error || connected) router.replace('/accounts');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, router]);
 
   return (
@@ -131,7 +134,7 @@ function AccountsContent() {
            <div className="h-48 bg-secondary/10 border border-border/50 rounded-xl animate-pulse" />
         ) : accounts.length === 0 ? (
           <div className="col-span-full max-w-xl p-5 border border-dashed rounded-xl border-border space-y-3">
-             <p className="text-muted-foreground text-sm">No accounts connected yet. Connect your Instagram to start.</p>
+             <p className="text-muted-foreground text-sm">No accounts connected yet. Connect Instagram, add a YouTube channel, or both.</p>
              <ConnectedAccounts onChange={fetchAccounts} />
           </div>
         ) : accounts.map((acc) => (
@@ -153,6 +156,7 @@ function AccountsContent() {
                     {acc.displayName}
                   </h3>
                   {acc.platform === 'instagram' && <InstagramIcon className="w-3.5 h-3.5 text-pink-400 shrink-0" />}
+                  {acc.platform === 'youtube' && <PlaySquare className="w-3.5 h-3.5 text-red-400 shrink-0" />}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 truncate">@{acc.username}</p>
               </div>
@@ -161,7 +165,7 @@ function AccountsContent() {
             <CardContent className="px-5 pb-5 pt-0 space-y-4">
               <div className="flex items-center justify-between text-xs py-2 border-t border-b border-border/40">
                 <div>
-                  <p className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">Followers</p>
+                  <p className="text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">{acc.platform === 'youtube' ? 'Subscribers' : 'Followers'}</p>
                   <p className="text-foreground font-bold mt-0.5">{formatNumber(acc.followerCount)}</p>
                 </div>
                 <div className="text-right">

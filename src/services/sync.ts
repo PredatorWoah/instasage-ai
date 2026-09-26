@@ -1,4 +1,4 @@
-import { getYouTubeChannelInfo, getYouTubeVideos } from './youtube';
+import { bestThumb, getChannel, getRecentVideos, youtubeKey } from './youtube';
 import {
   getInstagramProfile,
   getInstagramMedia,
@@ -10,6 +10,7 @@ import {
   type InstagramMedia,
 } from './instagram';
 import { prisma } from '@/lib/prisma';
+import type { SocialProfile } from '@prisma/client';
 
 export async function syncSocialProfile(profileId: string) {
   const profile = await prisma.socialProfile.findUnique({ where: { id: profileId } });
@@ -17,112 +18,84 @@ export async function syncSocialProfile(profileId: string) {
   if (profile.platform === 'youtube' && !profile.externalId) throw new Error('YouTube channel ID missing. Reconnect the channel.');
   if (profile.platform === 'instagram' && !profile.accessToken) throw new Error('Instagram access token missing');
 
-  const syncJob = await prisma.syncJob.create({
-    data: {
-      socialProfileId: profile.id,
-      platform: profile.platform,
-      status: 'running',
-    },
-  });
+  const syncJob = await prisma.syncJob.create({ data: { socialProfileId: profile.id, platform: profile.platform, status: 'running' } });
 
   try {
-    if (profile.platform === 'youtube') {
-      await syncYouTubeProfile(profile);
-    } else if (profile.platform === 'instagram') {
-      await syncInstagramProfile(profile);
-    }
+    if (profile.platform === 'youtube') await syncYouTubeProfile(profile);
+    else if (profile.platform === 'instagram') await syncInstagramProfile(profile);
 
-    await prisma.syncJob.update({
-      where: { id: syncJob.id },
-      data: { status: 'completed', completedAt: new Date() },
-    });
-
-    await prisma.socialProfile.update({
-      where: { id: profile.id },
-      data: { lastSyncedAt: new Date(), isConnected: true },
-    });
-
-  } catch (error: any) {
-    await prisma.syncJob.update({
-      where: { id: syncJob.id },
-      data: { status: 'failed', completedAt: new Date(), errorMessage: error.message },
-    });
-
-    if (error.message.includes('token') || error.message.includes('auth')) {
-      await prisma.socialProfile.update({
-        where: { id: profile.id },
-        data: { isConnected: false },
-      });
+    await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'completed', completedAt: new Date() } });
+    await prisma.socialProfile.update({ where: { id: profile.id }, data: { lastSyncedAt: new Date(), isConnected: true } });
+  } catch (error) {
+    const message = (error as Error).message;
+    await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'failed', completedAt: new Date(), errorMessage: message } });
+    if (/token|auth/i.test(message)) {
+      await prisma.socialProfile.update({ where: { id: profile.id }, data: { isConnected: false } });
     }
     throw error;
   }
 }
 
-async function syncYouTubeProfile(profile: any) {
-  const channel = await getYouTubeChannelInfo(profile.externalId);
-  if (!channel) throw new Error('Could not fetch YouTube channel');
+async function syncYouTubeProfile(profile: SocialProfile) {
+  const key = await youtubeKey(profile.userId);
+  const channel = await getChannel(key, profile.externalId!);
+  if (!channel) throw new Error('Could not find this YouTube channel any more. Was it deleted or renamed?');
 
   const stats = channel.statistics;
   const followerCount = parseInt(stats?.subscriberCount || '0', 10);
-  const viewsCount = parseInt(stats?.viewCount || '0', 10);
-  const videoCount = parseInt(stats?.videoCount || '0', 10);
-
   await prisma.socialProfile.update({
     where: { id: profile.id },
     data: {
       followerCount,
       displayName: channel.snippet?.title || profile.displayName,
-      profilePictureUrl: channel.snippet?.thumbnails?.default?.url || profile.profilePictureUrl
+      username: channel.snippet?.customUrl?.replace(/^@/, '') || profile.username,
+      profilePictureUrl: bestThumb(channel.snippet?.thumbnails) || profile.profilePictureUrl,
     },
   });
 
-  const metricId = `${profile.id}:${new Date().toISOString().slice(0, 10)}`;
-  const snapshot = { followers: followerCount, views: viewsCount, postsCount: videoCount };
+  // Daily snapshot: subscribers and lifetime channel views (the day to day difference is views gained)
+  const metricId = `${profile.id}:${dayKey(new Date())}`;
+  const snapshot = {
+    followers: followerCount,
+    views: parseInt(stats?.viewCount || '0', 10),
+    postsCount: parseInt(stats?.videoCount || '0', 10),
+  };
   await prisma.metric.upsert({
     where: { id: metricId },
     update: snapshot,
     create: { ...snapshot, id: metricId, socialProfileId: profile.id, date: new Date() },
   });
 
-  const videos = await getYouTubeVideos(profile.externalId);
-  if (videos && videos.length > 0) {
-    for (const video of videos) {
-      if (!video.id) continue;
-      const vStats = video.statistics;
-
-      const views = parseInt(vStats?.viewCount || '0', 10);
-      const likes = parseInt(vStats?.likeCount || '0', 10);
-      const comments = parseInt(vStats?.commentCount || '0', 10);
-      const engagement = (views > 0) ? ((likes + comments) / views) * 100 : 0;
-
-      await prisma.post.upsert({
-        where: { id: video.id },
-        update: {
-          views,
-          likes,
-          comments,
-          performanceScore: engagement,
-          thumbnail: video.snippet?.thumbnails?.medium?.url || '',
-          caption: video.snippet?.title || '',
-        },
-        create: {
-          id: video.id,
-          socialProfileId: profile.id,
-          platform: 'youtube',
-          type: 'video',
-          publishedAt: new Date(video.snippet?.publishedAt || new Date()),
-          views,
-          likes,
-          comments,
-          saves: 0,
-          shares: 0,
-          performanceScore: engagement,
-          thumbnail: video.snippet?.thumbnails?.medium?.url || '',
-          caption: video.snippet?.title || '',
-        }
-      });
-    }
-  }
+  const videos = await getRecentVideos(key, channel);
+  await inBatches(videos, 10, async (video) => {
+    const views = parseInt(video.statistics?.viewCount || '0', 10);
+    const likes = parseInt(video.statistics?.likeCount || '0', 10);
+    const comments = parseInt(video.statistics?.commentCount || '0', 10);
+    const fields = {
+      views,
+      likes,
+      comments,
+      // YouTube's usual engagement rate: likes and comments per view
+      performanceScore: views > 0 ? ((likes + comments) / views) * 100 : 0,
+      thumbnail: bestThumb(video.snippet?.thumbnails),
+      caption: video.snippet?.title || '',
+      type: video.short ? 'short' : 'video',
+      permalink: video.short ? `https://www.youtube.com/shorts/${video.id}` : `https://www.youtube.com/watch?v=${video.id}`,
+    };
+    await prisma.post.upsert({
+      where: { id: video.id },
+      update: fields,
+      create: {
+        ...fields,
+        id: video.id,
+        socialProfileId: profile.id,
+        platform: 'youtube',
+        publishedAt: new Date(video.snippet?.publishedAt || Date.now()),
+        saves: 0,
+        shares: 0,
+      },
+    });
+  });
 }
 
 // Keeps the 60-day token alive: refresh once it is more than a week old
@@ -156,8 +129,8 @@ async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<v
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
-async function syncInstagramProfile(profile: any) {
-  const token = await freshInstagramToken(profile);
+async function syncInstagramProfile(profile: SocialProfile & { accessToken: string | null }) {
+  const token = await freshInstagramToken({ ...profile, accessToken: profile.accessToken! });
   const ig = await getInstagramProfile(token);
   const igUserId = profile.externalId || ig.user_id;
 

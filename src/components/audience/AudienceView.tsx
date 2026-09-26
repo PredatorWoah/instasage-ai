@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
+import { usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,6 +61,7 @@ function ShareList({ title, rows, format }: { title: string; rows: (Row & { shar
 
 export function AudienceView() {
   const { data } = useCachedJson<AudienceResponse>('/api/audience');
+  const { t } = usePlatform();
   const { data: postsData } = useCachedJson<Post[]>('/api/posts');
   const posts = useMemo(() => postsData ?? [], [postsData]);
 
@@ -93,11 +95,17 @@ export function AudienceView() {
       <div>
         <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Audience</h1>
         <p className="text-[15px] text-muted-foreground mt-3">
-          {data ? `Who follows @${data.username} (${formatNumber(data.followerCount)} followers), from Instagram` : 'Who follows you, from Instagram'}
+          {t.yt ? 'When your viewers show up, from your videos' : data ? `Who follows @${data.username} (${formatNumber(data.followerCount)} followers), from Instagram` : 'Who follows you, from Instagram'}
         </p>
       </div>
 
-      {!data ? (
+      {t.yt ? (
+        <p className="text-sm text-muted-foreground p-4 rounded-xl border border-dashed border-border leading-relaxed">
+          YouTube keeps viewer age, gender and location private to YouTube Studio, so the public API key InstaSage uses can&apos;t read them.
+          Open <a href="https://studio.youtube.com/" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">YouTube Studio</a> → Analytics → Audience
+          for those. Below is what your own videos say about timing.
+        </p>
+      ) : !data ? (
         <p className="text-sm text-muted-foreground p-4 rounded-xl border border-dashed border-border">
           Connect Instagram in <Link href="/settings" className="text-indigo-400 hover:underline">Settings</Link> and press Sync to see your audience.
         </p>
@@ -161,7 +169,7 @@ export function AudienceView() {
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">When your posts do best</CardTitle>
             <p className="text-[11px] text-muted-foreground">
-              Average engagement of your synced posts by the day and hour they went up ({timezone})
+              Average engagement of your synced {t.posts} by the day and hour they went up ({timezone})
               {bestDay?.posts ? `. Best day so far: ${bestDay.label} at ${bestDay.engagement}%` : ''}
             </p>
           </CardHeader>

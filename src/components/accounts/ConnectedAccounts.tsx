@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { clearJsonCache } from '@/lib/useCachedJson';
+import { YouTubeConnect } from './YouTubeConnect';
 
 type SocialProfile = { id: string; platform: string; username: string; displayName: string };
 
@@ -21,8 +22,7 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
   const [oauth, setOauth] = useState<boolean | null>(null);
   const [showToken, setShowToken] = useState(false);
   const [token, setToken] = useState('');
-  const [channel, setChannel] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
+    const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
     clearJsonCache();
@@ -50,20 +50,19 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
     };
   }, []);
 
-  const connect = async (e: React.FormEvent, platform: 'instagram' | 'youtube') => {
+  const connect = async (e: React.FormEvent, platform: 'instagram') => {
     e.preventDefault();
     setBusy(platform);
     const res = await fetch('/api/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(platform === 'instagram' ? { platform, token } : { platform, channel }),
+      body: JSON.stringify({ platform, token }),
     });
     setBusy(null);
     if (res.ok) {
       const profile = await res.json();
       toast.success(`@${profile.username} connected`, { description: 'Press Sync on the Accounts page to pull in posts.' });
       setToken('');
-      setChannel('');
       load();
     } else {
       const { error } = await res.json().catch(() => ({ error: '' }));
@@ -158,19 +157,7 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
           <span className="text-[10px] text-muted-foreground">{youtube.length} connected</span>
         </div>
         {youtube.map(row)}
-        <form onSubmit={(e) => connect(e, 'youtube')} className="flex gap-2">
-          <Input
-            id="youtube-connect"
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-            placeholder="@channelhandle or channel URL"
-            className="h-8 text-xs bg-secondary/50 border-border"
-            required
-          />
-          <Button type="submit" size="sm" disabled={busy !== null} className="text-xs h-8 shrink-0">
-            {busy === 'youtube' ? 'Connecting...' : 'Add'}
-          </Button>
-        </form>
+        <YouTubeConnect count={youtube.length} onAdded={load} />
       </section>
     </div>
   );

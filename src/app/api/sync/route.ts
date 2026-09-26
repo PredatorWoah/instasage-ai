@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // Instagram syncs fetch insights for up to 50 posts
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     await syncSocialProfile(profileId);
 
     return NextResponse.json({ success: true, message: 'Sync completed' });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
