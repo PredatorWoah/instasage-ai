@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, aiErrorResponse, rememberTimeZone } from '@/lib/api';
 import { analyzePost, getCachedPostAnalysis } from '@/services/ai';
 
-// Leaves room for retries and model fallback when Gemini is busy
-export const maxDuration = 60;
+// Leaves room for retries and falling back to another provider when the chosen AI is busy
+export const maxDuration = 300;
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const userId = await requireUserId();

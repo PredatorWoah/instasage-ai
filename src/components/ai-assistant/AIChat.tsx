@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
+import { useCachedJson } from '@/lib/useCachedJson';
 
 const SUGGESTED_PROMPTS = [
   'What performed best this month?',
@@ -30,6 +31,9 @@ export function AIChat() {
     },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: settings } = useCachedJson<{ active: string | null; providers: { id: string; label: string; model: string | null }[] } | null>(open ? '/api/settings/ai' : null);
+  const activeAi = settings?.providers.find((p) => p.id === settings.active);
+  const ai = activeAi ? `${activeAi.label}${activeAi.model ? ` (${activeAi.model})` : ''}` : null;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,7 +86,7 @@ export function AIChat() {
             <SageOrb size={34} className="shrink-0" />
             <div>
               <p className="text-sm font-display font-extrabold">Sage</p>
-              <p className="text-[10px] text-muted-foreground">Gemini · knows your synced posts</p>
+              <p className="text-[10px] text-muted-foreground">{ai ? `${ai} · ` : ''}knows your synced posts</p>
             </div>
           </div>
 

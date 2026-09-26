@@ -171,7 +171,7 @@ export function PostAnalyzer({ id }: { id: string }) {
               </div>
             </>
           ) : (
-            !failure && <p className="text-sm text-muted-foreground">Get Gemini&apos;s take on this post&apos;s caption, format and timing, compared with your other posts.</p>
+            !failure && <p className="text-sm text-muted-foreground">Get the AI&apos;s take on this post&apos;s caption, format and timing, compared with your other posts.</p>
           )}
         </CardContent>
       </Card>

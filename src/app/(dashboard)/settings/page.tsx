@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
 import { AiSettings } from '@/components/settings/AiSettings';
+import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
 
 export const metadata = { title: 'Settings — InstaSage AI' };
 
@@ -29,11 +30,21 @@ export default function SettingsPage() {
       {/* AI */}
       <Card className="bg-card border-border" id="ai">
         <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-sm font-semibold">AI (Google Gemini)</CardTitle>
-          <p className="text-xs text-muted-foreground">Powers AI Insights, Recommendations and the chat assistant.</p>
+          <CardTitle className="text-sm font-semibold">AI models</CardTitle>
+          <p className="text-xs text-muted-foreground">Pick the brain behind Insights, the Ideas Studio, reports and Sage. Add as many keys as you like; the active one answers.</p>
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <AiSettings />
+        </CardContent>
+      </Card>
+
+      {/* Timezone */}
+      <Card className="bg-card border-border" id="timezone">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">Timezone</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <TimezoneSettings />
         </CardContent>
       </Card>
 

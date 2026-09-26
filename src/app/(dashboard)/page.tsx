@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { getAccountScope } from '@/lib/scope';
+import { getTimeZone } from '@/lib/api';
 import { getDashboardData } from '@/services/dashboard';
 import { getCachedResult, type AiRecommendation, type Insight } from '@/services/ai';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -14,15 +15,14 @@ import { formatNumber, getPerformanceLabel } from '@/utils/formatters';
 
 export const metadata = { title: 'Overview · InstaSage' };
 
-const MONTH = new Date().toLocaleString('en-US', { month: 'long' });
-
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) redirect('/login');
 
-  const scope = await getAccountScope(session.user.id);
+  const [scope, timeZone] = await Promise.all([getAccountScope(session.user.id), getTimeZone(session.user.id)]);
+  const month = new Date().toLocaleString('en-US', { month: 'long', timeZone });
   const [data, insights, ideas] = await Promise.all([
-    getDashboardData(scope),
+    getDashboardData(scope, 30, timeZone),
     getCachedResult<Insight>(session.user.id, 'insights', scope.key),
     getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.key),
   ]);
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
         <div aria-hidden className="absolute right-[18%] -top-36 w-[420px] h-[420px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.55),transparent)]" />
         <div className="relative flex flex-col justify-between gap-6 max-w-[720px]">
           <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
-            <Sparkles className="w-3.5 h-3.5" /> Your {MONTH} story · {who}
+            <Sparkles className="w-3.5 h-3.5" /> Your {month} story · {who}
           </span>
           <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
           {insights?.items[0] && (
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
         <div className="rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
           <span className="text-[13px] font-bold prism-text">AI recommends</span>
           <p className="font-display font-extrabold text-[26px] leading-[1.05] tracking-[-0.03em]">
-            {idea ? idea.title : 'Get a personal game plan from Gemini, based on your own posts.'}
+            {idea ? idea.title : 'Get a 30-day game plan built from your own numbers.'}
           </p>
           {idea?.description && <p className="text-sm text-[#4A4A5A] leading-relaxed line-clamp-3">{idea.description}</p>}
           <Link

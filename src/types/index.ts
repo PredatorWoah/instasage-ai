@@ -39,20 +39,6 @@ export type Recommendation = {
   estimatedGrowth: string; // e.g. "+12% Followers"
 };
 
-export type Report = {
-  id: string;
-  month: string;
-  year: number;
-  summary: {
-    totalFollowersGained: number;
-    totalReach: number;
-    totalViews: number;
-    avgEngagementRate: number;
-  };
-  bestPost: Post;
-  worstPost: Post;
-};
-
 export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';

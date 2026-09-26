@@ -3,8 +3,8 @@ import { requireUserId, unauthorized, aiErrorResponse, rememberTimeZone } from '
 import { getAccountScope } from '@/lib/scope';
 import { chatWithAssistant, type ChatTurn } from '@/services/ai';
 
-// Leaves room for retries and model fallback when Gemini is busy
-export const maxDuration = 60;
+// Leaves room for retries and falling back to another provider when the chosen AI is busy
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const userId = await requireUserId();

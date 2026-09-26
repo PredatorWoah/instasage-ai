@@ -23,7 +23,7 @@ export function InsightsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">AI Insights</h1>
-          <p className="text-[15px] text-muted-foreground mt-3">Gemini&apos;s read on what is and isn&apos;t working in your recent posts</p>
+          <p className="text-[15px] text-muted-foreground mt-3">Your AI&apos;s read on what is and isn&apos;t working, worked out from real patterns in your posts</p>
         </div>
         <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
       </div>
@@ -33,7 +33,7 @@ export function InsightsView() {
       {loading ? (
         <div className="grid gap-4">
           {[0, 1, 2].map((i) => <div key={i} className="h-24 rounded-xl border border-border bg-secondary/10 animate-pulse" />)}
-          <p className="text-xs text-muted-foreground">Gemini is analyzing your posts. This takes about 10 seconds.</p>
+          <p className="text-xs text-muted-foreground">Analyzing your posts. This takes 10 to 30 seconds depending on the model.</p>
         </div>
       ) : (
         <div className="grid gap-4 stagger">

@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     }
   }
 
-  // Fresh insights waiting in the morning (skipped quietly without a Gemini key)
+  // Fresh insights waiting in the morning (skipped quietly without an AI key)
   const userIds = [...new Set(profiles.map((p) => p.userId))];
   let insights = 'skipped';
   if (Date.now() - started < TIME_BUDGET_MS && results.some((r) => r.ok)) {

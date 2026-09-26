@@ -3,8 +3,8 @@ import { requireUserId, unauthorized, aiErrorResponse, rememberTimeZone } from '
 import { getAccountScope } from '@/lib/scope';
 import { getCachedResult, generateRecommendations } from '@/services/ai';
 
-// Leaves room for retries and model fallback when Gemini is busy
-export const maxDuration = 60;
+// Leaves room for retries and falling back to another provider when the chosen AI is busy
+export const maxDuration = 300;
 
 // Returns the cached result; null means nothing has been generated yet
 export async function GET() {
@@ -14,7 +14,7 @@ export async function GET() {
   return NextResponse.json(await getCachedResult(userId, 'recommendations', scope.key));
 }
 
-// Generates a fresh result with Gemini and caches it
+// Generates a fresh result with the chosen AI and caches it
 export async function POST() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();

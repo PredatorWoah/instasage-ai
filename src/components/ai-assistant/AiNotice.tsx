@@ -5,7 +5,7 @@ import { KeyRound, RefreshCw, TriangleAlert } from 'lucide-react';
 export function AiNotice({ code, message }: { code?: string; message: string }) {
   const Icon = code === 'no_key' ? KeyRound : code === 'no_data' ? RefreshCw : TriangleAlert;
   const action =
-    code === 'no_key' ? { href: '/settings#ai', label: 'Add Gemini key' } :
+    code === 'no_key' ? { href: '/settings#ai', label: 'Add an AI key' } :
     code === 'no_data' ? { href: '/accounts', label: 'Go to Accounts' } : null;
 
   return (

@@ -15,14 +15,14 @@ import {
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
 import { MobileNav } from './MobileNav';
-import { prefetchJson } from '@/lib/useCachedJson';
+import { clearJsonCache, prefetchJson } from '@/lib/useCachedJson';
 
 // Data each tab needs, fetched as soon as a finger or pointer lands on the tab
 const TAB_DATA: Record<string, string[]> = {
   analytics: ['/api/analytics?days=30'],
   content: ['/api/posts'],
   insights: ['/api/ai/insights'],
-  recommendations: ['/api/ai/recommendations'],
+  recommendations: ['/api/ai/plan', '/api/ideas/threads'],
   audience: ['/api/audience', '/api/posts'],
 };
 const warm = (id: string) => TAB_DATA[id]?.forEach(prefetchJson);
@@ -41,8 +41,14 @@ export function SiteHeader() {
 
   // Phones have no hover, so preload every tab (page + data) once the app is idle
   useEffect(() => {
-    // Share the device timezone so AI advice uses local times
-    document.cookie = `tz=${Intl.DateTimeFormat().resolvedOptions().timeZone}; path=/; max-age=31536000; samesite=lax`;
+    // Share the device timezone so AI advice, reports and the daily refresh use local times
+    // (the server ignores it when a timezone was picked by hand in Settings)
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    document.cookie = `tz=${tz}; path=/; max-age=31536000; samesite=lax`;
+    fetch('/api/user/timezone', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detected: tz }) })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.changed && clearJsonCache())
+      .catch(() => {});
     NAV_TABS.forEach((tab) => router.prefetch(tab.href));
     const warmAll = () => Object.keys(TAB_DATA).forEach(warm);
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1200));
