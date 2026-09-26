@@ -61,9 +61,13 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
     const key = dayKey(d);
 
     const today: Snapshot[] = [];
+    let channelViews: number | undefined;
     for (const [profileId, byDay] of snapshots) {
       const snap = byDay.get(key);
       if (snap) {
+        // YouTube snapshots carry lifetime channel views; the change since the last one is views gained
+        const before = lastKnown.get(profileId)?.views;
+        if (snap.views != null && before != null && snap.views >= before) channelViews = (channelViews ?? 0) + (snap.views - before);
         lastKnown.set(profileId, snap);
         today.push(snap);
       }
@@ -83,6 +87,7 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
       views: dayPosts.length ? dayPosts.reduce((a, p) => a + p.views, 0) : undefined,
       engagement: dayPosts.length ? Number((dayPosts.reduce((a, p) => a + p.score, 0) / dayPosts.length).toFixed(2)) : undefined,
       posts: dayPosts.length,
+      channelViews,
     });
   }
 
@@ -105,6 +110,7 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
       followersStart: firstFollowers ?? 0,
       views: viewTotals._sum.views ?? 0,
       engagement: avgEngagement,
+      channelViews: timeSeries.some((p) => p.channelViews !== undefined) ? timeSeries.reduce((a, p) => a + (p.channelViews ?? 0), 0) : null,
     },
   };
 }

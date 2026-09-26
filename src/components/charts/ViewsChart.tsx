@@ -34,7 +34,7 @@ export function ViewsChart({ data }: ViewsChartProps) {
         <Tooltip
           contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
-          formatter={(v: any) => [formatNumber(Number(v)), 'Views on posts from this day']}
+          formatter={(v) => [formatNumber(Number(v)), 'Views on what went up this day']}
           cursor={{ fill: 'rgba(255,255,255,0.03)' }}
         />
         <Bar dataKey="views" fill="#8E78FF" radius={[3, 3, 0, 0]} maxBarSize={18} opacity={0.85} />

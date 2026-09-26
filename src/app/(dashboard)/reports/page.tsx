@@ -12,6 +12,7 @@ import { useCachedJson, primeJson } from '@/lib/useCachedJson';
 import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { formatNumber } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
+import { formatLabel, terms } from '@/lib/platform';
 
 type StoryResult = { story: ReportStory; model: string; createdAt: string } | null;
 const TOOLTIP = { background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 12, fontSize: 12 };
@@ -74,17 +75,24 @@ export default function ReportsPage() {
   const k = report.kpis;
   const p = report.previous.kpis;
   const prevName = report.previous.label.split(' ')[0];
+  const t = terms(report.mode);
   const tiles = [
-    { label: 'Followers gained', value: k.followersGained == null ? '—' : `${k.followersGained >= 0 ? '+' : '−'}${formatNumber(Math.abs(k.followersGained))}`, delta: change(k.followersGained, p.followersGained), look: 'prism-sunset text-white' },
-    { label: 'Views on posts', value: formatNumber(k.views), delta: change(k.views, p.views), look: 'prism-ocean text-[#04151E]' },
-    { label: 'Accounts reached', value: k.reach == null ? '—' : formatNumber(k.reach), delta: change(k.reach, p.reach), look: 'prism-gold text-[#2A1A00]' },
+    { label: `${t.followers} gained`, value: k.followersGained == null ? '—' : `${k.followersGained >= 0 ? '+' : '−'}${formatNumber(Math.abs(k.followersGained))}`, delta: change(k.followersGained, p.followersGained), look: 'prism-sunset text-white' },
+    { label: `Views on ${t.posts}`, value: formatNumber(k.views), delta: change(k.views, p.views), look: 'prism-ocean text-[#04151E]' },
+    t.yt
+      ? { label: 'Channel views gained', value: k.channelViews == null ? '—' : formatNumber(k.channelViews), delta: change(k.channelViews, p.channelViews), look: 'prism-gold text-[#2A1A00]' }
+      : { label: 'Accounts reached', value: k.reach == null ? '—' : formatNumber(k.reach), delta: change(k.reach, p.reach), look: 'prism-gold text-[#2A1A00]' },
     { label: 'Avg engagement', value: `${k.engagement.toFixed(1)}%`, delta: change(k.engagement, p.engagement), look: 'bg-card border border-white/[0.05]' },
-    { label: 'Posts', value: String(k.posts), delta: change(k.posts, p.posts), look: 'bg-card border border-white/[0.05]' },
-    { label: 'Saves', value: formatNumber(k.saves), delta: change(k.saves, p.saves), look: 'bg-card border border-white/[0.05]' },
-    { label: 'Shares', value: formatNumber(k.shares), delta: change(k.shares, p.shares), look: 'bg-card border border-white/[0.05]' },
+    { label: t.Posts, value: String(k.posts), delta: change(k.posts, p.posts), look: 'bg-card border border-white/[0.05]' },
+    ...(t.hasSavesShares
+      ? [
+          { label: 'Saves', value: formatNumber(k.saves), delta: change(k.saves, p.saves), look: 'bg-card border border-white/[0.05]' },
+          { label: 'Shares', value: formatNumber(k.shares), delta: change(k.shares, p.shares), look: 'bg-card border border-white/[0.05]' },
+        ]
+      : [{ label: 'Likes', value: formatNumber(k.likes), delta: change(k.likes, p.likes), look: 'bg-card border border-white/[0.05]' }]),
     { label: 'Comments', value: formatNumber(k.comments), delta: change(k.comments, p.comments), look: 'bg-card border border-white/[0.05]' },
   ];
-  const headline = story?.story.headline ?? (k.posts ? `${k.posts} posts, ${formatNumber(k.views)} views in ${report.label}.` : `Nothing posted in ${report.label} yet.`);
+  const headline = story?.story.headline ?? (k.posts ? `${k.posts} ${t.posts}, ${formatNumber(k.views)} views in ${report.label}.` : `Nothing posted in ${report.label} yet.`);
   const chart = report.days.map((d) => ({ day: Number(d.date.slice(8)), views: d.views, posts: d.posts }));
 
   return (
@@ -168,7 +176,7 @@ export default function ReportsPage() {
       <section className="stagger grid lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05]">
           <div className="flex items-baseline justify-between mb-3">
-            <h3 className="text-lg font-bold">Views by day posted</h3>
+            <h3 className="text-lg font-bold">Views by day published</h3>
             <span className="text-xs text-muted-foreground">{report.label}</span>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -193,10 +201,10 @@ export default function ReportsPage() {
           {report.byFormat.map((f) => (
             <div key={f.label} className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold capitalize">{f.label} <span className="text-muted-foreground font-medium">· {f.posts}</span></p>
+                <p className="text-sm font-bold">{formatLabel(f.label)} <span className="text-muted-foreground font-medium">· {f.posts}</span></p>
                 <p className={cn('text-[12px] font-bold', f.viewsLift >= 0 ? 'text-emerald-400' : 'text-rose-400')}>{f.viewsLift >= 0 ? '+' : ''}{f.viewsLift}%</p>
               </div>
-              <p className="text-[12px] text-muted-foreground mt-0.5">{formatNumber(f.avgViews)} avg views · {f.avgEngagement.toFixed(1)}% eng · {f.avgSaves} saves</p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">{formatNumber(f.avgViews)} avg views · {f.avgEngagement.toFixed(1)}% eng · {t.yt ? `${f.avgComments} comments` : `${f.avgSaves} saves`}</p>
             </div>
           ))}
         </div>
@@ -205,11 +213,11 @@ export default function ReportsPage() {
       {/* Top posts */}
       {report.topPosts.length > 0 && (
         <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05]">
-          <h3 className="text-lg font-bold mb-4">Top posts of the month</h3>
+          <h3 className="text-lg font-bold mb-4">Top {t.posts} of the month</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {report.topPosts.map((post, i) => (
               <Link key={post.id} href={`/content/${encodeURIComponent(post.id)}`} className="group rounded-[22px] overflow-hidden bg-white/[0.03] border border-white/[0.05]">
-                <div className="relative aspect-[4/5] bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]">
+                <div className={cn('relative bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]', t.yt ? 'aspect-video' : 'aspect-[4/5]')}>
                   {post.thumbnail && <Image src={post.thumbnail} alt="" fill unoptimized sizes="220px" className="object-cover transition-transform duration-500 group-hover:scale-[1.05]" />}
                   <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white drop-shadow">#{i + 1}</span>
                 </div>

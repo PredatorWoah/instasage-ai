@@ -1,7 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-import { useCachedJson } from '@/lib/useCachedJson';
+import { ACCOUNT_COOKIE, usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,33 +12,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-// Keep in sync with ACCOUNT_COOKIE in src/lib/scope.ts
-const COOKIE = 'instasage_account';
 const DOT: Record<string, string> = { instagram: '#ec4899', youtube: '#ef4444', facebook: '#3b82f6' };
 
-type Profile = { id: string; platform: string; username: string; displayName: string };
-
-const noopSubscribe = () => () => {};
-
-function readCookie() {
-  return document.cookie.split('; ').find((c) => c.startsWith(`${COOKIE}=`))?.split('=')[1] ?? 'all';
-}
-
 export function AccountSwitcher() {
-  const { data } = useCachedJson<Profile[]>('/api/accounts');
-  const profiles = data ?? [];
-  // Read the cookie without a mismatch between the server render ("all") and the browser
-  const cookie = useSyncExternalStore(noopSubscribe, readCookie, () => 'all');
-  const selected = profiles.some((p) => p.id === cookie) ? cookie : 'all';
+  const { profiles, selected, current } = usePlatform();
 
   const choose = (id: string) => {
     if (id === selected) return;
-    document.cookie = `${COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${ACCOUNT_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`;
     // Every page, chart and AI result reads the selection, so reload to refetch everything
     window.location.reload();
   };
-
-  const current = profiles.find((p) => p.id === selected);
 
   return (
     <DropdownMenu>

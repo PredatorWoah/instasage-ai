@@ -21,7 +21,7 @@ async function igGet<T>(path: string, token: string, params: Record<string, stri
   return body;
 }
 
-export type InstagramProfile = {
+type InstagramProfile = {
   user_id: string;
   username: string;
   name?: string;
@@ -150,7 +150,7 @@ export async function getInstagramDailyInsights(token: string, igUserId: string)
   return { reach, newFollowers, warnings };
 }
 
-export type AudienceBreakdown = {
+type AudienceBreakdown = {
   age: { label: string; value: number }[];
   gender: { label: string; value: number }[];
   country: { label: string; value: number }[];
@@ -220,7 +220,7 @@ export async function connectInstagramProfile(userId: string, rawToken: string) 
 
 // ---------- Instagram Business Login (OAuth) ----------
 
-export const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
+const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
 
 export function instagramOAuthConfig() {
   // Trim: a stray space or newline from copy-paste makes Instagram reject the app ("Invalid platform app")

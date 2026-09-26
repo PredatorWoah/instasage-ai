@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { WEEKDAYS, groupStat, localParts, postSummary, type GroupStat } from '@/services/analysis';
+import { platformMode } from '@/lib/platform';
 
 // Month by month numbers for the Reports page and its PDF, in the creator's timezone
 
@@ -15,6 +16,7 @@ export type MonthKpis = {
   followersStart: number | null;
   followersEnd: number | null;
   followersGained: number | null;
+  channelViews: number | null; // YouTube: channel views gained over the month
 };
 
 export type MonthlyReport = Awaited<ReturnType<typeof getMonthlyReport>>;
@@ -59,6 +61,14 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
       end = (end ?? 0) + snaps.at(-1)!.followers!;
     }
     const reachRows = monthMetrics.filter((m) => m.reach != null);
+    // Lifetime channel views at the end of the month minus the last reading before it
+    let channelViews: number | null = null;
+    for (const profile of profiles.filter((p) => p.platform === 'youtube')) {
+      const readings = metrics.filter((m) => m.socialProfileId === profile.id && m.views != null);
+      const inside = readings.filter((m) => m.date.toISOString().startsWith(key));
+      const before = readings.filter((m) => m.date.toISOString().slice(0, 7) < key).at(-1) ?? inside[0];
+      if (inside.length && before) channelViews = (channelViews ?? 0) + Math.max(0, inside.at(-1)!.views! - before.views!);
+    }
     const sum = (pick: (p: (typeof posts)[number]) => number) => inMonth.reduce((a, p) => a + pick(p), 0);
     return {
       posts: inMonth.length,
@@ -72,6 +82,7 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
       followersStart: start,
       followersEnd: end,
       followersGained: start != null && end != null ? end - start : null,
+      channelViews,
     };
   };
 
@@ -104,6 +115,7 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
     month,
     label: monthLabel(month),
     timeZone,
+    mode: platformMode(profiles.map((p) => p.platform)),
     months: months.map((key) => ({ key, label: monthLabel(key) })),
     accounts: profiles.map((p) => ({ platform: p.platform, username: p.username, followers: p.followerCount })),
     kpis: kpis(month),
@@ -118,10 +130,14 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
 
 // Compact text version for the AI's month review
 export function reportToPrompt(r: MonthlyReport) {
+  const yt = r.mode === 'youtube';
   const k = (x: MonthKpis) =>
-    `${x.posts} posts, ${x.views} views on posts published, reach ${x.reach ?? 'unknown'}, ${x.likes} likes, ${x.comments} comments, ${x.saves} saves, ${x.shares} shares, avg engagement ${x.engagement}%, followers ${x.followersStart ?? '?'} to ${x.followersEnd ?? '?'} (${x.followersGained == null ? 'unknown change' : `${x.followersGained >= 0 ? '+' : ''}${x.followersGained}`})`;
+    yt
+      ? `${x.posts} videos, ${x.views} views on videos published, ${x.channelViews ?? 'unknown'} channel views gained, ${x.likes} likes, ${x.comments} comments, avg engagement ${x.engagement}% (likes and comments per view), subscribers ${x.followersStart ?? '?'} to ${x.followersEnd ?? '?'} (${x.followersGained == null ? 'unknown change' : `${x.followersGained >= 0 ? '+' : ''}${x.followersGained}`})`
+      : `${x.posts} posts, ${x.views} views on posts published, reach ${x.reach ?? 'unknown'}, ${x.likes} likes, ${x.comments} comments, ${x.saves} saves, ${x.shares} shares, avg engagement ${x.engagement}%, followers ${x.followersStart ?? '?'} to ${x.followersEnd ?? '?'} (${x.followersGained == null ? 'unknown change' : `${x.followersGained >= 0 ? '+' : ''}${x.followersGained}`})`;
   const g = (s: GroupStat) => `${s.label}: ${s.posts} posts, avg ${s.avgViews} views, ${s.avgEngagement}% eng`;
-  const p = (x: MonthlyReport['topPosts'][number]) => `[${x.type}, ${x.postedLocal}] ${x.views} views, ${x.saves} saves, ${x.shares} shares, ${x.engagement}% eng | "${x.caption}"`;
+  const p = (x: MonthlyReport['topPosts'][number]) =>
+    yt ? `[${x.type}, ${x.postedLocal}] ${x.views} views, ${x.likes} likes, ${x.comments} comments, ${x.engagement}% eng | title "${x.caption}"` : `[${x.type}, ${x.postedLocal}] ${x.views} views, ${x.saves} saves, ${x.shares} shares, ${x.engagement}% eng | "${x.caption}"`;
   return [
     `Monthly report for ${r.label}. Accounts: ${r.accounts.map((a) => `${a.platform} @${a.username}`).join(', ')}. Timezone ${r.timeZone}; times are local, never mention UTC.`,
     `This month: ${k(r.kpis)}`,

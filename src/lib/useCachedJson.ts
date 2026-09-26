@@ -30,17 +30,24 @@ export function prefetchJson(url: string) {
 }
 
 export function useCachedJson<T>(url: string | null) {
-  const [data, setData] = useState<T | undefined>(() => (url ? (cache.get(url)?.data as T | undefined) : undefined));
+  const initial = () => (url ? (cache.get(url)?.data as T | undefined) : undefined);
+  const [state, setState] = useState<{ url: string | null; data: T | undefined }>(() => ({ url, data: initial() }));
+
+  // A new URL shows whatever is cached for it straight away (derived during render, no extra pass)
+  let data = state.data;
+  if (state.url !== url) {
+    data = initial();
+    setState({ url, data });
+  }
 
   useEffect(() => {
     if (!url) return;
     let cancelled = false;
     const hit = cache.get(url);
-    if (hit) setData(hit.data as T);
     if (!hit || Date.now() - hit.at > FRESH_MS) {
       load(url)
-        .then((fresh) => !cancelled && setData(fresh as T))
-        .catch(() => !cancelled && !hit && setData(null as T));
+        .then((fresh) => !cancelled && setState({ url, data: fresh as T }))
+        .catch(() => !cancelled && !hit && setState({ url, data: null as T }));
     }
     return () => {
       cancelled = true;
@@ -50,7 +57,8 @@ export function useCachedJson<T>(url: string | null) {
   const refresh = useCallback(async () => {
     if (!url) return;
     cache.delete(url);
-    setData((await load(url)) as T);
+    const fresh = (await load(url)) as T;
+    setState({ url, data: fresh });
   }, [url]);
 
   // undefined = still loading the first time

@@ -7,6 +7,7 @@ export type TimeSeriesPoint = {
   reach?: number;
   engagement?: number;
   posts?: number;
+  channelViews?: number; // YouTube: channel views gained that day
 };
 
 export type Post = {
@@ -25,18 +26,7 @@ export type Post = {
   shares: number;
   performanceScore: number;
   publishedAt: string;
-  type: 'reel' | 'carousel' | 'post' | 'video' | 'story';
-};
-
-export type Recommendation = {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'high' | 'medium' | 'low';
-  category: 'timing' | 'content' | 'engagement' | 'growth';
-  impact: string; // Expected Impact
-  effort: 'low' | 'medium' | 'high'; // Difficulty
-  estimatedGrowth: string; // e.g. "+12% Followers"
+  type: 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story';
 };
 
 export type ChatMessage = {

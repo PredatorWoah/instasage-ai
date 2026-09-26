@@ -21,6 +21,7 @@ model User {
   timezone      String?   // IANA zone, e.g. "Asia/Kolkata": AI wording, reports and the daily cron use it
   timezoneAuto  Boolean   @default(true) // false once picked by hand in Settings, so the browser stops overriding it
   aiProvider    String?   // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
+  youtubeApiKey String?   // YouTube Data API v3 key (falls back to YOUTUBE_API_KEY)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
@@ -28,6 +29,8 @@ model User {
   aiCredentials AiCredential[]
   ideaThreads   IdeaThread[]
   savedIdeas    SavedIdea[]
+  metaLink      MetaLink?
+  competitors   Competitor[]
 }
 
 model SocialProfile {
@@ -154,4 +157,38 @@ model SavedIdea {
   source    String   @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Facebook Login link used only for Business Discovery (looking up other Instagram accounts)
+model MetaLink {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken String    // long-lived Facebook user token (about 60 days)
+  expiresAt   DateTime?
+  igUserId    String    // your Instagram professional account, linked to the Page
+  igUsername  String
+  pageName    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Public numbers of rival Instagram accounts, refreshed by sync
+model Competitor {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username          String
+  name              String?
+  biography         String?
+  profilePictureUrl String?
+  followers         Int      @default(0)
+  mediaCount        Int      @default(0)
+  stats             Json?    // averages, cadence and format mix worked out from recent posts
+  posts             Json?    // recent posts (caption, likes, comments, type, permalink, timestamp)
+  error             String?
+  lastSyncedAt      DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, username])
 }

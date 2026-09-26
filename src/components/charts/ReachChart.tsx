@@ -9,9 +9,12 @@ import type { TimeSeriesPoint } from '@/types';
 
 type ReachChartProps = {
   data: TimeSeriesPoint[];
+  dataKey?: 'reach' | 'channelViews';
+  label?: string;
 };
 
-export function ReachChart({ data }: ReachChartProps) {
+// Daily reach for Instagram, or daily channel views gained for YouTube
+export function ReachChart({ data, dataKey = 'reach', label = 'Reach' }: ReachChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -40,11 +43,11 @@ export function ReachChart({ data }: ReachChartProps) {
         <Tooltip
           contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
-          formatter={(v: any) => [formatNumber(Number(v)), 'Reach']}
+          formatter={(v) => [formatNumber(Number(v)), label]}
         />
         <Area
           type="monotone"
-          dataKey="reach"
+          dataKey={dataKey}
           stroke="#3CC8E8"
           strokeWidth={2}
           fill="url(#reachGrad)"

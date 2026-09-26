@@ -14,9 +14,9 @@ type Cached = { plan: GamePlan; model: string; createdAt: string } | null;
 const PLAN_URL = '/api/ai/plan';
 
 const THINKING = [
-  'Comparing reels, carousels and posts...',
+  'Comparing your formats head to head...',
   'Finding your best days and hours...',
-  'Checking which captions and hashtags pull views...',
+  'Checking which captions and titles pull views...',
   'Spotting what is dragging you down...',
   'Writing four weeks of posts...',
   'Setting targets you can actually hit...',

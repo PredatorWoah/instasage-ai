@@ -4,11 +4,6 @@ export function formatNumber(value: number): string {
   return value.toString();
 }
 
-export function formatPercent(value: number, showSign = true): string {
-  const sign = showSign && value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
-}
-
 export function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(
     new Date(dateStr)

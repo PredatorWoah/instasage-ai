@@ -85,14 +85,18 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
   y += hl.length * 21 + 8;
 
   // ----- KPI tiles -----
-  const tiles: { label: string; value: string; change: number | null; suffix?: string }[] = [
-    { label: 'Followers gained', value: k.followersGained == null ? '-' : `${k.followersGained >= 0 ? '+' : ''}${num(k.followersGained)}`, change: delta(k.followersGained, p.followersGained) },
-    { label: 'Views on posts', value: num(k.views), change: delta(k.views, p.views) },
-    { label: 'Accounts reached', value: num(k.reach), change: delta(k.reach, p.reach) },
+  const yt = report.mode === 'youtube';
+  const tiles: { label: string; value: string; change: number | null }[] = [
+    { label: yt ? 'Subscribers gained' : 'Followers gained', value: k.followersGained == null ? '-' : `${k.followersGained >= 0 ? '+' : ''}${num(k.followersGained)}`, change: delta(k.followersGained, p.followersGained) },
+    { label: yt ? 'Views on videos' : 'Views on posts', value: num(k.views), change: delta(k.views, p.views) },
+    yt
+      ? { label: 'Channel views gained', value: num(k.channelViews), change: delta(k.channelViews, p.channelViews) }
+      : { label: 'Accounts reached', value: num(k.reach), change: delta(k.reach, p.reach) },
     { label: 'Avg engagement', value: `${k.engagement.toFixed(2)}%`, change: delta(k.engagement, p.engagement) },
-    { label: 'Posts', value: num(k.posts), change: delta(k.posts, p.posts) },
-    { label: 'Saves', value: num(k.saves), change: delta(k.saves, p.saves) },
-    { label: 'Shares', value: num(k.shares), change: delta(k.shares, p.shares) },
+    { label: yt ? 'Videos' : 'Posts', value: num(k.posts), change: delta(k.posts, p.posts) },
+    ...(yt
+      ? [{ label: 'Likes', value: num(k.likes), change: delta(k.likes, p.likes) }, { label: 'Engagement / view', value: `${k.engagement.toFixed(1)}%`, change: null }]
+      : [{ label: 'Saves', value: num(k.saves), change: delta(k.saves, p.saves) }, { label: 'Shares', value: num(k.shares), change: delta(k.shares, p.shares) }]),
     { label: 'Comments', value: num(k.comments), change: delta(k.comments, p.comments) },
   ];
   const cols = 4;
@@ -170,14 +174,19 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
   // ----- Top posts -----
   if (report.topPosts.length) {
     ensure(120);
-    heading('Top posts');
+    heading(yt ? 'Top videos' : 'Top posts');
     autoTable(doc, {
       ...tableStyle,
       startY: y,
-      head: [['Posted', 'Format', 'Caption', 'Views', 'Likes', 'Saves', 'Shares', 'Eng.']],
-      body: report.topPosts.map((t) => [
-        clean(t.postedLocal), t.type, clean(t.caption).slice(0, 70) || '-', num(t.views), num(t.likes), num(t.saves), num(t.shares), `${t.engagement.toFixed(1)}%`,
-      ]),
+      head: [yt
+        ? ['Posted', 'Format', 'Title', 'Views', 'Likes', 'Comments', 'Eng.']
+        : ['Posted', 'Format', 'Caption', 'Views', 'Likes', 'Saves', 'Shares', 'Eng.']],
+      body: report.topPosts.map((t) => {
+        const lead = [clean(t.postedLocal), t.type, clean(t.caption).slice(0, 70) || '-', num(t.views), num(t.likes)];
+        return yt
+          ? [...lead, num(t.comments), `${t.engagement.toFixed(1)}%`]
+          : [...lead, num(t.saves), num(t.shares), `${t.engagement.toFixed(1)}%`];
+      }),
       columnStyles: { 2: { cellWidth: 170 }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } },
     });
     y = tableEnd() + 26;
@@ -191,8 +200,13 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
     autoTable(doc, {
       ...tableStyle,
       startY: y,
-      head: [['', 'Posts', 'Avg views', 'Vs month avg', 'Avg eng.', 'Avg saves', 'Avg shares']],
-      body: rows.map((r) => [r.label, r.posts, num(r.avgViews), `${r.viewsLift >= 0 ? '+' : ''}${r.viewsLift}%`, `${r.avgEngagement.toFixed(1)}%`, r.avgSaves, r.avgShares]),
+      head: [yt
+        ? ['', 'Videos', 'Avg views', 'Vs month avg', 'Avg eng.', 'Avg comments']
+        : ['', 'Posts', 'Avg views', 'Vs month avg', 'Avg eng.', 'Avg saves', 'Avg shares']],
+      body: rows.map((r) => {
+        const common = [r.label, r.posts, num(r.avgViews), `${r.viewsLift >= 0 ? '+' : ''}${r.viewsLift}%`, `${r.avgEngagement.toFixed(1)}%`];
+        return yt ? [...common, r.avgComments] : [...common, r.avgSaves, r.avgShares];
+      }),
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 90 } },
     });
     y = tableEnd() + 26;
@@ -203,11 +217,16 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
   // ----- Month vs month -----
   ensure(140);
   heading(`${report.label} vs ${report.previous.label}`);
-  const rows: [string, (x: MonthKpis) => number | null][] = [
-    ['Posts', (x) => x.posts], ['Views on posts', (x) => x.views], ['Accounts reached', (x) => x.reach],
-    ['Likes', (x) => x.likes], ['Comments', (x) => x.comments], ['Saves', (x) => x.saves], ['Shares', (x) => x.shares],
-    ['Followers at month end', (x) => x.followersEnd],
-  ];
+  const rows: [string, (x: MonthKpis) => number | null][] = yt
+    ? [
+        ['Videos', (x) => x.posts], ['Views on videos', (x) => x.views], ['Channel views gained', (x) => x.channelViews],
+        ['Likes', (x) => x.likes], ['Comments', (x) => x.comments], ['Subscribers at month end', (x) => x.followersEnd],
+      ]
+    : [
+        ['Posts', (x) => x.posts], ['Views on posts', (x) => x.views], ['Accounts reached', (x) => x.reach],
+        ['Likes', (x) => x.likes], ['Comments', (x) => x.comments], ['Saves', (x) => x.saves], ['Shares', (x) => x.shares],
+        ['Followers at month end', (x) => x.followersEnd],
+      ];
   autoTable(doc, {
     ...tableStyle,
     startY: y,

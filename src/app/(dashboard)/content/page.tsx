@@ -1,11 +1,13 @@
 'use client';
 
-import { Suspense, useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, ArrowUpDown, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { useCachedJson } from '@/lib/useCachedJson';
+import { usePlatform } from '@/lib/usePlatform';
+import { formatLabel } from '@/lib/platform';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -47,12 +49,8 @@ function ContentLibraryContent() {
   const [postType, setPostType] = useState<string>('all');
   const [sort, setSort] = useState<SortConfig>({ key: 'publishedAt', direction: 'desc' });
   const { data: postsData } = useCachedJson<Post[]>('/api/posts');
+  const { t, mode } = usePlatform();
   const posts = useMemo(() => (postsData === undefined ? null : postsData ?? []), [postsData]);
-
-  // Keep search input state in sync with URL search query parameter
-  useEffect(() => {
-    setSearch(searchParams.get('q') || '');
-  }, [searchParams]);
 
   // Sorting helper
   const handleSort = (key: keyof Post) => {
@@ -127,7 +125,7 @@ function ContentLibraryContent() {
       <div>
         <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Content Library</h1>
         <p className="text-[15px] text-muted-foreground mt-3">
-          Perform analytical checks, sort, search, and audit your social media content
+          {t.yt ? 'Every video and Short, sortable by views, likes and engagement' : 'Sort, search and open any post for an AI breakdown'}
         </p>
       </div>
 
@@ -139,14 +137,14 @@ function ContentLibraryContent() {
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search captions..."
+            placeholder={t.yt ? 'Search titles...' : 'Search captions...'}
             className="pl-9 h-9 bg-secondary/40 border-border text-sm"
           />
         </div>
 
         {/* Dropdowns */}
         <div className="flex items-center gap-3">
-          <Select value={platform} onValueChange={setPlatform}>
+          {mode === 'mixed' && <Select value={platform} onValueChange={setPlatform}>
             <SelectTrigger className="h-9 w-36 bg-secondary/40 border-border text-xs">
               <SelectValue placeholder="Platform" />
             </SelectTrigger>
@@ -154,9 +152,8 @@ function ContentLibraryContent() {
               <SelectItem value="all" className="text-xs">All Platforms</SelectItem>
               <SelectItem value="instagram" className="text-xs">Instagram</SelectItem>
               <SelectItem value="youtube" className="text-xs">YouTube</SelectItem>
-              <SelectItem value="facebook" className="text-xs">Facebook</SelectItem>
             </SelectContent>
-          </Select>
+          </Select>}
 
           <Select value={postType} onValueChange={setPostType}>
             <SelectTrigger className="h-9 w-32 bg-secondary/40 border-border text-xs">
@@ -164,10 +161,7 @@ function ContentLibraryContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">All Formats</SelectItem>
-              <SelectItem value="reel" className="text-xs">Reel</SelectItem>
-              <SelectItem value="carousel" className="text-xs">Carousel</SelectItem>
-              <SelectItem value="video" className="text-xs">Video</SelectItem>
-              <SelectItem value="post" className="text-xs">Post</SelectItem>
+              {t.formats.map((f) => <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -180,7 +174,7 @@ function ContentLibraryContent() {
             <TableRow>
               <TableHead className="w-16 text-xs text-muted-foreground py-2.5">Thumbnail</TableHead>
               <TableHead className="w-24 text-xs text-muted-foreground py-2.5">Platform</TableHead>
-              <TableHead className="text-xs text-muted-foreground py-2.5">Caption</TableHead>
+              <TableHead className="text-xs text-muted-foreground py-2.5">{t.yt ? 'Title' : 'Caption'}</TableHead>
               <TableHead className="w-24 text-xs text-muted-foreground py-2.5">
                 <button onClick={() => handleSort('publishedAt')} className="inline-flex items-center gap-1 hover:text-foreground">
                   Posted <ArrowUpDown className="w-3 h-3" />
@@ -201,6 +195,7 @@ function ContentLibraryContent() {
                   Comments <ArrowUpDown className="w-3 h-3" />
                 </button>
               </TableHead>
+{t.hasSavesShares && (<>
               <TableHead className="w-20 text-right text-xs text-muted-foreground py-2.5">
                 <button onClick={() => handleSort('saves')} className="inline-flex items-center gap-1 hover:text-foreground">
                   Saves <ArrowUpDown className="w-3 h-3" />
@@ -211,6 +206,7 @@ function ContentLibraryContent() {
                   Shares <ArrowUpDown className="w-3 h-3" />
                 </button>
               </TableHead>
+              </>)}
               <TableHead className="w-28 text-right text-xs text-muted-foreground py-2.5">
                 <button onClick={() => handleSort('performanceScore')} className="inline-flex items-center gap-1 hover:text-foreground">
                   Eng. % <ArrowUpDown className="w-3 h-3" />
@@ -247,14 +243,14 @@ function ContentLibraryContent() {
                   title="Open post analysis"
                 >
                   <TableCell className="py-2">
-                    <div className="relative w-8 h-8 rounded overflow-hidden bg-secondary">
+                    <div className={cn('relative h-8 rounded overflow-hidden bg-secondary', post.platform === 'youtube' ? 'w-14' : 'w-8')}>
                       {post.thumbnail && (
                         <Image
                           src={post.thumbnail}
                           alt=""
                           fill
                           className="object-cover"
-                          sizes="32px"
+                          sizes="56px"
                           unoptimized
                         />
                       )}
@@ -265,6 +261,7 @@ function ContentLibraryContent() {
                       <Badge className={cn('text-[10px] px-1.5 py-0 border', getPlatformColor(post.platform))}>
                         {getPlatformLabel(post.platform)}
                       </Badge>
+                      <span className="text-[10px] text-muted-foreground">{formatLabel(post.type)}</span>
                       {post.isBoosted && (
                         <Badge className="text-[9px] px-1.5 py-0 border bg-amber-500/10 text-amber-400 border-amber-500/20" title="Promoted post: stats are organic only">
                           Boosted
@@ -278,7 +275,7 @@ function ContentLibraryContent() {
                       onClick={(e) => e.stopPropagation()}
                       className="hover:text-indigo-400"
                     >
-                      {post.caption || 'Untitled post'}
+                      {post.caption || (post.platform === 'youtube' ? 'Untitled video' : 'Untitled post')}
                     </Link>
                   </TableCell>
                   <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
@@ -293,12 +290,14 @@ function ContentLibraryContent() {
                   <TableCell className="py-2 text-right text-xs text-muted-foreground">
                     {formatNumber(post.comments)}
                   </TableCell>
+                  {t.hasSavesShares && (<>
                   <TableCell className="py-2 text-right text-xs text-muted-foreground">
                     {formatNumber(post.saves)}
                   </TableCell>
                   <TableCell className="py-2 text-right text-xs text-muted-foreground">
                     {formatNumber(post.shares)}
                   </TableCell>
+                  </>)}
                   <TableCell className="py-2 text-right">
                     <div className="inline-flex items-center gap-1 justify-end">
                       <Flame className={cn('w-3.5 h-3.5 shrink-0', getPerformanceColor(post.performanceScore))} />

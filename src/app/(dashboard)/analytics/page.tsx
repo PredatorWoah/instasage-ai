@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
+import { usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
 import type { TimeSeriesPoint } from '@/types';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -16,6 +17,7 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(30);
   const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[] } | null>(`/api/analytics?days=${days}`);
 
+  const { t } = usePlatform();
   const series = data?.timeSeries ?? [];
   const loading = data === undefined;
 
@@ -27,30 +29,36 @@ export default function AnalyticsPage() {
   ];
 
   const charts = [
-    {
-      title: 'Platform Reach',
-      subtitle: `Accounts your Instagram reached each day (Instagram keeps 30 days of history)`,
-      component: <ReachChart data={series} />,
-    },
+    t.yt
+      ? {
+          title: 'Channel views gained',
+          subtitle: 'Views across the whole channel each day, worked out from daily syncs (starts once two syncs exist)',
+          component: <ReachChart data={series} dataKey="channelViews" label="Channel views" />,
+        }
+      : {
+          title: 'Platform Reach',
+          subtitle: 'Accounts your Instagram reached each day (Instagram keeps 30 days of history)',
+          component: <ReachChart data={series} />,
+        },
     {
       title: 'Total Views',
-      subtitle: `Views on the posts published each day, last ${days} days`,
+      subtitle: `Views on the ${t.posts} published each day, last ${days} days`,
       component: <ViewsChart data={series} />,
     },
     {
       title: 'Engagement Rate',
-      subtitle: `Engagement of posts published each day vs your average, last ${days} days`,
+      subtitle: `Engagement (${t.engagementNote}) of ${t.posts} published each day vs your average`,
       component: <EngagementChart data={series} />,
     },
     {
-      title: 'Followers Growth',
-      subtitle: `Follower count per day, rebuilt from Instagram's daily new followers`,
-      component: <FollowersChart data={series} />,
+      title: `${t.followers} Growth`,
+      subtitle: t.yt ? 'Subscriber count per day, one snapshot per sync' : 'Follower count per day, rebuilt from Instagram\'s daily new followers',
+      component: <FollowersChart data={series} label={t.followers} />,
     },
     {
       title: 'Posting Frequency',
-      subtitle: `Posts published per day, last ${days} days`,
-      component: <PostingFrequencyChart data={series} />,
+      subtitle: `${t.Posts} published per day, last ${days} days`,
+      component: <PostingFrequencyChart data={series} label={t.Posts} />,
       fullWidth: true,
     },
   ];
@@ -61,7 +69,7 @@ export default function AnalyticsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Analytics</h1>
-          <p className="text-[15px] text-muted-foreground mt-3">Deep-dive performance graphs across all platforms</p>
+          <p className="text-[15px] text-muted-foreground mt-3">{t.yt ? 'How your channel is growing, day by day' : 'Deep-dive performance graphs across all platforms'}</p>
         </div>
         <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-lg border border-border self-start shrink-0">
           {timeFilters.map((filter) => (
