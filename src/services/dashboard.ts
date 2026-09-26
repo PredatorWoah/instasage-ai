@@ -1,11 +1,14 @@
 import { prisma } from '@/lib/prisma';
 import type { TimeSeriesPoint } from '@/types';
 import type { AccountScope } from '@/lib/scope';
+import { localParts } from '@/services/analysis';
 
 const dayKey = (d: Date) => d.toISOString().split('T')[0];
 
-// Stats for the accounts selected in the top bar switcher
-export async function getDashboardData(scope: AccountScope, days = 30) {
+// Stats for the accounts selected in the top bar switcher. Posts land on the day they went
+// up in the creator's timezone; daily snapshots keep the day they were taken.
+export async function getDashboardData(scope: AccountScope, days = 30, timeZone = 'UTC') {
+  const postDay = (d: Date) => localParts(d, timeZone).dayKey;
   const { profiles, profileIds } = scope;
 
   const since = new Date();
@@ -45,7 +48,7 @@ export async function getDashboardData(scope: AccountScope, days = 30) {
 
   const postsByDay = new Map<string, { score: number; views: number }[]>();
   for (const p of windowPosts) {
-    const key = dayKey(p.publishedAt);
+    const key = postDay(p.publishedAt);
     postsByDay.set(key, [...(postsByDay.get(key) ?? []), { score: p.performanceScore, views: p.views }]);
   }
 

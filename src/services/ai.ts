@@ -1,168 +1,56 @@
 import { prisma } from '@/lib/prisma';
+import { AiError, generate, getAiConfig, parseJson, type ChatTurn } from '@/services/llm';
+import { analysisToPrompt, buildAnalysis, localTime } from '@/services/analysis';
 
-const API = 'https://generativelanguage.googleapis.com/v1beta';
-const FALLBACK_MODEL = 'gemini-2.5-flash';
+export { AiError, type ChatTurn };
 
-export class AiError extends Error {
-  constructor(public code: 'no_key' | 'no_data' | 'api', message: string) {
-    super(message);
-  }
-}
+type Scope = { key: string; profileIds: string[] };
 
-// ---------- Key and model ----------
+const ANALYST = `You are a sharp, honest social media strategist for a solo creator. Base every point on the numbers given, cite them, and never invent metrics that are not in the data. When a sample is small (under 3 posts), say so instead of overclaiming. Engagement rate is (likes + comments + saves + shares) / reach for Instagram and (likes + comments) / views for YouTube. Saves and shares signal content people value; comments signal conversation.`;
 
-type GeminiConfig = { apiKey: string; model: string; timeZone: string };
-
-export async function getGeminiConfig(userId: string): Promise<GeminiConfig> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true, geminiModel: true, timezone: true } });
-  const apiKey = user?.geminiApiKey || process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new AiError('no_key', 'Add your Gemini API key in Settings to use AI features.');
-  return { apiKey, model: user?.geminiModel || process.env.GEMINI_MODEL || FALLBACK_MODEL, timeZone: user?.timezone || 'UTC' };
-}
-
-function versionScore(name: string) {
-  // gemini-2.5-flash -> 2.5, gemini-3-flash -> 3
-  const match = name.match(/gemini-(\d+(?:\.\d+)?)/);
-  return match ? parseFloat(match[1]) : 0;
-}
-
-// Picks the newest stable Flash model this key can use, so retired model names never break the app
-export async function pickModel(apiKey: string) {
-  const res = await fetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, cache: 'no-store' });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new AiError('api', explainGeminiError(res.status, body));
-
-  const models: { name: string; supportedGenerationMethods?: string[] }[] = body.models ?? [];
-  const candidates = models
-    .map((m) => ({ id: m.name.replace(/^models\//, ''), methods: m.supportedGenerationMethods ?? [] }))
-    .filter((m) => m.methods.includes('generateContent'))
-    .filter((m) => /^gemini-[\d.]+-flash$/.test(m.id) || /^gemini-[\d.]+-flash-\d{3}$/.test(m.id))
-    .sort((a, b) => versionScore(b.id) - versionScore(a.id) || a.id.length - b.id.length);
-
-  return candidates[0]?.id ?? FALLBACK_MODEL;
-}
-
-function explainGeminiError(status: number, body: { error?: { message?: string; status?: string } }) {
-  const message = body?.error?.message || `Gemini request failed (${status})`;
-  if (status === 400 && /api key not valid/i.test(message)) return 'That API key is not valid. Copy it again from Google AI Studio.';
-  if (status === 403) return `Gemini refused the key: ${message}`;
-  if (status === 429) return 'Gemini quota reached on every available model. Wait a minute (or until tomorrow on the free tier) and try again.';
-  if (status === 503) return 'Google\'s Gemini servers are overloaded right now (this is on Google\'s side, not your key). Try again in a few minutes.';
-  return message;
-}
-
-// Other models to try when the chosen one is overloaded or out of free quota
-const BACKUP_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
-const RETRYABLE = new Set([429, 500, 503, 504]);
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function generate(config: GeminiConfig, prompt: string, options: { json?: boolean; system?: string; history?: ChatTurn[] } = {}) {
-  const contents = [
-    ...(options.history ?? []).map((t) => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.content }] })),
-    { role: 'user', parts: [{ text: prompt }] },
-  ];
-  const payload = JSON.stringify({
-    contents,
-    ...(options.system ? { systemInstruction: { parts: [{ text: options.system }] } } : {}),
-    generationConfig: options.json ? { responseMimeType: 'application/json', temperature: 0.4 } : { temperature: 0.7 },
-  });
-
-  const models = [config.model, ...BACKUP_MODELS.filter((m) => m !== config.model)];
-  let lastError: AiError | null = null;
-
-  for (const model of models) {
-    // One quick retry on the same model, then move on to the next one
-    for (const wait of [0, 1500]) {
-      if (wait) await sleep(wait);
-      const res = await fetch(`${API}/models/${model}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
-        body: payload,
-        cache: 'no-store',
-      });
-      const body = await res.json().catch(() => ({}));
-
-      if (res.ok) {
-        const text: string = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-        if (text) return { text, model };
-        lastError = new AiError('api', 'Gemini returned an empty answer. Try again.');
-        break;
-      }
-
-      lastError = new AiError('api', explainGeminiError(res.status, body));
-      // A retired or unknown model name: skip straight to the next model
-      if (res.status === 404) break;
-      if (!RETRYABLE.has(res.status)) throw lastError;
-      console.warn(`Gemini ${model} returned ${res.status}; retrying`);
-    }
-  }
-  throw lastError ?? new AiError('api', 'Gemini is not responding. Try again in a few minutes.');
-}
-
-function parseJson<T>(text: string): T {
-  try {
-    return JSON.parse(text.replace(/```json\n?|\n?```/g, '').trim());
-  } catch {
-    throw new AiError('api', 'Gemini returned something that was not valid JSON. Try again.');
-  }
-}
-
-// Saves a key after proving it works; returns the model that will be used
-export async function saveGeminiKey(userId: string, rawKey: string) {
-  const apiKey = rawKey.trim();
-  if (apiKey.length < 20) throw new AiError('api', 'That does not look like a Gemini API key. It usually starts with "AIza".');
-
-  const model = process.env.GEMINI_MODEL || (await pickModel(apiKey));
-  await generate({ apiKey, model, timeZone: 'UTC' }, 'Reply with the single word OK.');
-
-  await prisma.user.update({ where: { id: userId }, data: { geminiApiKey: apiKey, geminiModel: model } });
-  // Old results came from a different key or model; let them regenerate
-  await prisma.aiResult.deleteMany({ where: { userId } });
-  return model;
-}
-
-// ---------- Data context ----------
-
-// "Tue 18:45" in the creator's own timezone, so AI advice about timing reads naturally
-function localTime(d: Date, timeZone: string) {
-  return new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-}
-
-// Only the accounts picked in the switcher (profileIds already belong to the user)
-async function buildContext(profileIds: string[], timeZone: string) {
-  const profiles = await prisma.socialProfile.findMany({ where: { id: { in: profileIds } } });
-  const posts = await prisma.post.findMany({
-    where: { socialProfileId: { in: profiles.map((p) => p.id) } },
-    orderBy: { publishedAt: 'desc' },
-    take: 40,
-  });
-  if (posts.length === 0) {
+async function context(profileIds: string[], timeZone: string) {
+  const analysis = await buildAnalysis(profileIds, timeZone);
+  if (analysis.totals.posts === 0) {
     throw new AiError('no_data', 'Connect an account and press Sync first, so there are posts to analyze.');
   }
-
-  const accounts = profiles.map((p) => `${p.platform} @${p.username}: ${p.followerCount} followers`).join('\n');
-  const rows = posts.map((p) => {
-    const d = p.publishedAt;
-    return [
-      p.platform,
-      p.type,
-      localTime(d, timeZone),
-      `views ${p.views}`,
-      `likes ${p.likes}`,
-      `comments ${p.comments}`,
-      `saves ${p.saves}`,
-      `shares ${p.shares}`,
-      `engagement ${p.performanceScore.toFixed(1)}%`,
-      `"${p.caption.replace(/\s+/g, ' ').slice(0, 140)}"`,
-    ].join(' | ');
-  });
-
-  return `All times are in the creator's timezone (${timeZone}); always talk about times in that timezone, in 12-hour format like "7 PM", and never mention UTC.\n\nAccounts:\n${accounts}\n\nRecent posts, newest first (platform | type | posted | stats | caption):\n${rows.join('\n')}`;
+  return analysisToPrompt(analysis);
 }
 
-const ANALYST = 'You are a sharp social media growth analyst for a solo creator. Base every point on the data given, cite concrete numbers from it, and never invent metrics that are not in the data. Engagement rate is (likes + comments + saves + shares) / reach for Instagram and (likes + comments) / views for YouTube.';
+// JSON answers come back as an object; lists sit under "items"
+function items<T>(text: string): T[] {
+  const parsed = parseJson<{ items?: T[] } | T[]>(text);
+  const list = Array.isArray(parsed) ? parsed : parsed.items;
+  if (!Array.isArray(list)) throw new AiError('api', 'The AI answer was missing its list. Try again.', true);
+  return list;
+}
 
-// ---------- Cached generators ----------
+// ---------- Cache ----------
+
+const read = (userId: string, kind: string) => prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind } } });
+
+async function write(userId: string, kind: string, content: unknown, model: string) {
+  const data = { content: content as object, model, createdAt: new Date() };
+  return prisma.aiResult.upsert({ where: { userId_kind: { userId, kind } }, update: data, create: { ...data, userId, kind } });
+}
+
+type ListKind = 'insights' | 'recommendations';
+
+export async function getCachedResult<T>(userId: string, kind: ListKind, scopeKey: string) {
+  const row = await read(userId, `${kind}:${scopeKey}`);
+  return row ? { items: row.content as T[], model: row.model, createdAt: row.createdAt } : null;
+}
+
+async function saveList(userId: string, kind: ListKind, scopeKey: string, list: unknown[], model: string) {
+  const row = await write(userId, `${kind}:${scopeKey}`, list, model);
+  return { items: list, model, createdAt: row.createdAt };
+}
+
+// Times in cached answers were worded for the old timezone
+export async function clearTimedResults(userId: string) {
+  await prisma.aiResult.deleteMany({ where: { userId, NOT: { kind: { startsWith: 'report:' } } } });
+}
+
+// ---------- Insights and quick wins ----------
 
 export type Insight = { title: string; description: string; impact: 'high' | 'medium' | 'low'; category: string };
 export type AiRecommendation = {
@@ -176,73 +64,140 @@ export type AiRecommendation = {
   estimatedGrowth: string;
 };
 
-type Kind = 'insights' | 'recommendations';
-
-// Results are cached per switcher selection: "insights:all", "insights:<profileId>"
-const cacheKind = (kind: Kind, scopeKey: string) => `${kind}:${scopeKey}`;
-
-export async function getCachedResult<T>(userId: string, kind: Kind, scopeKey: string) {
-  const row = await prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind: cacheKind(kind, scopeKey) } } });
-  return row ? { items: row.content as T[], model: row.model, createdAt: row.createdAt } : null;
-}
-
-async function saveResult(userId: string, kindName: Kind, scopeKey: string, items: unknown[], model: string) {
-  const kind = cacheKind(kindName, scopeKey);
-  const data = { content: items as object[], model, createdAt: new Date() };
-  const row = await prisma.aiResult.upsert({
-    where: { userId_kind: { userId, kind } },
-    update: data,
-    create: { ...data, userId, kind },
-  });
-  return { items, model, createdAt: row.createdAt };
-}
-
-type Scope = { key: string; profileIds: string[] };
-
 export async function generateInsights(userId: string, scope: Scope) {
-  const config = await getGeminiConfig(userId);
-  const context = await buildContext(scope.profileIds, config.timeZone);
+  const config = await getAiConfig(userId);
+  const data = await context(scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
-    `${context}\n\nFind the 5 most useful insights in this data: what is working, what is not, and why. Look at post type, posting day and time, caption style, and saves/shares versus likes.\nReturn a JSON array of objects with keys: "title" (max 8 words), "description" (2 or 3 sentences with specific numbers), "impact" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth").`,
+    `${data}\n\nFind the 5 most useful insights in these numbers: what is working, what is not, and why. Prefer the biggest differences between groups (format, weekday, time of day, caption style, hashtags, calls to action) and any momentum change. Every insight must quote the numbers behind it.\nReturn a JSON object: {"items": [{"title": max 8 words, "description": 2 or 3 sentences with specific numbers, "impact": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth"}]}`,
     { json: true, system: ANALYST },
   );
-  const items = parseJson<Insight[]>(text).slice(0, 6);
-  return saveResult(userId, 'insights', scope.key, items, model);
+  return saveList(userId, 'insights', scope.key, items<Insight>(text).slice(0, 6), model);
 }
 
 export async function generateRecommendations(userId: string, scope: Scope) {
-  const config = await getGeminiConfig(userId);
-  const context = await buildContext(scope.profileIds, config.timeZone);
+  const config = await getAiConfig(userId);
+  const data = await context(scope.profileIds, config.timeZone);
   const { text, model } = await generate(
     config,
-    `${context}\n\nGive 6 specific, actionable recommendations to grow this account over the next month. Each must follow from a pattern in the data.\nReturn a JSON array of objects with keys: "title" (an action, max 8 words), "description" (2 or 3 sentences: what to do and which data point justifies it), "priority" ("high" | "medium" | "low"), "category" ("timing" | "content" | "engagement" | "growth"), "impact" (short expected result), "effort" ("low" | "medium" | "high"), "estimatedGrowth" (short, e.g. "+10% reach").`,
+    `${data}\n\nGive 6 quick wins: specific actions this creator can take this week, each following from a pattern in the numbers above.\nReturn a JSON object: {"items": [{"title": an action, max 8 words, "description": 2 or 3 sentences (what to do and which number justifies it), "priority": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth", "impact": short expected result, "effort": "low" | "medium" | "high", "estimatedGrowth": short, e.g. "+10% reach"}]}`,
     { json: true, system: ANALYST },
   );
-  const items = parseJson<Omit<AiRecommendation, 'id'>[]>(text)
-    .slice(0, 8)
-    .map((r, i) => ({ ...r, id: `rec-${i}` }));
-  return saveResult(userId, 'recommendations', scope.key, items, model);
+  const list = items<Omit<AiRecommendation, 'id'>>(text).slice(0, 8).map((r, i) => ({ ...r, id: `rec-${i}` }));
+  return saveList(userId, 'recommendations', scope.key, list, model);
 }
 
-// ---------- Chat ----------
+// ---------- Game plan ----------
 
-export type ChatTurn = { role: 'user' | 'assistant'; content: string };
+export type GamePlan = {
+  headline: string;
+  diagnosis: string;
+  keep: { title: string; why: string }[];
+  stop: { title: string; why: string }[];
+  pillars: { name: string; description: string; share: number; formats: string }[];
+  schedule: { day: string; time: string; format: string; why: string }[];
+  weeks: { week: number; theme: string; goal: string; posts: { day: string; format: string; idea: string; hook: string }[] }[];
+  experiments: { title: string; hypothesis: string; how: string; measure: string }[];
+  targets: { metric: string; now: string; target: string }[];
+};
+
+export async function getCachedPlan(userId: string, scopeKey: string) {
+  const row = await read(userId, `plan:${scopeKey}`);
+  return row ? { plan: row.content as GamePlan, model: row.model, createdAt: row.createdAt } : null;
+}
+
+export async function generateGamePlan(userId: string, scope: Scope) {
+  const config = await getAiConfig(userId);
+  const data = await context(scope.profileIds, config.timeZone);
+  const { text, model } = await generate(
+    config,
+    `${data}
+
+Build this creator's game plan for the next 30 days. Be direct and specific: name formats, days, local times and topics, and tie every call to a number above. If the data is thin for something, say what to test instead of pretending.
+
+Return a JSON object with exactly these keys:
+"headline": one punchy sentence on where the account stands right now,
+"diagnosis": 2 or 3 sentences: the biggest growth lever and the biggest leak, with numbers,
+"keep": 3 to 5 things that are working and must continue [{"title", "why"}],
+"stop": 3 to 5 things to stop or avoid, the don'ts [{"title", "why"}],
+"pillars": 3 or 4 content pillars built from the best performing topics [{"name", "description", "share": percent of posts as a number, "formats": e.g. "Reels, carousels"}],
+"schedule": the weekly posting slots to use, 3 to 6 of them [{"day": "Mon".."Sun", "time": e.g. "7 PM", "format", "why"}],
+"weeks": 4 weeks [{"week": 1..4, "theme", "goal", "posts": 3 to 5 posts [{"day", "format", "idea": one concrete post idea, "hook": the first line or on-screen hook}]}],
+"experiments": 2 or 3 tests to run [{"title", "hypothesis", "how", "measure": which number decides it}],
+"targets": 3 or 4 targets for the 30 days [{"metric", "now": current value, "target"}]`,
+    { json: true, system: ANALYST, long: true },
+  );
+  const plan = parseJson<GamePlan>(text);
+  if (!plan.headline || !Array.isArray(plan.weeks)) throw new AiError('api', 'The game plan came back incomplete. Try again.', true);
+  const row = await write(userId, `plan:${scope.key}`, plan, model);
+  return { plan, model, createdAt: row.createdAt };
+}
+
+// ---------- Chat widget ----------
 
 export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string) {
-  const config = await getGeminiConfig(userId);
-  let context: string;
+  const config = await getAiConfig(userId);
+  let data: string;
   try {
-    context = await buildContext(scope.profileIds, config.timeZone);
+    data = await context(scope.profileIds, config.timeZone);
   } catch (error) {
-    if (error instanceof AiError && error.code === 'no_data') context = 'No posts have been synced yet.';
+    if (error instanceof AiError && error.code === 'no_data') data = 'No posts have been synced yet.';
     else throw error;
   }
   const { text } = await generate(config, message, {
     history: history.slice(-10),
-    system: `${ANALYST}\nYou are chatting inside the creator's analytics dashboard. Keep answers short and practical (under 150 words), use plain text with simple dashes for lists, and refer to their real numbers.\n\n${context}`,
+    system: `${ANALYST}\nYou are Sage, chatting inside the creator's analytics dashboard. Keep answers short and practical (under 150 words), plain text, and refer to their real numbers.\n\n${data}`,
   });
   return text;
+}
+
+// ---------- Brainstorm (Ideas Studio) ----------
+
+export async function brainstormReply(userId: string, scope: Scope, history: ChatTurn[], message: string) {
+  const config = await getAiConfig(userId);
+  const [data, plan, saved] = await Promise.all([
+    context(scope.profileIds, config.timeZone).catch((error) => {
+      if (error instanceof AiError && error.code === 'no_data') return 'No posts have been synced yet, so ideas cannot lean on past results.';
+      throw error;
+    }),
+    getCachedPlan(userId, scope.key),
+    prisma.savedIdea.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 15, select: { title: true, status: true } }),
+  ]);
+
+  const system = `${ANALYST}
+You are Sage, the creator's brainstorming partner in their Ideas Studio. Think with them, not at them:
+- Be concrete: give hooks, formats, shot lists, caption openers, series names. No generic advice like "post consistently".
+- Ground ideas in what already works for this account (the numbers below) and say which number backs an idea.
+- Push back honestly when an idea is weak for this audience, and offer a stronger angle.
+- When asked for many ideas, number them. Use short Markdown: **bold**, bullet lists, and ### headings for longer answers.
+- Keep it tight. End with a sharp follow-up question or next step when it helps.
+${plan ? `\nTheir current 30-day game plan: ${plan.plan.headline} Pillars: ${plan.plan.pillars.map((p) => p.name).join(', ')}.` : ''}
+${saved.length ? `\nIdeas already on their board (do not repeat them): ${saved.map((s) => `${s.title} [${s.status}]`).join('; ')}` : ''}
+
+${data}`;
+
+  return generate(config, message, { history: history.slice(-16), system });
+}
+
+// ---------- Monthly report story ----------
+
+export type ReportStory = { headline: string; summary: string; wins: string[]; watchouts: string[]; nextMonth: string[] };
+
+export async function getCachedReportStory(userId: string, scopeKey: string, month: string) {
+  const row = await read(userId, `report:${month}:${scopeKey}`);
+  return row ? { story: row.content as ReportStory, model: row.model, createdAt: row.createdAt } : null;
+}
+
+export async function generateReportStory(userId: string, scopeKey: string, month: string, reportText: string) {
+  const config = await getAiConfig(userId);
+  const { text, model } = await generate(
+    config,
+    `${reportText}\n\nWrite this month's performance review for the creator. Compare with the previous month where numbers exist.\nReturn a JSON object: {"headline": one sentence, "summary": 3 or 4 sentences with numbers, "wins": 3 short bullet strings, "watchouts": 2 or 3 short bullet strings, "nextMonth": 3 specific actions for next month}`,
+    { json: true, system: ANALYST },
+  );
+  const story = parseJson<ReportStory>(text);
+  const row = await write(userId, `report:${month}:${scopeKey}`, story, model);
+  return { story, model, createdAt: row.createdAt };
 }
 
 // ---------- Single post analysis ----------
@@ -284,7 +239,7 @@ export async function getPostWithBenchmarks(userId: string, postId: string) {
 }
 
 export async function analyzePost(userId: string, postId: string) {
-  const config = await getGeminiConfig(userId);
+  const config = await getAiConfig(userId);
   const data = await getPostWithBenchmarks(userId, postId);
   if (!data) throw new AiError('no_data', 'Post not found. Try syncing again.');
   const { post, benchmarks: b } = data;
@@ -294,7 +249,7 @@ export async function analyzePost(userId: string, postId: string) {
   const { text, model } = await generate(
     config,
     `Analyze this single ${post.platform} ${post.type} for the creator @${post.socialProfile.username}.
-Posted: ${localTime(post.publishedAt, config.timeZone)} (creator's timezone ${config.timeZone}; talk about times in 12-hour format in that timezone and never mention UTC)
+Posted: ${localTime(post.publishedAt, config.timeZone)} (creator's local time, timezone ${config.timeZone}; talk about times in 12-hour format and never mention UTC)
 Caption: "${post.caption.slice(0, 1500)}"
 ${line('Views', post.views, b.views)}
 ${line('Reach', post.reach ?? 0, b.reach)}
@@ -310,17 +265,11 @@ Return a JSON object with keys: "verdict" (one sentence on how it performed vs t
     { json: true, system: ANALYST },
   );
   const analysis = parseJson<PostAnalysis>(text);
-
-  const kind = `post:${postId}`;
-  const row = await prisma.aiResult.upsert({
-    where: { userId_kind: { userId, kind } },
-    update: { content: analysis as object, model, createdAt: new Date() },
-    create: { userId, kind, content: analysis as object, model },
-  });
+  const row = await write(userId, `post:${postId}`, analysis, model);
   return { analysis, model: row.model, createdAt: row.createdAt };
 }
 
 export async function getCachedPostAnalysis(userId: string, postId: string) {
-  const row = await prisma.aiResult.findUnique({ where: { userId_kind: { userId, kind: `post:${postId}` } } });
+  const row = await read(userId, `post:${postId}`);
   return row ? { analysis: row.content as PostAnalysis, model: row.model, createdAt: row.createdAt } : null;
 }

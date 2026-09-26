@@ -18,11 +18,16 @@ model User {
   bio           String?
   geminiApiKey  String?
   geminiModel   String?
-  timezone      String?   // IANA zone from the browser, used for AI date wording
+  timezone      String?   // IANA zone, e.g. "Asia/Kolkata": AI wording, reports and the daily cron use it
+  timezoneAuto  Boolean   @default(true) // false once picked by hand in Settings, so the browser stops overriding it
+  aiProvider    String?   // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
   aiResults     AiResult[]
+  aiCredentials AiCredential[]
+  ideaThreads   IdeaThread[]
+  savedIdeas    SavedIdea[]
 }
 
 model SocialProfile {
@@ -87,15 +92,66 @@ model SyncJob {
   errorMessage    String?
 }
 
-// Cached Gemini output (insights, recommendations) so pages load instantly
+// Cached AI output (insights, recommendations, game plan, report summaries) so pages load instantly
 model AiResult {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind      String   // 'insights' | 'recommendations'
+  kind      String   // '<kind>:<scope>' or 'post:<id>'
   content   Json
   model     String
   createdAt DateTime @default(now())
 
   @@unique([userId, kind])
+}
+
+// One API key per AI provider; the active one is User.aiProvider
+model AiCredential {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider  String
+  apiKey    String
+  model     String
+  models    Json?    // Model ids this key can use, fetched when it was saved
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+// Ideas Studio: brainstorm conversations with the AI
+model IdeaThread {
+  id        String        @id @default(uuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  scopeKey  String        @default("all")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  IdeaMessage[]
+}
+
+model IdeaMessage {
+  id        String     @id @default(uuid())
+  threadId  String
+  thread    IdeaThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role      String     // 'user' | 'assistant'
+  content   String
+  model     String?
+  createdAt DateTime   @default(now())
+}
+
+// Ideas the creator kept, moved along a small board
+model SavedIdea {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  notes     String   @default("")
+  format    String?
+  status    String   @default("idea") // 'idea' | 'planned' | 'posted'
+  source    String   @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
