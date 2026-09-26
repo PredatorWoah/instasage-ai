@@ -1,6 +1,5 @@
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { AIChat } from '@/components/ai-assistant/AIChat';
-import { AuthGuard } from '@/components/layout/AuthGuard';
 import { PageTransition } from '@/components/layout/PageTransition';
 
 export default function DashboardLayout({
@@ -9,7 +8,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AuthGuard>
       <div className="min-h-screen bg-background">
         {/* Ambient Prism light behind everything */}
         <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -22,6 +20,5 @@ export default function DashboardLayout({
         </main>
         <AIChat />
       </div>
-    </AuthGuard>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useCachedJson } from '@/lib/useCachedJson';
 import Link from 'next/link';
 import type { TimeSeriesPoint } from '@/types';
 import { FollowersChart } from '@/components/charts/FollowersChart';
@@ -13,21 +14,10 @@ import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(30);
-  const [data, setData] = useState<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[] } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/analytics?days=${days}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => !cancelled && setData(json))
-      .catch(() => !cancelled && setData(null));
-    return () => {
-      cancelled = true;
-    };
-  }, [days]);
+  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[] } | null>(`/api/analytics?days=${days}`);
 
   const series = data?.timeSeries ?? [];
-  const loading = data?.days !== days;
+  const loading = data === undefined;
 
   const timeFilters = [
     { label: '7 Days', value: 7 },

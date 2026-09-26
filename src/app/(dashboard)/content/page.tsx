@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, ArrowUpDown, Flame } from 'lucide-react';
 import Link from 'next/link';
+import { useCachedJson } from '@/lib/useCachedJson';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -45,14 +46,8 @@ function ContentLibraryContent() {
   const [platform, setPlatform] = useState<string>('all');
   const [postType, setPostType] = useState<string>('all');
   const [sort, setSort] = useState<SortConfig>({ key: 'publishedAt', direction: 'desc' });
-  const [posts, setPosts] = useState<Post[] | null>(null);
-
-  useEffect(() => {
-    fetch('/api/posts')
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setPosts)
-      .catch(() => setPosts([]));
-  }, []);
+  const { data: postsData } = useCachedJson<Post[]>('/api/posts');
+  const posts = useMemo(() => (postsData === undefined ? null : postsData ?? []), [postsData]);
 
   // Keep search input state in sync with URL search query parameter
   useEffect(() => {

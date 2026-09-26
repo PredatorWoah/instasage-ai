@@ -6,6 +6,7 @@ import { Camera, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { clearJsonCache } from '@/lib/useCachedJson';
 
 type SocialProfile = { id: string; platform: string; username: string; displayName: string };
 
@@ -24,6 +25,7 @@ export function ConnectedAccounts({ onChange }: { onChange?: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
+    clearJsonCache();
     const res = await fetch('/api/accounts');
     setProfiles(res.ok ? await res.json() : []);
     onChange?.();

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
+import { useCachedJson } from '@/lib/useCachedJson';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -8,32 +9,29 @@ type Slot = { day: string; hour: string; engagement: number; posts: number };
 
 // Nebula-style glowing tile: the weekday + hour your posts do best, in the viewer's own timezone
 export function BestTimeTile() {
-  const [slot, setSlot] = useState<Slot | null | undefined>(undefined);
+  const { data: posts } = useCachedJson<{ publishedAt: string; performanceScore: number }[]>('/api/posts');
 
-  useEffect(() => {
-    fetch('/api/posts')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((posts: { publishedAt: string; performanceScore: number }[]) => {
-        const buckets = new Map<string, { total: number; count: number; day: number; hour: number }>();
-        for (const p of posts) {
-          const d = new Date(p.publishedAt);
-          // Group into 3-hour windows so a handful of posts still gives a signal
-          const hour = Math.floor(d.getHours() / 3) * 3;
-          const key = `${d.getDay()}-${hour}`;
-          const b = buckets.get(key) ?? { total: 0, count: 0, day: d.getDay(), hour };
-          b.total += p.performanceScore;
-          b.count += 1;
-          buckets.set(key, b);
-        }
-        const best = [...buckets.values()]
-          .filter((b) => b.count >= (posts.length >= 12 ? 2 : 1))
-          .sort((a, b) => b.total / b.count - a.total / a.count)[0];
-        if (!best || posts.length < 3) return setSlot(null);
-        const fmt = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString(undefined, { hour: 'numeric' });
-        setSlot({ day: DAYS[best.day], hour: fmt(best.hour), engagement: best.total / best.count, posts: best.count });
-      })
-      .catch(() => setSlot(null));
-  }, []);
+  const slot = useMemo<Slot | null | undefined>(() => {
+    if (posts === undefined) return undefined;
+    if (!posts || posts.length < 3) return null;
+    const buckets = new Map<string, { total: number; count: number; day: number; hour: number }>();
+    for (const p of posts) {
+      const d = new Date(p.publishedAt);
+      // Group into 3-hour windows so a handful of posts still gives a signal
+      const hour = Math.floor(d.getHours() / 3) * 3;
+      const key = `${d.getDay()}-${hour}`;
+      const b = buckets.get(key) ?? { total: 0, count: 0, day: d.getDay(), hour };
+      b.total += p.performanceScore;
+      b.count += 1;
+      buckets.set(key, b);
+    }
+    const best = [...buckets.values()]
+      .filter((b) => b.count >= (posts.length >= 12 ? 2 : 1))
+      .sort((a, b) => b.total / b.count - a.total / a.count)[0];
+    if (!best) return null;
+    const fmt = (h: number) => new Date(2000, 0, 1, h).toLocaleTimeString(undefined, { hour: 'numeric' });
+    return { day: DAYS[best.day], hour: fmt(best.hour), engagement: best.total / best.count, posts: best.count };
+  }, [posts]);
 
   return (
     <div className="relative overflow-hidden p-5 rounded-[30px] bg-card border border-[rgba(244,114,182,0.25)] flex flex-col justify-between min-h-[190px]">

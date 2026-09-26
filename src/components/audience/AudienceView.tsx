@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useCachedJson } from '@/lib/useCachedJson';
 import Link from 'next/link';
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,13 +59,9 @@ function ShareList({ title, rows, format }: { title: string; rows: (Row & { shar
 }
 
 export function AudienceView() {
-  const [data, setData] = useState<AudienceResponse | undefined>(undefined);
-  const [posts, setPosts] = useState<Post[]>([]);
-
-  useEffect(() => {
-    fetch('/api/audience').then((r) => (r.ok ? r.json() : null)).then(setData).catch(() => setData(null));
-    fetch('/api/posts').then((r) => (r.ok ? r.json() : [])).then(setPosts).catch(() => setPosts([]));
-  }, []);
+  const { data } = useCachedJson<AudienceResponse>('/api/audience');
+  const { data: postsData } = useCachedJson<Post[]>('/api/posts');
+  const posts = useMemo(() => postsData ?? [], [postsData]);
 
   // Average engagement by weekday and hour, in the viewer's own timezone
   const timing = useMemo(() => {

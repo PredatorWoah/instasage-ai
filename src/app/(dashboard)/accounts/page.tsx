@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
+import { clearJsonCache } from '@/lib/useCachedJson';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +39,8 @@ function AccountsContent() {
   const router = useRouter();
 
   const fetchAccounts = async () => {
+    // Synced or changed accounts make every cached page stale
+    clearJsonCache();
     setIsLoading(true);
     try {
       const res = await fetch('/api/accounts');

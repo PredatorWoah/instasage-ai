@@ -1,42 +1,40 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { primeJson, useCachedJson } from '@/lib/useCachedJson';
 
 type Result<T> = { items: T[]; model: string; createdAt: string };
 type Failure = { error: string; code?: string };
 
-// Loads a cached AI result and generates one on first visit
+// Shows the cached AI result instantly (from memory on repeat visits) and generates one on first visit
 export function useAiResult<T>(kind: 'insights' | 'recommendations') {
-  const [result, setResult] = useState<Result<T> | null>(null);
+  const url = `/api/ai/${kind}`;
+  const { data: cached } = useCachedJson<Result<T> | null>(url);
+  const [generated, setGenerated] = useState<Result<T> | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
-  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const attempted = useRef(false);
 
   const generate = useCallback(async () => {
+    attempted.current = true;
     setGenerating(true);
     setFailure(null);
-    const res = await fetch(`/api/ai/${kind}`, { method: 'POST' });
+    const res = await fetch(url, { method: 'POST' });
     const data = await res.json().catch(() => ({ error: 'Unexpected response' }));
-    if (res.ok) setResult(data);
-    else setFailure(data);
+    if (res.ok) {
+      setGenerated(data);
+      primeJson(url, data);
+    } else {
+      setFailure(data);
+    }
     setGenerating(false);
-  }, [kind]);
+  }, [url]);
 
+  // Nothing cached yet: generate once automatically
   useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/ai/${kind}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((cached) => {
-        if (cancelled) return;
-        setLoading(false);
-        if (cached) setResult(cached);
-        else generate();
-      })
-      .catch(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [kind, generate]);
+    if (cached === null && !attempted.current) generate();
+  }, [cached, generate]);
 
-  return { result, failure, loading: loading || (generating && !result), generating, generate };
+  const result = generated ?? cached ?? null;
+  return { result, failure, loading: cached === undefined || (generating && !result), generating, generate };
 }
