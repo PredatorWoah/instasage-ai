@@ -321,7 +321,7 @@ export function AiSettings() {
   );
 }
 
-// A plain select for short lists; a searchable box for OpenRouter's hundreds of models
+// A plain select for short lists; a searchable browser for OpenRouter's hundreds of models
 function ModelPicker({ id, models, value, disabled, onPick }: {
   id: string;
   models: string[];
@@ -329,7 +329,10 @@ function ModelPicker({ id, models, value, disabled, onPick }: {
   disabled: boolean;
   onPick: (model: string) => void;
 }) {
-  const [draft, setDraft] = useState(value);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [vendor, setVendor] = useState<string | null>(null);
+  const [freeOnly, setFreeOnly] = useState(false);
   const options = models.includes(value) || !value ? models : [value, ...models];
   const field = 'w-full h-9 rounded-md border border-border bg-secondary/50 px-2.5 text-xs';
 
@@ -340,17 +343,73 @@ function ModelPicker({ id, models, value, disabled, onPick }: {
       </select>
     );
   }
+
+  const vendors = VENDORS.filter((v) => options.some((m) => m.startsWith(`${v.id}/`)));
+  const q = query.trim().toLowerCase();
+  const matches = options.filter((m) => (!vendor || m.startsWith(`${vendor}/`)) && (!freeOnly || m.endsWith(':free')) && (!q || m.toLowerCase().includes(q)));
+  const choose = (model: string) => {
+    setOpen(false);
+    setQuery('');
+    onPick(model);
+  };
+
   return (
-    <form
-      className="flex gap-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onPick(draft.trim());
-      }}
-    >
-      <input id={id} list={`${id}-list`} value={draft} disabled={disabled} onChange={(e) => setDraft(e.target.value)} className={field} />
-      <datalist id={`${id}-list`}>{options.map((m) => <option key={m} value={m} />)}</datalist>
-      <Button type="submit" size="sm" variant="outline" disabled={disabled || draft.trim() === value} className="text-xs h-9 shrink-0">Use</Button>
-    </form>
+    <div className="space-y-2">
+      <button type="button" id={id} disabled={disabled} onClick={() => setOpen((v) => !v)} aria-expanded={open} className={`${field} flex items-center justify-between text-left`}>
+        <span className="truncate">{value || 'Pick a model'}</span>
+        <span className="text-indigo-400 shrink-0 ml-2">{open ? 'Close' : `Browse ${options.length} models`}</span>
+      </button>
+
+      {open && (
+        <div className="rounded-xl border border-border bg-secondary/20 p-2 space-y-2">
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search: llama, claude, gpt, grok, mistral..." autoFocus className="h-8 text-xs bg-secondary/50 border-border" />
+          <div className="flex flex-wrap gap-1.5">
+            <Chip active={freeOnly} onClick={() => setFreeOnly((v) => !v)}>Free only</Chip>
+            {vendors.map((v) => (
+              <Chip key={v.id} active={vendor === v.id} onClick={() => setVendor(vendor === v.id ? null : v.id)}>{v.label}</Chip>
+            ))}
+          </div>
+          <ul className="max-h-64 overflow-y-auto divide-y divide-border/50 rounded-lg border border-border/60 bg-background/40">
+            {matches.slice(0, 150).map((m) => (
+              <li key={m}>
+                <button type="button" onClick={() => choose(m)} className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-left text-xs hover:bg-white/[0.06] ${m === value ? 'bg-white/[0.08] font-bold' : ''}`}>
+                  <span className="truncate">{m.replace(/:free$/, '')}</span>
+                  {m.endsWith(':free') && <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">free</span>}
+                </button>
+              </li>
+            ))}
+            {matches.length === 0 && <li className="px-2.5 py-3 text-xs text-muted-foreground">No match. Type a full model id from openrouter.ai/models to use it anyway.</li>}
+          </ul>
+          {query.trim().includes('/') && !options.includes(query.trim()) && (
+            <button type="button" onClick={() => choose(query.trim())} className="w-full text-left text-xs rounded-lg border border-dashed border-indigo-400/40 px-2.5 py-2 text-indigo-300 hover:bg-indigo-500/10">
+              Use <b>{query.trim()}</b> as a custom model id
+            </button>
+          )}
+          <p className="text-[11px] text-muted-foreground">
+            {matches.length > 150 ? `Showing 150 of ${matches.length}, keep typing to narrow it. ` : `${matches.length} models. `}
+            Not listed? Type its full id (like <code>vendor/model-name</code>) from <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">openrouter.ai/models</a>.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const VENDORS = [
+  { id: 'anthropic', label: 'Claude' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'google', label: 'Google' },
+  { id: 'meta-llama', label: 'Llama' },
+  { id: 'mistralai', label: 'Mistral' },
+  { id: 'x-ai', label: 'Grok' },
+  { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'qwen', label: 'Qwen' },
+];
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className={`text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors ${active ? 'bg-white text-background' : 'bg-white/[0.07] text-muted-foreground hover:text-foreground'}`}>
+      {children}
+    </button>
   );
 }
