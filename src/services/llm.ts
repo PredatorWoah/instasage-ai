@@ -100,6 +100,15 @@ export async function getAiConfig(userId: string): Promise<LlmConfig & { backups
 const RETRYABLE = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// fetch that turns a dropped connection into a clear, retryable error instead of a crash
+async function netFetch(provider: ProviderId, input: string, init?: RequestInit) {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new AiError('api', `Could not reach ${PROVIDERS[provider].label}. Check the connection and try again.`, true);
+  }
+}
+
 export async function generate(config: LlmConfig & { backups?: LlmConfig[] }, prompt: string, options: Options = {}) {
   const chain = [config, ...(config.backups ?? [])];
   let lastError: unknown;
@@ -190,7 +199,7 @@ async function gemini(config: LlmConfig, prompt: string, options: Options) {
     // One quick retry on the same model, then the next model
     for (const wait of [0, 1500]) {
       if (wait) await sleep(wait);
-      const res = await fetch(`${GEMINI_API}/models/${model}:generateContent`, {
+      const res = await netFetch('gemini', `${GEMINI_API}/models/${model}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
         body: payload,
@@ -230,7 +239,7 @@ async function gemini(config: LlmConfig, prompt: string, options: Options) {
 
 // What this key can use, newest first, plus the best default (newest stable Flash)
 async function geminiModels(apiKey: string) {
-  const res = await fetch(`${GEMINI_API}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, cache: 'no-store' });
+  const res = await netFetch('gemini', `${GEMINI_API}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, cache: 'no-store' });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new AiError('api', explainGeminiError(res.status, body));
   const version = (id: string) => parseFloat(id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0');
@@ -336,7 +345,7 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
   let lastError: AiError | null = null;
   for (const wait of [0, 2000]) {
     if (wait) await sleep(wait);
-    const res = await fetch(`${base}/chat/completions`, {
+    const res = await netFetch(config.provider, `${base}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -360,7 +369,7 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
 }
 
 async function openAiModels(apiKey: string) {
-  const res = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
+  const res = await netFetch('openai', 'https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw explainOpenAiError('openai', res.status, body);
   const version = (id: string) => parseFloat(id.match(/^gpt-(\d+(?:\.\d+)?)/)?.[1] ?? '0');
@@ -375,13 +384,13 @@ async function openAiModels(apiKey: string) {
 }
 
 async function openRouterModels(apiKey: string) {
-  const check = await fetch('https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
+  const check = await netFetch('openrouter', 'https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
   if (!check.ok) throw explainOpenAiError('openrouter', check.status, await check.json().catch(() => ({})));
-  const res = await fetch('https://openrouter.ai/api/v1/models', { cache: 'no-store' });
+  const res = await netFetch('openrouter', 'https://openrouter.ai/api/v1/models', { cache: 'no-store' });
   const body = await res.json().catch(() => ({}));
   const ids = ((body.data ?? []) as { id: string }[]).map((m) => m.id);
   const model = PROVIDERS.openrouter.suggested.find((id) => ids.includes(id)) ?? ids[0] ?? PROVIDERS.openrouter.defaultModel;
-  return { model, models: ids.slice(0, 400) };
+  return { model, models: ids };
 }
 
 // ---------- Saving a key ----------
