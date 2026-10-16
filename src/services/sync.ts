@@ -22,11 +22,12 @@ export async function syncSocialProfile(profileId: string) {
   const syncJob = await prisma.syncJob.create({ data: { socialProfileId: profile.id, platform: profile.platform, status: 'running' } });
 
   try {
-    if (profile.platform === 'youtube') await syncYouTubeProfile(profile);
-    else if (profile.platform === 'instagram') await syncInstagramProfile(profile);
+    const result = profile.platform === 'youtube' ? await syncYouTubeProfile(profile) : await syncInstagramProfile(profile);
 
     await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'completed', completedAt: new Date() } });
     await prisma.socialProfile.update({ where: { id: profile.id }, data: { lastSyncedAt: new Date(), isConnected: true } });
+    // What the platform reported this time, so the UI can say so
+    return { previous: profile.followerCount, followers: result.followers, posts: result.posts };
   } catch (error) {
     const message = (error as Error).message;
     await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'failed', completedAt: new Date(), errorMessage: message } });
@@ -97,6 +98,7 @@ async function syncYouTubeProfile(profile: SocialProfile) {
       },
     });
   });
+  return { followers: followerCount, posts: videos.length };
 }
 
 // Keeps the 60-day token alive: refresh once it is more than a week old
@@ -134,6 +136,26 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   const token = await freshInstagramToken({ ...profile, accessToken: profile.accessToken! });
   const ig = await getInstagramProfile(token);
   const igUserId = profile.externalId || ig.user_id;
+  const followerCount = ig.followers_count ?? profile.followerCount;
+
+  // Save the headline numbers first: the posts and insights below take a while, and a slow or
+  // failed step there must not leave the follower count stuck on an old value
+  await prisma.socialProfile.update({
+    where: { id: profile.id },
+    data: {
+      externalId: igUserId,
+      username: ig.username,
+      displayName: ig.name || ig.username,
+      followerCount,
+      profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
+    },
+  });
+  const todayKey = dayKey(new Date());
+  await prisma.metric.upsert({
+    where: { id: `${profile.id}:${todayKey}` },
+    update: { followers: followerCount },
+    create: { id: `${profile.id}:${todayKey}`, socialProfileId: profile.id, date: new Date(`${todayKey}T12:00:00Z`), followers: followerCount },
+  });
 
   const media = await getInstagramMedia(token);
   const failedMetrics = new Set<string>();
@@ -217,15 +239,11 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   await prisma.socialProfile.update({
     where: { id: profile.id },
     data: {
-      externalId: igUserId,
-      username: ig.username,
-      displayName: ig.name || ig.username,
-      followerCount: ig.followers_count ?? profile.followerCount,
-      profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
       ...(hasAudience ? { audience } : {}),
       ...(reach30 != null ? { reach30 } : {}),
     },
   });
+  return { followers: followerCount, posts: media.length };
 }
 
 // Cheap refresh between full syncs: the follower or subscriber count and today's snapshot,

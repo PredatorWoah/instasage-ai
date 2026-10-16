@@ -7,6 +7,7 @@ import { AlertCircle, PlaySquare, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
+import { syncAccount } from '@/lib/syncClient';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,30 +59,16 @@ function AccountsContent() {
 
   const syncProfile = async (accId: string, quiet = false) => {
     setSyncing((prev) => ({ ...prev, [accId]: true }));
-    try {
-      const res = await fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId: accId })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        if (!quiet) toast.success('Sync complete');
-      } else {
-        toast.error('Sync failed', { description: data.error });
-      }
-      return res.ok;
-    } catch {
-      toast.error('Sync failed', { description: 'Could not reach the server.' });
-      return false;
-    } finally {
-      setSyncing((prev) => ({ ...prev, [accId]: false }));
-    }
+    const acc = accounts.find((a) => a.id === accId);
+    const ok = await syncAccount(accId, acc ? `@${acc.username}` : 'Account', acc?.platform === 'youtube' ? 'subscribers' : 'followers', quiet);
+    setSyncing((prev) => ({ ...prev, [accId]: false }));
+    return ok;
   };
 
   const handleSync = async (accId: string) => {
     await syncProfile(accId);
     fetchAccounts();
+    router.refresh();
   };
 
   const syncAll = async () => {

@@ -12,7 +12,8 @@ import { getCachedResult, type AiRecommendation, type Insight } from '@/services
 import { FollowersChart } from '@/components/charts/FollowersChart';
 import { EngagementChart } from '@/components/charts/EngagementChart';
 import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
-import { formatNumber, getPerformanceLabel } from '@/utils/formatters';
+import { formatAge, formatNumber, getPerformanceLabel } from '@/utils/formatters';
+import { SyncNowButton } from '@/components/dashboard/SyncNowButton';
 
 export const metadata = { title: 'Overview · InstaSage' };
 
@@ -61,11 +62,17 @@ export default async function DashboardPage() {
             <Sparkles className="w-3.5 h-3.5" /> Your {month} story · {who}
           </span>
           <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
-          {insights?.items[0] && (
-            <Link href="/insights" transitionTypes={['nav-forward']} className="self-start text-sm font-semibold text-white/90 hover:text-white inline-flex items-center gap-1.5">
-              Read the full analysis <ArrowRight className="w-4 h-4" />
-            </Link>
-          )}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <SyncNowButton
+              accounts={scope.profiles.map((p) => ({ id: p.id, username: p.username, platform: p.platform }))}
+              syncedAgo={data.syncedMinutesAgo == null ? null : formatAge(data.syncedMinutesAgo)}
+            />
+            {insights?.items[0] && (
+              <Link href="/insights" transitionTypes={['nav-forward']} className="text-sm font-semibold text-white/90 hover:text-white inline-flex items-center gap-1.5">
+                Read the full analysis <ArrowRight className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
         </div>
         <div className="relative flex flex-row lg:flex-col gap-2.5 justify-end lg:w-[280px]">
           <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
