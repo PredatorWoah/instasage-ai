@@ -26,6 +26,7 @@ Other details:
 * **YouTube mode.** Pick a channel and every page switches to subscribers, Shorts vs long videos and titles, and hides numbers YouTube does not share.
 * **Your AI, your choice.** Save keys for several providers and pick the active one. If it is overloaded, the others step in automatically.
 * **Local time everywhere.** Your timezone is detected (or picked in Settings) and used by charts, reports, the AI and the daily sync.
+* **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
 * **Always fresh.** Counts refresh whenever you open the app, and posts, insights and competitors sync every morning on Vercel Cron.
 
 ---
