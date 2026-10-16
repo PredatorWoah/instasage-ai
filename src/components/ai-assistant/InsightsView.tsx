@@ -1,5 +1,6 @@
 'use client';
 
+import { ExportAnalysis } from '@/components/export/ExportAnalysis';
 import { Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +26,10 @@ export function InsightsView() {
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">AI Insights</h1>
           <p className="text-[15px] text-muted-foreground mt-3">Your AI&apos;s read on what is and isn&apos;t working, worked out from real patterns in your posts</p>
         </div>
-        <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
+        <div className="flex flex-wrap items-center gap-3 self-start">
+          <ExportAnalysis />
+          <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
+        </div>
       </div>
 
       {failure && <AiNotice code={failure.code} message={failure.error} />}

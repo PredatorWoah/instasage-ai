@@ -176,6 +176,48 @@ Return a JSON object: {"summary": 2 or 3 sentences on where the creator stands, 
   return { takeaways, model, createdAt: row.createdAt };
 }
 
+// ---------- Export for a chat app (ChatGPT, Claude, Gemini...) ----------
+
+export type ExportGoal = 'plan' | 'review' | 'ideas' | 'ask';
+
+const EXPORT_TASKS: Record<ExportGoal, string> = {
+  plan: `Build my 30-day game plan. Be direct and specific: name formats, days, local times and topics, and tie every call to a number in my data. If the data is thin for something, say what to test instead of pretending.
+
+Give me, in this order:
+1. Where I stand: one punchy sentence, then 2 or 3 sentences on my biggest growth lever and biggest leak, with numbers.
+2. Keep doing: 3 to 5 things that work and must continue (each with the number that proves it).
+3. Stop doing: 3 to 5 things to stop or avoid (each with the number that proves it).
+4. Content pillars: 3 or 4, each with a share of my posts and the formats to use.
+5. Posting schedule: 3 to 6 weekly slots (day, time in my timezone, format, why).
+6. Week by week: 4 weeks, each with a theme, a goal and 3 to 5 posts (day, format, one concrete idea, the opening hook line).
+7. Experiments: 2 or 3 tests (hypothesis, how to run it, the number that decides it).
+8. Targets: 3 or 4 numbers to hit in 30 days, with where I am now.`,
+  review: `Tell me what is working and what is not. Find the 5 most useful insights in these numbers, preferring the biggest differences between groups (format, weekday, time of day, caption style, hashtags, calls to action) and any momentum change. Quote the numbers behind each one. Then give me 6 quick wins I can do this week, each with effort (low, medium, high) and the expected effect.`,
+  ideas: `Be my brainstorming partner. Start with 10 specific post ideas for the next two weeks: for each give the format, a hook line, why it should work for my audience (cite my numbers) and the best slot to post it. Then ask me one sharp question to push the best 3 further. Push back honestly if one of my own ideas looks weak for my audience.`,
+  ask: `I have a question about my account. First read my data below, then answer my question using my real numbers. My question: `,
+};
+
+export async function buildExportText(userId: string, scope: Scope, goal: ExportGoal) {
+  const config = await getAiConfig(userId).catch(() => null);
+  const timeZone = config?.timeZone ?? (await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }))?.timezone ?? 'UTC';
+  const data = await context(userId, scope.profileIds, timeZone, true);
+  const stamp = new Intl.DateTimeFormat('en-GB', { timeZone, dateStyle: 'long' }).format(new Date());
+
+  return [
+    '# Task',
+    ANALYST,
+    '',
+    EXPORT_TASKS[goal],
+    '',
+    'Do not invent numbers that are not in the data below. If you need something I have not given you (my niche, goals, what I can realistically film), ask me one short question first.',
+    '',
+    `# My data (exported from InstaSage on ${stamp})`,
+    'Everything below is already worked out for you: patterns by format, weekday, hour, caption style and hashtags, momentum, posting cadence, top and weakest posts, audience and competitors. Times are in my local timezone.',
+    '',
+    data,
+  ].join('\n');
+}
+
 // ---------- Chat widget ----------
 
 export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string) {

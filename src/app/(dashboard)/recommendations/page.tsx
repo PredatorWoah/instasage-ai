@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Compass, KanbanSquare, MessagesSquare, Zap } from 'lucide-react';
+import { ExportAnalysis } from '@/components/export/ExportAnalysis';
 import { GamePlanView } from '@/components/ideas/GamePlanView';
 import { Brainstorm } from '@/components/ideas/Brainstorm';
 import { IdeaBoard } from '@/components/ideas/IdeaBoard';
@@ -31,6 +32,8 @@ function IdeasStudio() {
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Ideas Studio</h1>
           <p className="text-[15px] text-muted-foreground mt-3">{tab.blurb}</p>
         </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:justify-end">
+        <ExportAnalysis />
         <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-4 lg:flex gap-1 p-1 rounded-full bg-white/[0.05] border border-white/[0.06] self-start w-full lg:w-auto">
           {TABS.map((t) => {
             const Icon = t.icon;
@@ -52,6 +55,7 @@ function IdeasStudio() {
               </button>
             );
           })}
+        </div>
         </div>
       </div>
 
