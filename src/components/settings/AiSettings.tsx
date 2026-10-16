@@ -151,6 +151,14 @@ export function AiSettings() {
     if (data) toast.success(`${current?.label} is now your AI`);
   };
 
+  const refreshList = async () => {
+    const data = await call('refresh', 'PATCH', { provider: selected, refreshModels: true });
+    if (!data) return;
+    toast.success('Model list updated', {
+      description: data.refreshed.changed ? `Your old model is gone, so ${current?.label} now uses ${data.refreshed.model}.` : `Still using ${data.refreshed.model}.`,
+    });
+  };
+
   const remove = async () => {
     if (!confirm(`Remove your ${current?.label} key?`)) return;
     const data = await call('remove', 'DELETE', undefined, `?provider=${selected}`);
@@ -219,7 +227,14 @@ export function AiSettings() {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ai-model" className="text-xs">Model</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="ai-model" className="text-xs">Model</Label>
+                  {selected !== 'anthropic' && (
+                    <button type="button" onClick={refreshList} disabled={!!busy} className="text-[11px] text-indigo-400 hover:underline disabled:opacity-50">
+                      {busy === 'refresh' ? 'Checking...' : 'Refresh models'}
+                    </button>
+                  )}
+                </div>
                 <ModelPicker
                   key={`${current.id}:${current.model}`}
                   id="ai-model"
@@ -229,6 +244,12 @@ export function AiSettings() {
                   onPick={changeModel}
                 />
                 {busy === 'model' && <p className="text-[11px] text-muted-foreground">Testing the new model...</p>}
+                {selected === 'gemini' && /argon/.test(current.model ?? '') && (
+                  <p className="text-[11px] text-muted-foreground">Gemini 4 Argon is Google&apos;s newest flagship and, going by its launch coverage, needs a paid Gemini API plan. If it errors, pick a Flash model.</p>
+                )}
+                {selected === 'gemini' && (
+                  <p className="text-[11px] text-muted-foreground">Google retires old models. If one disappears, InstaSage switches to a current one by itself. <b>Refresh models</b> does it on demand and shows what your key can use now (look for <code>gemini-4-argon</code>).</p>
+                )}
               </div>
             </div>
           )}
