@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUserId, unauthorized, aiErrorResponse } from '@/lib/api';
-import { PROVIDERS, isProvider, listCredentials, saveCredential, setModel, type ProviderId } from '@/services/llm';
+import { PROVIDERS, isProvider, listCredentials, refreshModels, saveCredential, setModel, type ProviderId } from '@/services/llm';
 
 // Every provider with its status. Keys never leave the server; the last 4 characters identify them.
 async function status(userId: string) {
@@ -52,13 +52,17 @@ export async function PUT(req: Request) {
   }
 }
 
-// Switch the active provider and/or its model: { provider, model?, activate? }
+// Switch the active provider and/or its model: { provider, model?, activate? }, or { provider, refreshModels: true }
 export async function PATCH(req: Request) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
-  const { provider, model, activate } = await req.json().catch(() => ({}));
+  const { provider, model, activate, refreshModels: refresh } = await req.json().catch(() => ({}));
   if (!isProvider(provider)) return NextResponse.json({ error: 'Unknown AI provider.' }, { status: 400 });
   try {
+    if (refresh) {
+      const result = await refreshModels(userId, provider);
+      return NextResponse.json({ ...(await status(userId)), refreshed: result });
+    }
     if (typeof model === 'string' && model.trim()) await setModel(userId, provider, model.trim());
     if (activate) {
       const { creds } = await listCredentials(userId);

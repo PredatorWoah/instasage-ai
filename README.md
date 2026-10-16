@@ -175,7 +175,7 @@ Open **Settings → AI models**, pick a provider, paste a key and save. Each key
 
 | Provider | Get a key | Notes |
 | --- | --- | --- |
-| **Gemini** (Google) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free tier; the newest Flash model is picked automatically |
+| **Gemini** (Google) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Free tier. The newest Flash model your key can use is picked, and if Google retires it InstaSage switches to a current one by itself. `gemini-4-argon` appears in the model list when your plan includes it; **Refresh models** in Settings re-reads the list |
 | **Claude** (Anthropic) | [Claude Console](https://platform.claude.com/settings/keys) | Pay as you go; defaults to Claude Opus 5 with server-side fallbacks |
 | **ChatGPT** (OpenAI) | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Pay as you go; the newest GPT model on your key is picked |
 | **OpenRouter** | [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) | One key for Llama, DeepSeek, Mistral, Grok and more; `:free` models cost nothing |

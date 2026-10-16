@@ -26,8 +26,9 @@ export const PROVIDERS: Record<ProviderId, {
     company: 'Google',
     keyPrefix: 'AIza',
     keyUrl: 'https://aistudio.google.com/app/apikey',
-    defaultModel: 'gemini-2.5-flash',
-    suggested: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'],
+    // "-latest" aliases follow Google's current model, so a retired version number can't break them
+    defaultModel: 'gemini-flash-latest',
+    suggested: ['gemini-flash-latest', 'gemini-4-argon', 'gemini-pro-latest', 'gemini-flash-lite-latest'],
   },
   anthropic: {
     label: 'Claude',
@@ -57,7 +58,7 @@ export const PROVIDERS: Record<ProviderId, {
 
 export const isProvider = (v: unknown): v is ProviderId => typeof v === 'string' && v in PROVIDERS;
 
-export type LlmConfig = { provider: ProviderId; apiKey: string; model: string; timeZone: string };
+export type LlmConfig = { provider: ProviderId; apiKey: string; model: string; timeZone: string; userId?: string; models?: string[] };
 type Options = { json?: boolean; system?: string; history?: ChatTurn[]; long?: boolean };
 
 // ---------- Which key and model to use ----------
@@ -86,7 +87,7 @@ export async function listCredentials(userId: string) {
 export async function getAiConfig(userId: string): Promise<LlmConfig & { backups: LlmConfig[] }> {
   const { creds, active, timeZone } = await listCredentials(userId);
   if (!active) throw new AiError('no_key', 'Add an AI key in Settings (Gemini, Claude, ChatGPT or OpenRouter) to use AI features.');
-  const toConfig = (provider: ProviderId): LlmConfig => ({ provider, ...creds.get(provider)!, timeZone });
+  const toConfig = (provider: ProviderId): LlmConfig => ({ provider, ...creds.get(provider)!, timeZone, userId });
   return {
     ...toConfig(active),
     // Other saved providers step in when the chosen one is overloaded or out of quota
@@ -144,7 +145,21 @@ export function parseJson<T>(text: string): T {
 // ---------- Google Gemini (REST) ----------
 
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_BACKUPS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
+
+// Fallbacks come from the models this key can actually use (newest first), never a fixed list
+function geminiBackups(known: string[] | undefined, current: string) {
+  const pool = (known ?? []).filter((id) => id !== current && /-flash/.test(id) && !/preview|exp/.test(id));
+  const full = pool.filter((id) => !/-lite/.test(id)).slice(0, 2);
+  const lite = pool.find((id) => /-lite/.test(id));
+  const list = [...full, ...(lite ? [lite] : [])];
+  return list.length ? list : ['gemini-flash-latest', 'gemini-flash-lite-latest'].filter((id) => id !== current);
+}
+
+// A model Google has retired or renamed: remember the replacement so later calls go straight to it
+async function rememberGeminiModel(userId: string, apiKey: string, model: string, models: string[]) {
+  await prisma.aiCredential.updateMany({ where: { userId, provider: 'gemini' }, data: { model, models } });
+  await prisma.user.updateMany({ where: { id: userId, geminiApiKey: apiKey }, data: { geminiModel: model } });
+}
 
 function explainGeminiError(status: number, body: { error?: { message?: string } }) {
   const message = body?.error?.message || `Gemini request failed (${status})`;
@@ -166,9 +181,12 @@ async function gemini(config: LlmConfig, prompt: string, options: Options) {
     generationConfig: options.json ? { responseMimeType: 'application/json', temperature: 0.4 } : { temperature: 0.8 },
   });
 
-  const models = [config.model, ...GEMINI_BACKUPS.filter((m) => m !== config.model)];
+  const chain = [config.model, ...geminiBackups(config.models, config.model)];
   let lastError: AiError | null = null;
-  for (const model of models) {
+  let healed: { model: string; models: string[] } | null = null;
+  let primaryMissing = false;
+
+  for (const model of chain) {
     // One quick retry on the same model, then the next model
     for (const wait of [0, 1500]) {
       if (wait) await sleep(wait);
@@ -181,31 +199,50 @@ async function gemini(config: LlmConfig, prompt: string, options: Options) {
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
         const text: string = body?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? '';
-        if (text) return { text, model };
+        if (text) {
+          if (primaryMissing && config.userId) {
+            await rememberGeminiModel(config.userId, config.apiKey, model, healed?.models ?? config.models ?? []).catch(() => {});
+            console.warn(`Gemini model ${config.model} is gone; now using ${model}`);
+          }
+          return { text, model };
+        }
         lastError = new AiError('api', 'Gemini returned an empty answer. Try again.', true);
         break;
       }
       lastError = new AiError('api', explainGeminiError(res.status, body), RETRYABLE.has(res.status));
-      if (res.status === 404) break; // retired model name: next model
+      if (res.status === 404) {
+        // The chosen model no longer exists: ask Google what this key can use now and try that next
+        if (model === config.model && !primaryMissing) {
+          primaryMissing = true;
+          try {
+            const found = await geminiModels(config.apiKey);
+            healed = found;
+            if (!chain.includes(found.model)) chain.splice(1, 0, found.model);
+          } catch { /* keep going with the backups */ }
+        }
+        break;
+      }
       if (!RETRYABLE.has(res.status)) throw lastError;
     }
   }
   throw lastError ?? new AiError('api', 'Gemini is not responding. Try again in a few minutes.', true);
 }
 
-// Newest stable Flash model this key can use, so retired model names never break the app
+// What this key can use, newest first, plus the best default (newest stable Flash)
 async function geminiModels(apiKey: string) {
   const res = await fetch(`${GEMINI_API}/models?pageSize=200`, { headers: { 'x-goog-api-key': apiKey }, cache: 'no-store' });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new AiError('api', explainGeminiError(res.status, body));
   const version = (id: string) => parseFloat(id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0');
+  const NOT_TEXT = /image|tts|embedding|aqa|live|audio|native|robotics|computer|learnlm|imagen|veo|gemma|-exp/;
   const ids = ((body.models ?? []) as { name: string; supportedGenerationMethods?: string[] }[])
     .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
     .map((m) => m.name.replace(/^models\//, ''))
-    .filter((id) => /^gemini-[\d.]+-(flash|pro)(-lite)?(-\d{3})?$/.test(id))
+    .filter((id) => id.startsWith('gemini-') && !NOT_TEXT.test(id))
     .sort((a, b) => version(b) - version(a) || a.length - b.length);
-  const flash = ids.find((id) => /^gemini-[\d.]+-flash(-\d{3})?$/.test(id));
-  return { model: flash ?? PROVIDERS.gemini.defaultModel, models: ids };
+  const flash = ids.filter((id) => /-flash/.test(id) && !/-lite/.test(id));
+  const best = flash.find((id) => !/preview/.test(id)) ?? flash[0] ?? ids[0];
+  return { model: best ?? PROVIDERS.gemini.defaultModel, models: ids };
 }
 
 // ---------- Anthropic Claude (official SDK) ----------
@@ -374,6 +411,31 @@ export async function saveCredential(userId: string, provider: ProviderId, rawKe
   // A freshly added key becomes the active one; that is almost always why it was added
   await prisma.user.update({ where: { id: userId }, data: { aiProvider: provider } });
   return model;
+}
+
+// Re-reads which models a saved key can use. Keeps the chosen model while it still exists,
+// otherwise moves to the best current one (this is how a retired model gets replaced)
+export async function refreshModels(userId: string, provider: ProviderId) {
+  const { creds } = await listCredentials(userId);
+  const cred = creds.get(provider);
+  if (!cred) throw new AiError('no_key', `Add a ${PROVIDERS[provider].label} key first.`);
+
+  let found: { model: string; models: string[] };
+  if (provider === 'gemini') found = await geminiModels(cred.apiKey);
+  else if (provider === 'openai') found = await openAiModels(cred.apiKey);
+  else if (provider === 'openrouter') found = await openRouterModels(cred.apiKey);
+  else found = { model: cred.model, models: PROVIDERS.anthropic.suggested };
+
+  const model = provider === 'anthropic' || found.models.includes(cred.model) ? cred.model : found.model;
+  const data = { model, models: found.models };
+
+  const saved = await prisma.aiCredential.updateMany({ where: { userId, provider }, data });
+  if (!saved.count && provider === 'gemini') {
+    // A key saved before multi-provider support: move it into the new table (it is already in the database)
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true } });
+    if (user?.geminiApiKey === cred.apiKey) await prisma.aiCredential.create({ data: { ...data, userId, provider, apiKey: cred.apiKey } });
+  }
+  return { model, changed: model !== cred.model };
 }
 
 export async function setModel(userId: string, provider: ProviderId, model: string) {
