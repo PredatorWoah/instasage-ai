@@ -5,6 +5,7 @@ import {
   getInstagramMediaInsights,
   getInstagramDailyInsights,
   getInstagramDemographics,
+  getInstagramReachTotal,
   refreshInstagramToken,
   isBoosted,
   type InstagramMedia,
@@ -207,6 +208,8 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   const todayId = `${profile.id}:${dayKey(new Date())}`;
   await prisma.metric.update({ where: { id: todayId }, data: { postsCount: ig.media_count ?? media.length } }).catch(() => {});
 
+  const reach30 = await getInstagramReachTotal(token, igUserId);
+
   const { audience, warnings } = await getInstagramDemographics(token, igUserId);
   if (warnings.length) console.warn('Instagram demographics:', warnings.join(' | '));
   const hasAudience = Object.values(audience).some((rows) => rows.length > 0);
@@ -220,6 +223,45 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
       followerCount: ig.followers_count ?? profile.followerCount,
       profilePictureUrl: ig.profile_picture_url || profile.profilePictureUrl,
       ...(hasAudience ? { audience } : {}),
+      ...(reach30 != null ? { reach30 } : {}),
     },
   });
+}
+
+// Cheap refresh between full syncs: the follower or subscriber count and today's snapshot,
+// without pulling every post's insights again. Returns whether the count changed.
+export async function refreshProfileLight(profileId: string) {
+  const profile = await prisma.socialProfile.findUnique({ where: { id: profileId } });
+  if (!profile) return false;
+
+  let followerCount = profile.followerCount;
+  let views: number | undefined;
+  const identity: { displayName?: string; username?: string; profilePictureUrl?: string } = {};
+
+  if (profile.platform === 'instagram') {
+    if (!profile.accessToken) return false;
+    const token = await freshInstagramToken({ ...profile, accessToken: profile.accessToken });
+    const ig = await getInstagramProfile(token);
+    followerCount = ig.followers_count ?? followerCount;
+    identity.username = ig.username;
+    identity.displayName = ig.name || ig.username;
+    if (ig.profile_picture_url) identity.profilePictureUrl = ig.profile_picture_url;
+  } else if (profile.platform === 'youtube' && profile.externalId) {
+    const channel = await getChannel(await youtubeKey(profile.userId), profile.externalId);
+    if (!channel) return false;
+    followerCount = parseInt(channel.statistics?.subscriberCount || '0', 10);
+    views = parseInt(channel.statistics?.viewCount || '0', 10);
+  } else {
+    return false;
+  }
+
+  await prisma.socialProfile.update({ where: { id: profile.id }, data: { followerCount, ...identity } });
+  const key = dayKey(new Date());
+  const snapshot = { followers: followerCount, ...(views != null ? { views } : {}) };
+  await prisma.metric.upsert({
+    where: { id: `${profile.id}:${key}` },
+    update: snapshot,
+    create: { ...snapshot, id: `${profile.id}:${key}`, socialProfileId: profile.id, date: new Date(`${key}T12:00:00Z`) },
+  });
+  return followerCount !== profile.followerCount;
 }

@@ -15,7 +15,7 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
   since.setDate(since.getDate() - (days - 1));
   since.setHours(0, 0, 0, 0);
 
-  const [posts, windowPosts, viewTotals, metrics, topPosts] = await Promise.all([
+  const [posts, windowPosts, viewTotals, organicAvg, metrics, topPosts] = await Promise.all([
     prisma.post.findMany({
       where: { socialProfileId: { in: profileIds } },
       orderBy: { publishedAt: 'desc' },
@@ -23,9 +23,10 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
     }),
     prisma.post.findMany({
       where: { socialProfileId: { in: profileIds }, publishedAt: { gte: since } },
-      select: { publishedAt: true, performanceScore: true, views: true },
+      select: { publishedAt: true, performanceScore: true, views: true, platform: true, reach: true, likes: true, comments: true, saves: true, shares: true, isBoosted: true },
     }),
     prisma.post.aggregate({ where: { socialProfileId: { in: profileIds } }, _sum: { views: true } }),
+    prisma.post.aggregate({ where: { socialProfileId: { in: profileIds }, isBoosted: false }, _avg: { views: true } }),
     prisma.metric.findMany({
       where: { socialProfileId: { in: profileIds }, date: { gte: since } },
       orderBy: { date: 'asc' },
@@ -95,13 +96,35 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
   const lastFollowers = [...timeSeries].reverse().find(p => p.followers !== undefined)?.followers;
 
   const totalFollowers = profiles.reduce((sum, p) => sum + p.followerCount, 0);
-  const avgEngagement = windowPosts.length > 0
-    ? windowPosts.reduce((sum, p) => sum + p.performanceScore, 0) / windowPosts.length
-    : 0;
+  // Total interactions over total reach (views for YouTube), so one tiny post can't swing the
+  // number the way an average of per-post percentages does. Boosted posts only report organic stats.
+  let interactions = 0;
+  let audienceSize = 0;
+  let counted = 0;
+  for (const p of windowPosts) {
+    if (p.isBoosted) continue;
+    if (p.platform === 'youtube') {
+      interactions += p.likes + p.comments;
+      audienceSize += p.views;
+    } else if (p.reach) {
+      interactions += p.likes + p.comments + p.saves + p.shares;
+      audienceSize += p.reach;
+    } else continue;
+    counted += 1;
+  }
+  const avgEngagement = audienceSize > 0 ? (interactions / audienceSize) * 100 : 0;
+
+  // Unique accounts reached in the last 30 days, straight from Instagram (null until the next sync)
+  const instagram = profiles.filter((p) => p.platform === 'instagram');
+  const reach30 = instagram.length && instagram.every((p) => p.reach30 != null) ? instagram.reduce((a, p) => a + (p.reach30 ?? 0), 0) : null;
+
+  const now = Date.now();
+  const latestPosts = posts.slice(0, 4).map((p) => ({ ...p, ageDays: (now - p.publishedAt.getTime()) / 86_400_000 }));
 
   return {
     profiles,
     posts,
+    latestPosts,
     topPosts,
     timeSeries,
     kpis: {
@@ -110,6 +133,9 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
       followersStart: firstFollowers ?? 0,
       views: viewTotals._sum.views ?? 0,
       engagement: avgEngagement,
+      engagementPosts: counted,
+      avgViews: Math.round(organicAvg._avg.views ?? 0),
+      reach30,
       channelViews: timeSeries.some((p) => p.channelViews !== undefined) ? timeSeries.reduce((a, p) => a + (p.channelViews ?? 0), 0) : null,
     },
   };

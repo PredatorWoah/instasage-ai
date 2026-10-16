@@ -49,6 +49,15 @@ export function SiteHeader() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data?.changed && clearJsonCache())
       .catch(() => {});
+    // Pull fresh follower counts (and a full sync when the last one is old), then redraw the page
+    fetch('/api/refresh', { method: 'POST' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.changed) return;
+        clearJsonCache();
+        router.refresh();
+      })
+      .catch(() => {});
     NAV_TABS.forEach((tab) => router.prefetch(tab.href));
     const warmAll = () => Object.keys(TAB_DATA).forEach(warm);
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1200));

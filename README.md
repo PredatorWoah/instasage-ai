@@ -26,7 +26,7 @@ Other details:
 * **YouTube mode.** Pick a channel and every page switches to subscribers, Shorts vs long videos and titles, and hides numbers YouTube does not share.
 * **Your AI, your choice.** Save keys for several providers and pick the active one. If it is overloaded, the others step in automatically.
 * **Local time everywhere.** Your timezone is detected (or picked in Settings) and used by charts, reports, the AI and the daily sync.
-* **Daily auto sync.** Posts, insights and competitors refresh every morning on Vercel Cron.
+* **Always fresh.** Counts refresh whenever you open the app, and posts, insights and competitors sync every morning on Vercel Cron.
 
 ---
 
@@ -117,6 +117,10 @@ API keys you paste inside the app (AI providers, YouTube) are stored in your dat
 6. Open your site, log in and connect accounts.
 
 After changing any environment variable, **redeploy** (Deployments → ⋯ → Redeploy) so the app picks it up.
+
+### Auto refresh
+
+When you open the app, follower and subscriber counts refresh within seconds, and a full sync runs if the last one is more than 6 hours old (or the 30 day reach number is missing). So the numbers stay fresh even if the daily cron isn't set up.
 
 ### Daily auto sync
 

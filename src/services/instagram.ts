@@ -150,6 +150,25 @@ export async function getInstagramDailyInsights(token: string, igUserId: string)
   return { reach, newFollowers, warnings };
 }
 
+// Unique accounts reached over the last 30 days, as the Instagram app reports it. Adding up the
+// daily figures would count the same person once for every day they were reached.
+export async function getInstagramReachTotal(token: string, igUserId: string) {
+  const until = Math.floor(Date.now() / 1000);
+  try {
+    const res = await igGet<{ data: { total_value?: { value: number } }[] }>(`/${igUserId}/insights`, token, {
+      metric: 'reach',
+      period: 'day',
+      metric_type: 'total_value',
+      since: String(until - 29 * 24 * 60 * 60),
+      until: String(until),
+    });
+    return res.data[0]?.total_value?.value ?? null;
+  } catch (error) {
+    console.warn('Instagram 30 day reach:', (error as Error).message);
+    return null;
+  }
+}
+
 type AudienceBreakdown = {
   age: { label: string; value: number }[];
   gender: { label: string; value: number }[];

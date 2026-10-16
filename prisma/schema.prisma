@@ -48,6 +48,7 @@ model SocialProfile {
   accessToken       String?
   tokenExpiresAt    DateTime?
   audience          Json?     // Follower demographics from the platform, refreshed on sync
+  reach30           Int?      // Unique accounts reached over the last 30 days (Instagram), refreshed on sync
   posts             Post[]
   metrics           Metric[]
 }
