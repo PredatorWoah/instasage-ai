@@ -54,3 +54,11 @@ export function getPlatformColor(platform: string): string {
   };
   return colors[platform] ?? 'bg-slate-500/10 text-slate-400 border-slate-500/20';
 }
+
+// "just now", "12 min ago", "5 h ago", "3 d ago"
+export function formatAge(minutes: number): string {
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
+  return `${Math.round(minutes / 60 / 24)} d ago`;
+}

@@ -121,10 +121,13 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
   const now = Date.now();
   const latestPosts = posts.slice(0, 4).map((p) => ({ ...p, ageDays: (now - p.publishedAt.getTime()) / 86_400_000 }));
 
+  const lastSynced = profiles.length ? Math.min(...profiles.map((p) => p.lastSyncedAt.getTime())) : null;
+
   return {
     profiles,
     posts,
     latestPosts,
+    syncedMinutesAgo: lastSynced == null ? null : (now - lastSynced) / 60_000,
     topPosts,
     timeSeries,
     kpis: {
