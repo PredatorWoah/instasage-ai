@@ -67,7 +67,20 @@ export async function GET(req: Request) {
     }
   }
 
-  const summary = { synced: results.filter((r) => r.ok).length, total: profiles.length, competitors: `${rivalsRefreshed}/${rivals.length}`, insights, notified, results };
+  // Housekeeping: rows nothing reads any more (sync history, old usage logs and rival snapshots)
+  const day = 86_400_000;
+  const pruned = await Promise.all([
+    prisma.syncJob.deleteMany({ where: { startedAt: { lt: new Date(Date.now() - 30 * day) } } }),
+    prisma.aiUsage.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 180 * day) } } }),
+    prisma.competitorSnapshot.deleteMany({ where: { date: { lt: new Date(Date.now() - 400 * day) } } }),
+    // A sync the platform killed at its time limit never closes its job; mark it so Status stops showing it as running
+    prisma.syncJob.updateMany({
+      where: { status: 'running', startedAt: { lt: new Date(Date.now() - 15 * 60_000) } },
+      data: { status: 'failed', completedAt: new Date(), errorMessage: 'Timed out before finishing' },
+    }),
+  ]).then((r) => r.reduce((a, x) => a + x.count, 0)).catch(() => 0);
+
+  const summary = { synced: results.filter((r) => r.ok).length, total: profiles.length, competitors: `${rivalsRefreshed}/${rivals.length}`, insights, notified, pruned, results };
   console.log('Daily sync:', JSON.stringify(summary));
   return NextResponse.json(summary);
 }

@@ -17,6 +17,7 @@ import { AccountSwitcher } from './AccountSwitcher';
 import { AlertsBell } from './AlertsBell';
 import { OPEN_PALETTE } from './CommandPalette';
 import { MobileNav } from './MobileNav';
+import { Guard } from '@/components/ui/Guard';
 import { clearJsonCache, prefetchJson } from '@/lib/useCachedJson';
 
 // Data each tab needs, fetched as soon as a finger or pointer lands on the tab
@@ -91,7 +92,7 @@ export function SiteHeader() {
 
         {/* Phones: glass menu pill */}
         <div className="md:hidden min-w-0 flex-1">
-          <MobileNav onWarm={warm} />
+          <Guard name="MobileNav"><MobileNav onWarm={warm} /></Guard>
         </div>
 
         {/* Tablets and up: the pill tab bar */}
@@ -138,8 +139,8 @@ export function SiteHeader() {
           >
             <Search className="w-[18px] h-[18px]" />
           </button>
-          <AlertsBell />
-          <AccountSwitcher />
+          <Guard name="AlertsBell"><AlertsBell /></Guard>
+          <Guard name="AccountSwitcher"><AccountSwitcher /></Guard>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

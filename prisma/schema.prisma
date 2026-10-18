@@ -61,6 +61,9 @@ model SocialProfile {
   funnel            Json?     // 30-day profile visits, link taps, follows and unfollows (Instagram)
   posts             Post[]
   metrics           Metric[]
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([userId])
 }
 
 model Post {
@@ -85,6 +88,10 @@ model Post {
   skipRate         Float?   // reels: % of plays skipped in the first seconds, when Instagram reports it
   ideas            SavedIdea[]
   snapshots        PostSnapshot[]
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([socialProfileId, publishedAt])
+  @@index([socialProfileId, performanceScore])
 }
 
 // A post's numbers at a point in its life (hours since posting), to draw growth curves
@@ -115,6 +122,9 @@ model Metric {
   reach           Int?
   engagement      Float?
   postsCount      Int?
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([socialProfileId, date])
 }
 
 model SyncJob {
@@ -125,6 +135,9 @@ model SyncJob {
   startedAt       DateTime       @default(now())
   completedAt     DateTime?
   errorMessage    String?
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([socialProfileId, startedAt])
 }
 
 // Cached AI output (insights, recommendations, game plan, report summaries) so pages load instantly
@@ -165,6 +178,9 @@ model IdeaThread {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   messages  IdeaMessage[]
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([userId, updatedAt])
 }
 
 model IdeaMessage {
@@ -175,6 +191,9 @@ model IdeaMessage {
   content   String
   model     String?
   createdAt DateTime   @default(now())
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([threadId, createdAt])
 }
 
 // Ideas the creator kept, moved along a small board
@@ -193,6 +212,10 @@ model SavedIdea {
   drafts       Json?    // AI-written script, carousel outline and caption
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Hot lookups (Postgres does not index foreign keys on its own)
+  @@index([userId, updatedAt])
+  @@index([postId])
 }
 
 // Facebook Login link used only for Business Discovery (looking up other Instagram accounts)
