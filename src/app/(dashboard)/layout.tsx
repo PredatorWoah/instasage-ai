@@ -3,6 +3,7 @@ import { HealthBanner } from '@/components/layout/HealthBanner';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { AIChat } from '@/components/ai-assistant/AIChat';
 import { PageTransition } from '@/components/layout/PageTransition';
+import { Guard } from '@/components/ui/Guard';
 
 export default function DashboardLayout({
   children,
@@ -17,12 +18,12 @@ export default function DashboardLayout({
           <div className="absolute top-1/2 -right-64 w-[700px] h-[700px] rounded-full bg-[radial-gradient(closest-side,rgba(255,95,143,0.08),transparent)]" />
         </div>
         <SiteHeader />
-        <HealthBanner />
-        <CommandPalette />
+        <Guard name="HealthBanner"><HealthBanner /></Guard>
+        <Guard name="CommandPalette"><CommandPalette /></Guard>
         <main className="relative max-w-[1480px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <PageTransition>{children}</PageTransition>
         </main>
-        <AIChat />
+        <Guard name="AIChat"><AIChat /></Guard>
       </div>
   );
 }
