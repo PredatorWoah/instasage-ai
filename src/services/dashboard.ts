@@ -143,3 +143,56 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
     },
   };
 }
+
+export type PeriodTotals = { posts: number; views: number; engagement: number | null; reach: number | null; followersGained: number | null };
+
+// The last `days` against the `days` before them, for the "vs previous period" row on Analytics
+export async function comparePeriods(scope: AccountScope, days: number): Promise<{ current: PeriodTotals; previous: PeriodTotals }> {
+  const { profileIds } = scope;
+  const now = Date.now();
+  const start = new Date(now - days * 86_400_000);
+  const prevStart = new Date(now - 2 * days * 86_400_000);
+  const [posts, metrics] = await Promise.all([
+    prisma.post.findMany({
+      where: { socialProfileId: { in: profileIds }, publishedAt: { gte: prevStart } },
+      select: { publishedAt: true, views: true, performanceScore: true },
+    }),
+    prisma.metric.findMany({
+      where: { socialProfileId: { in: profileIds }, date: { gte: new Date(prevStart.getTime() - 3 * 86_400_000) } },
+      orderBy: { date: 'asc' },
+      select: { socialProfileId: true, date: true, followers: true, reach: true },
+    }),
+  ]);
+
+  // Latest snapshot per profile per day, so repeated syncs don't double count
+  const daily = new Map<string, { profile: string; date: Date; followers: number | null; reach: number | null }>();
+  for (const m of metrics) daily.set(`${m.socialProfileId}:${dayKey(m.date)}`, { profile: m.socialProfileId, date: m.date, followers: m.followers, reach: m.reach });
+  const rows = [...daily.values()];
+
+  // Followers at a moment: each profile's last known count at or before it
+  const followersAt = (t: Date) => {
+    let total = 0;
+    for (const id of profileIds) {
+      const last = rows.filter((r) => r.profile === id && r.followers != null && r.date <= t).at(-1);
+      if (!last) return null;
+      total += last.followers!;
+    }
+    return total;
+  };
+
+  const totals = (from: Date, to: Date): PeriodTotals => {
+    const inside = posts.filter((p) => p.publishedAt >= from && p.publishedAt < to);
+    const reachRows = rows.filter((r) => r.reach != null && r.date >= from && r.date < to);
+    const begin = followersAt(from);
+    const end = followersAt(to);
+    return {
+      posts: inside.length,
+      views: inside.reduce((a, p) => a + p.views, 0),
+      engagement: inside.length ? inside.reduce((a, p) => a + p.performanceScore, 0) / inside.length : null,
+      // Only count reach when most days of the window have it (Instagram keeps 30 days)
+      reach: reachRows.length >= days * 0.6 ? reachRows.reduce((a, r) => a + r.reach!, 0) : null,
+      followersGained: begin != null && end != null ? end - begin : null,
+    };
+  };
+  return { current: totals(start, new Date(now + 60_000)), previous: totals(prevStart, start) };
+}

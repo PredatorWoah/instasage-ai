@@ -59,7 +59,7 @@ export function TimezoneSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 p-3 rounded-xl border border-white/[0.07] bg-white/[0.02]">
+      <div className="flex items-center gap-3 p-3 rounded-xl border border-ink/[0.07] bg-ink/[0.02]">
         <Globe2 className="w-5 h-5 text-indigo-400 shrink-0" />
         <div className="min-w-0">
           <p className="text-sm font-semibold truncate">{zoneLabel(zone)}</p>

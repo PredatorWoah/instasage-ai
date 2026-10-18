@@ -60,8 +60,8 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
         aria-controls="mobile-nav-panel"
         className={cn(
           'flex items-center gap-2 h-11 pl-4 pr-3 rounded-full border text-sm font-bold transition-all duration-300 active:scale-[0.97]',
-          'bg-white/[0.07] border-white/[0.12] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
-          open && 'bg-white text-background border-white'
+          'bg-ink/[0.07] border-ink/[0.12] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
+          open && 'bg-ink text-background border-ink'
         )}
       >
         <span className="truncate max-w-[120px]">{currentLabel}</span>
@@ -97,11 +97,11 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
                     className={cn(
                       'flex items-center gap-3 h-16 px-4 rounded-[22px] text-[15px] font-semibold transition-colors active:scale-[0.97]',
                       active
-                        ? 'bg-white text-background shadow-[0_8px_30px_rgba(255,255,255,0.18)]'
-                        : 'bg-white/[0.06] text-foreground border border-white/[0.07]'
+                        ? 'bg-ink text-background shadow-[0_8px_30px_rgba(255,255,255,0.18)]'
+                        : 'bg-ink/[0.06] text-foreground border border-ink/[0.07]'
                     )}
                   >
-                    <span className={cn('w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0', active ? 'prism-hero text-white' : 'bg-white/[0.08]')}>
+                    <span className={cn('w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0', active ? 'prism-hero text-white' : 'bg-ink/[0.08]')}>
                       <Icon className="w-[18px] h-[18px]" />
                     </span>
                     {tab.label}
@@ -109,7 +109,7 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
                 );
               })}
             </nav>
-            <div className="mt-3 pt-3 border-t border-white/[0.08] flex flex-wrap gap-2">
+            <div className="mt-3 pt-3 border-t border-ink/[0.08] flex flex-wrap gap-2">
               {MENU_LINKS.map((item) => {
                 const Icon = MENU_ICONS[item.id];
                 const active = pathname.startsWith(item.href);
@@ -121,7 +121,7 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
                     onClick={() => setOpen(false)}
                     className={cn(
                       'flex items-center gap-1.5 h-10 px-3.5 rounded-full text-[13px] font-medium border transition-colors',
-                      active ? 'bg-white text-background border-white' : 'bg-white/[0.05] border-white/[0.08] text-muted-foreground'
+                      active ? 'bg-ink text-background border-ink' : 'bg-ink/[0.05] border-ink/[0.08] text-muted-foreground'
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" /> {item.label}

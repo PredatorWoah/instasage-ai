@@ -44,7 +44,7 @@ export function QuickWins() {
               onClick={() => setCategory(c)}
               className={cn(
                 'text-xs h-8 px-3.5 rounded-full font-bold capitalize transition-colors shrink-0',
-                category === c ? 'bg-white text-background' : 'bg-white/[0.06] text-muted-foreground hover:text-foreground'
+                category === c ? 'bg-ink text-background' : 'bg-ink/[0.06] text-muted-foreground hover:text-foreground'
               )}
             >
               {c}
@@ -63,7 +63,7 @@ export function QuickWins() {
               const effort = EFFORT[rec.effort] ?? EFFORT.medium;
               const EffortIcon = effort.icon;
               return (
-                <div key={rec.id} className="rounded-[30px] p-5 bg-card border border-white/[0.05] flex flex-col gap-3">
+                <div key={rec.id} className="rounded-[30px] p-5 bg-card border border-ink/[0.05] flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className={cn('text-[11px] font-bold px-2.5 py-1 rounded-full capitalize', PRIORITY[rec.priority] ?? PRIORITY.medium)}>{rec.priority} priority</span>
                     <span className="text-[11px] font-bold text-muted-foreground capitalize">{rec.category}</span>
@@ -78,7 +78,7 @@ export function QuickWins() {
                     onClick={() => keep(rec)}
                     className={cn(
                       'h-9 rounded-full text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors',
-                      saved[rec.id] ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/[0.07] hover:bg-white/[0.12]'
+                      saved[rec.id] ? 'bg-emerald-500/10 text-emerald-400' : 'bg-ink/[0.07] hover:bg-ink/[0.12]'
                     )}
                   >
                     {saved[rec.id] ? <><Check className="w-3.5 h-3.5" /> On your board</> : <><BookmarkPlus className="w-3.5 h-3.5" /> Save to board</>}

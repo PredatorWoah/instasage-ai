@@ -91,7 +91,7 @@ function Setup({ data }: { data: Data }) {
           At <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:underline">developers.facebook.com/apps</a>, open the same app you made for Instagram → <b>Add product</b> → <b>Facebook Login for Business</b> (or <b>Facebook Login</b>) → <b>Settings</b>, and paste this under <b>Valid OAuth Redirect URIs</b>:
           <span className="mt-2 flex items-center gap-2">
             <code className="flex-1 min-w-0 truncate text-[11px] px-2 py-1.5 rounded-lg bg-secondary">{data.redirectUri}</code>
-            <button type="button" onClick={copy} className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-white/[0.08] hover:bg-white/[0.14]">
+            <button type="button" onClick={copy} className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-ink/[0.08] hover:bg-ink/[0.14]">
               {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />} {copied ? 'Copied' : 'Copy'}
             </button>
           </span>
@@ -137,12 +137,12 @@ function Setup({ data }: { data: Data }) {
         </div>
       </section>
 
-      <section className="rounded-[34px] bg-card border border-white/[0.05] p-5 sm:p-6">
+      <section className="rounded-[34px] bg-card border border-ink/[0.05] p-5 sm:p-6">
         <h3 className="text-lg font-bold mb-4">How to set it up</h3>
         <ol className="space-y-4">
           {steps.map((s, i) => (
             <li key={s.title} className="flex gap-3">
-              <span className={cn('w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[13px] font-extrabold', i === 3 && data.configured ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/[0.08]')}>
+              <span className={cn('w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[13px] font-extrabold', i === 3 && data.configured ? 'bg-emerald-500/15 text-emerald-400' : 'bg-ink/[0.08]')}>
                 {i === 3 && data.configured ? <Check className="w-3.5 h-3.5" /> : i + 1}
               </span>
               <div className="min-w-0 text-[13px] text-muted-foreground leading-relaxed [&_code]:text-[11px] [&_code]:px-1 [&_code]:rounded [&_code]:bg-secondary [&_b]:text-foreground">
@@ -208,15 +208,15 @@ function Tracker({ data, refresh }: { data: Data; refresh: () => Promise<void> }
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="@username or instagram.com/username"
-            className="flex-1 h-12 rounded-full bg-card border border-white/[0.07] px-5 text-sm outline-none focus:border-white/[0.2]"
+            className="flex-1 h-12 rounded-full bg-card border border-ink/[0.07] px-5 text-sm outline-none focus:border-ink/[0.2]"
             required
           />
-          <button type="submit" disabled={busy !== null} className="h-12 px-5 rounded-full bg-white text-background text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
+          <button type="submit" disabled={busy !== null} className="h-12 px-5 rounded-full bg-ink text-background text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-50">
             <Plus className="w-4 h-4" /> {busy === 'add' ? 'Looking up...' : 'Track'}
           </button>
         </form>
         <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-          <span className="px-3 py-1.5 rounded-full bg-white/[0.05]">
+          <span className="px-3 py-1.5 rounded-full bg-ink/[0.05]">
             via {link.pageName} · @{link.igUsername}{daysLeft != null ? ` · ${daysLeft > 0 ? `${daysLeft} days left` : 'expired'}` : ''}
           </span>
           {daysLeft != null && daysLeft < 10 && <a href="/api/connect/facebook" className="font-bold text-amber-400 hover:underline">Reconnect</a>}
@@ -230,7 +230,7 @@ function Tracker({ data, refresh }: { data: Data; refresh: () => Promise<void> }
       </div>
 
       {data.competitors.length === 0 ? (
-        <p className="text-sm text-muted-foreground p-5 rounded-[24px] border border-dashed border-white/[0.1]">
+        <p className="text-sm text-muted-foreground p-5 rounded-[24px] border border-dashed border-ink/[0.1]">
           Add a competitor above. It must be a Business or Creator account (most brands and creators are). Try 3 to 5 accounts in your niche that are a bit bigger than you.
         </p>
       ) : (
@@ -248,7 +248,7 @@ function Tracker({ data, refresh }: { data: Data; refresh: () => Promise<void> }
 
 function Avatar({ row, size = 36 }: { row: Row; size?: number }) {
   return (
-    <span className="relative rounded-full overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0 flex items-center justify-center text-white font-bold text-sm" style={{ width: size, height: size }}>
+    <span className="relative rounded-full overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0 flex items-center justify-center text-white font-bold text-sm" style={{ width: size, height: size }}>
       {row.profilePictureUrl ? <Image src={row.profilePictureUrl} alt="" fill unoptimized sizes={`${size}px`} className="object-cover" /> : row.username[0]?.toUpperCase()}
     </span>
   );
@@ -267,7 +267,7 @@ function Comparison({ you, rivals }: { you: Row[]; rivals: Row[] }) {
   const best = cols.map((c) => Math.max(...rows.map((r) => c.get(r) ?? -Infinity)));
 
   return (
-    <section className="rounded-[30px] bg-card border border-white/[0.05] p-5 sm:p-6">
+    <section className="rounded-[30px] bg-card border border-ink/[0.05] p-5 sm:p-6">
       <div className="flex items-baseline justify-between gap-3 mb-3">
         <h3 className="text-lg font-bold">Head to head</h3>
         <span className="text-[11px] text-muted-foreground">Engagement = likes + comments per follower, the only fair measure for other accounts</span>
@@ -283,7 +283,7 @@ function Comparison({ you, rivals }: { you: Row[]; rivals: Row[] }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={`${r.mine}-${r.username}`} className={cn('border-t border-white/[0.05]', r.mine && 'bg-white/[0.04]')}>
+              <tr key={`${r.mine}-${r.username}`} className={cn('border-t border-ink/[0.05]', r.mine && 'bg-ink/[0.04]')}>
                 <td className="px-2 py-2.5">
                   <span className="flex items-center gap-2.5 min-w-0">
                     <Avatar row={r} size={30} />
@@ -398,14 +398,14 @@ function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
   const s = row.stats;
   const top = [...(row.posts ?? [])].sort((a, b) => (b.likes ?? b.comments) - (a.likes ?? a.comments)).slice(0, 3);
   return (
-    <div className="rounded-[30px] bg-card border border-white/[0.05] p-5 flex flex-col gap-3">
+    <div className="rounded-[30px] bg-card border border-ink/[0.05] p-5 flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <Avatar row={row} size={44} />
         <div className="min-w-0 flex-1">
           <a href={`https://www.instagram.com/${row.username}/`} target="_blank" rel="noopener noreferrer" className="font-bold hover:underline truncate block">@{row.username}</a>
           <p className="text-[12px] text-muted-foreground truncate">{row.name ?? ''} · {formatNumber(row.followers)} followers</p>
         </div>
-        <button onClick={onRemove} className="p-2 rounded-full text-muted-foreground hover:text-rose-400 hover:bg-white/[0.06]" aria-label={`Stop tracking @${row.username}`}>
+        <button onClick={onRemove} className="p-2 rounded-full text-muted-foreground hover:text-rose-400 hover:bg-ink/[0.06]" aria-label={`Stop tracking @${row.username}`}>
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -415,7 +415,7 @@ function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
 
       {s && (
         <>
-          <div className="flex h-2.5 rounded-full overflow-hidden bg-white/[0.05]" title="Format mix of their last 30 posts">
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-ink/[0.05]" title="Format mix of their last 30 posts">
             {s.formatMix.map((f, i) => <span key={f.type} style={{ width: `${f.share}%` }} className={['bg-[#FF6B9A]', 'bg-[#4CC9F0]', 'bg-[#FFE066]', 'bg-[#4ADE9E]'][i % 4]} />)}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -427,7 +427,7 @@ function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
               { label: 'engagement', value: s.engagement != null ? `${s.engagement}%` : 'hidden' },
               { label: 'best day', value: s.bestDay ?? '—' },
             ].map((x) => (
-              <div key={x.label} className="rounded-2xl bg-white/[0.03] border border-white/[0.05] py-2">
+              <div key={x.label} className="rounded-2xl bg-ink/[0.03] border border-ink/[0.05] py-2">
                 <p className="font-display font-extrabold text-[18px]">{x.value}</p>
                 <p className="text-[10px] text-muted-foreground">{x.label}</p>
               </div>
@@ -441,7 +441,7 @@ function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
       {top.length > 0 && (
         <div className="grid grid-cols-3 gap-2 mt-auto">
           {top.map((p) => (
-            <a key={p.id} href={p.permalink ?? '#'} target="_blank" rel="noopener noreferrer" className="group relative aspect-[4/5] rounded-2xl overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]" title={p.caption}>
+            <a key={p.id} href={p.permalink ?? '#'} target="_blank" rel="noopener noreferrer" className="group relative aspect-[4/5] rounded-2xl overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]" title={p.caption}>
               {p.image && <Image src={p.image} alt="" fill unoptimized sizes="120px" className="object-cover transition-transform duration-500 group-hover:scale-[1.06]" />}
               {!p.image && <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-white/90">{formatLabel(p.type)}</span>}
               <span className="absolute inset-x-0 bottom-0 p-1.5 bg-gradient-to-t from-black/80 to-transparent text-[10px] font-bold text-white flex gap-2">

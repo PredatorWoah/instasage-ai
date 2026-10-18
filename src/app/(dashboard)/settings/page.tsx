@@ -6,6 +6,7 @@ import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
 import { AiSettings } from '@/components/settings/AiSettings';
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
 import { AiUsageCard } from '@/components/settings/AiUsageCard';
+import { ThemePicker } from '@/components/settings/ThemePicker';
 
 export const metadata = { title: 'Settings · InstaSage' };
 
@@ -16,6 +17,16 @@ export default function SettingsPage() {
         <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Settings</h1>
         <p className="text-[15px] text-muted-foreground mt-3">Manage your account, connections, and preferences</p>
       </div>
+
+      <Card className="bg-card border-border" id="appearance">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">Appearance</CardTitle>
+          <p className="text-[11px] text-muted-foreground">Saved in this browser. Press Ctrl+K (Cmd+K on Mac) anywhere to jump around or switch themes.</p>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <ThemePicker />
+        </CardContent>
+      </Card>
 
       {/* Connected Accounts */}
       <Card className="bg-card border-border">

@@ -34,7 +34,7 @@ function IdeasStudio() {
         </div>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:justify-end">
         <ExportAnalysis />
-        <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-4 lg:flex gap-1 p-1 rounded-full bg-white/[0.05] border border-white/[0.06] self-start w-full lg:w-auto">
+        <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-4 lg:flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06] self-start w-full lg:w-auto">
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = t.id === tab.id;
@@ -46,7 +46,7 @@ function IdeasStudio() {
                 onClick={() => select(t.id)}
                 className={cn(
                   'flex items-center justify-center gap-1 sm:gap-1.5 h-10 px-1.5 sm:px-4 rounded-full text-[12px] sm:text-[13px] font-bold transition-all whitespace-nowrap',
-                  active ? 'bg-white text-background shadow-[0_6px_24px_rgba(255,255,255,0.15)]' : 'text-muted-foreground hover:text-foreground'
+                  active ? 'bg-ink text-background shadow-[0_6px_24px_rgba(255,255,255,0.15)]' : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 <Icon className="w-4 h-4 shrink-0" />

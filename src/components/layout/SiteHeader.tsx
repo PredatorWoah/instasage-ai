@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Search } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ import {
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
 import { AlertsBell } from './AlertsBell';
+import { OPEN_PALETTE } from './CommandPalette';
 import { MobileNav } from './MobileNav';
 import { clearJsonCache, prefetchJson } from '@/lib/useCachedJson';
 
@@ -71,7 +72,7 @@ export function SiteHeader() {
   return (
     <header
       style={{ viewTransitionName: 'site-header' }}
-      className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-white/[0.04]"
+      className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-ink/[0.04]"
     >
       <div className="max-w-[1480px] mx-auto px-3 sm:px-6 h-[72px] flex items-center gap-2.5 sm:gap-6">
         <Link href="/" transitionTypes={directionTo(0, current)} className="flex items-center gap-2.5 shrink-0" aria-label="InstaSage home">
@@ -86,7 +87,7 @@ export function SiteHeader() {
 
         {/* Tablets and up: the pill tab bar */}
         <nav aria-label="Main" className="hidden md:flex min-w-0 flex-1 justify-center">
-          <div className="flex gap-1 p-1.5 rounded-full bg-card border border-white/[0.04] overflow-x-auto no-scrollbar max-w-full">
+          <div className="flex gap-1 p-1.5 rounded-full bg-card border border-ink/[0.04] overflow-x-auto no-scrollbar max-w-full">
             {NAV_TABS.map((tab, i) => {
               const active = i === current;
               return (
@@ -108,7 +109,7 @@ export function SiteHeader() {
                     <span
                       aria-hidden
                       style={{ viewTransitionName: 'nav-pill' }}
-                      className="absolute inset-0 rounded-full bg-white shadow-[0_4px_24px_rgba(255,255,255,0.18)]"
+                      className="absolute inset-0 rounded-full bg-ink shadow-[0_4px_24px_rgba(255,255,255,0.18)]"
                     />
                   )}
                   <span className="relative">{tab.label}</span>
@@ -119,6 +120,15 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE))}
+            aria-label="Search and commands (Ctrl+K)"
+            title="Search and commands (Ctrl+K)"
+            className="hidden sm:flex w-11 h-11 rounded-full bg-card border border-ink/[0.06] items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Search className="w-[18px] h-[18px]" />
+          </button>
           <AlertsBell />
           <AccountSwitcher />
           <DropdownMenu>

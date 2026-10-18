@@ -126,12 +126,12 @@ export function Brainstorm() {
   return (
     <div className="grid lg:grid-cols-[260px_1fr] gap-4 min-h-[620px]">
       {/* Threads */}
-      <aside className="rounded-[30px] bg-card border border-white/[0.05] p-3 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
+      <aside className="rounded-[30px] bg-card border border-ink/[0.05] p-3 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible">
         <button
           onClick={() => open(null)}
           className={cn(
             'shrink-0 flex items-center gap-2 h-11 px-4 rounded-2xl text-sm font-bold transition-colors',
-            activeId === null ? 'bg-white text-background' : 'bg-white/[0.06] hover:bg-white/[0.1]'
+            activeId === null ? 'bg-ink text-background' : 'bg-ink/[0.06] hover:bg-ink/[0.1]'
           )}
         >
           <MessageSquarePlus className="w-4 h-4" /> New brainstorm
@@ -142,7 +142,7 @@ export function Brainstorm() {
               key={t.id}
               className={cn(
                 'group shrink-0 w-[200px] lg:w-auto flex items-center gap-2 rounded-2xl px-3 py-2.5 cursor-pointer transition-colors',
-                activeId === t.id ? 'bg-white/[0.1]' : 'hover:bg-white/[0.05]'
+                activeId === t.id ? 'bg-ink/[0.1]' : 'hover:bg-ink/[0.05]'
               )}
               onClick={() => open(t.id)}
             >
@@ -166,10 +166,10 @@ export function Brainstorm() {
       </aside>
 
       {/* Conversation */}
-      <section className="rounded-[30px] bg-card border border-white/[0.05] flex flex-col overflow-hidden min-h-[560px] max-h-[78vh]">
+      <section className="rounded-[30px] bg-card border border-ink/[0.05] flex flex-col overflow-hidden min-h-[560px] max-h-[78vh]">
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {loadingThread ? (
-            <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />)}</div>
+            <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-2xl bg-ink/[0.03] animate-pulse" />)}</div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center text-center gap-4 pt-6">
               <SageOrb size={72} />
@@ -185,7 +185,7 @@ export function Brainstorm() {
                     key={s.title}
                     onClick={() => send(s.prompt)}
                     disabled={sending}
-                    className="text-left p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.12] transition-colors"
+                    className="text-left p-4 rounded-2xl bg-ink/[0.03] border border-ink/[0.06] hover:bg-ink/[0.07] hover:border-ink/[0.12] transition-colors"
                   >
                     <p className="text-sm font-bold">{s.title}</p>
                     <p className="text-[12px] text-muted-foreground leading-snug mt-1 line-clamp-2">{s.prompt}</p>
@@ -213,12 +213,12 @@ export function Brainstorm() {
                         <div className="flex items-center gap-1 mt-2">
                           <button
                             onClick={() => keep(m)}
-                            className={cn('inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold transition-colors', savedIds[m.id] ? 'text-emerald-400 bg-emerald-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.06]')}
+                            className={cn('inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold transition-colors', savedIds[m.id] ? 'text-emerald-400 bg-emerald-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-ink/[0.06]')}
                           >
                             {savedIds[m.id] ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
                             {savedIds[m.id] ? 'On your board' : 'Save to board'}
                           </button>
-                          <button onClick={() => copy(m.content)} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-white/[0.06]">
+                          <button onClick={() => copy(m.content)} className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:bg-ink/[0.06]">
                             <Copy className="w-3.5 h-3.5" /> Copy
                           </button>
                           {m.model && <span className="text-[10px] text-muted-foreground ml-auto">{m.model}</span>}
@@ -238,9 +238,9 @@ export function Brainstorm() {
             e.preventDefault();
             send(input);
           }}
-          className="p-3 sm:p-4 border-t border-white/[0.05]"
+          className="p-3 sm:p-4 border-t border-ink/[0.05]"
         >
-          <div className="flex items-end gap-2 rounded-[24px] bg-white/[0.05] border border-white/[0.08] focus-within:border-white/[0.2] transition-colors p-2 pl-4">
+          <div className="flex items-end gap-2 rounded-[24px] bg-ink/[0.05] border border-ink/[0.08] focus-within:border-ink/[0.2] transition-colors p-2 pl-4">
             <textarea
               ref={inputRef}
               value={input}
@@ -259,7 +259,7 @@ export function Brainstorm() {
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              className="w-10 h-10 rounded-full bg-white text-background flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
+              className="w-10 h-10 rounded-full bg-ink text-background flex items-center justify-center shrink-0 disabled:opacity-40 transition-opacity"
               aria-label="Send"
             >
               <ArrowUp className="w-5 h-5" />

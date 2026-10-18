@@ -22,7 +22,7 @@ function Ring({ value }: { value: number }) {
           <stop offset="100%" stopColor="#4ADE9E" />
         </linearGradient>
       </defs>
-      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+      <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(128,128,160,0.18)" strokeWidth="8" />
       <circle cx="36" cy="36" r={r} fill="none" stroke="url(#goalRing)" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - value)} />
     </svg>
   );
@@ -51,7 +51,7 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
 
   return (
     <>
-      <div id="goal" className="rounded-[30px] p-5 bg-card border border-white/[0.05] flex items-center gap-4">
+      <div id="goal" className="rounded-[30px] p-5 bg-card border border-ink/[0.05] flex items-center gap-4">
         {forecast ? (
           <>
             <div className="relative">
@@ -74,7 +74,7 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
                 </>
               )}
             </div>
-            <button onClick={() => setOpen(true)} className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08] self-start" aria-label="Edit goal"><Pencil className="w-4 h-4" /></button>
+            <button onClick={() => setOpen(true)} className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08] self-start" aria-label="Edit goal"><Pencil className="w-4 h-4" /></button>
           </>
         ) : (
           <>
@@ -83,7 +83,7 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
               <p className="font-bold">Set a {unit.replace(/s$/, '')} goal</p>
               <p className="text-[12px] text-muted-foreground">See your progress and the date you&apos;ll hit it at your current pace.</p>
             </div>
-            <button onClick={() => setOpen(true)} className="h-9 px-4 rounded-full bg-white text-background text-[13px] font-bold shrink-0">Set goal</button>
+            <button onClick={() => setOpen(true)} className="h-9 px-4 rounded-full bg-ink text-background text-[13px] font-bold shrink-0">Set goal</button>
           </>
         )}
       </div>
@@ -98,14 +98,14 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
         >
           <label className="block text-xs font-medium space-y-1.5">
             <span>Target</span>
-            <input type="number" min={1} value={target} onChange={(e) => setTarget(e.target.value)} className="w-full h-10 rounded-xl bg-white/[0.05] border border-white/[0.1] px-3 text-sm" required />
+            <input type="number" min={1} value={target} onChange={(e) => setTarget(e.target.value)} className="w-full h-10 rounded-xl bg-ink/[0.05] border border-ink/[0.1] px-3 text-sm" required />
           </label>
           <label className="block text-xs font-medium space-y-1.5">
             <span>By (optional)</span>
-            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full h-10 rounded-xl bg-white/[0.05] border border-white/[0.1] px-3 text-sm" />
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className="w-full h-10 rounded-xl bg-ink/[0.05] border border-ink/[0.1] px-3 text-sm" />
           </label>
           <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={saving} className="h-10 px-5 rounded-full bg-white text-background text-sm font-bold disabled:opacity-60">{saving ? 'Saving...' : 'Save goal'}</button>
+            <button type="submit" disabled={saving} className="h-10 px-5 rounded-full bg-ink text-background text-sm font-bold disabled:opacity-60">{saving ? 'Saving...' : 'Save goal'}</button>
             {forecast && <button type="button" onClick={() => save(null)} disabled={saving} className="h-10 px-4 rounded-full text-sm font-bold text-muted-foreground hover:text-rose-400">Remove</button>}
           </div>
         </form>

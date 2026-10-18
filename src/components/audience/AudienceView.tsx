@@ -1,5 +1,6 @@
 'use client';
 
+import { BestTimeHeatmap } from '@/components/charts/BestTimeHeatmap';
 import { useMemo } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
@@ -18,7 +19,7 @@ type AudienceResponse = {
   audience: { age: Row[]; gender: Row[]; country: Row[]; city: Row[] } | null;
 } | null;
 
-const TOOLTIP = { background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 };
+const TOOLTIP = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 8, fontSize: 12 };
 const GENDER: Record<string, { label: string; color: string }> = {
   F: { label: 'Women', color: '#FFD15C' },
   M: { label: 'Men', color: '#FF7A8A' },
@@ -123,10 +124,10 @@ export function AudienceView() {
               <CardContent className="px-4 pb-4">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={age} barSize={28} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#8A8A9C' }} tickLine={false} axisLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
-                    <Tooltip contentStyle={TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v) => [`${v}%`, 'Followers']} />
+                    <Tooltip contentStyle={TOOLTIP} cursor={{ fill: 'rgba(128,128,160,0.08)' }} formatter={(v) => [`${v}%`, 'Followers']} />
                     <Bar dataKey="share" fill="#FF7A8A" radius={[3, 3, 0, 0]} opacity={0.85} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -165,7 +166,7 @@ export function AudienceView() {
       )}
 
       {posts.length > 0 && (
-        <Card className="bg-card border-border">
+        <Card id="best-time" className="bg-card border-border scroll-mt-24">
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-sm font-semibold">When your posts do best</CardTitle>
             <p className="text-[11px] text-muted-foreground">
@@ -177,18 +178,22 @@ export function AudienceView() {
             {[{ rows: timing.days, key: 'days' }, { rows: timing.hours, key: 'hours' }].map(({ rows, key }) => (
               <ResponsiveContainer key={key} width="100%" height={180}>
                 <BarChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} interval={key === 'hours' ? 3 : 0} />
                   <YAxis tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} width={36} />
                   <Tooltip
                     contentStyle={TOOLTIP}
-                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                    cursor={{ fill: 'rgba(128,128,160,0.08)' }}
                     formatter={(v, _n, item) => [`${v}% avg engagement (${item.payload.posts} posts)`, '']}
                   />
                   <Bar dataKey="engagement" fill="#4ADE9E" radius={[3, 3, 0, 0]} opacity={0.85} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             ))}
+            <div className="md:col-span-2 pt-2">
+              <p className="text-xs font-semibold mb-2">Day and time together</p>
+              <BestTimeHeatmap posts={posts} noun={t.posts} />
+            </div>
           </CardContent>
         </Card>
       )}

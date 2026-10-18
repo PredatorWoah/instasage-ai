@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUserId, unauthorized, getTimeZone } from '@/lib/api';
-import { getDashboardData } from '@/services/dashboard';
+import { comparePeriods, getDashboardData } from '@/services/dashboard';
 import { getAccountScope } from '@/lib/scope';
 
 const ALLOWED_DAYS = [7, 30, 90, 365];
@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const requested = Number(new URL(req.url).searchParams.get('days'));
   const days = ALLOWED_DAYS.includes(requested) ? requested : 30;
   const scope = await getAccountScope(userId);
-  const data = await getDashboardData(scope, days, await getTimeZone(userId));
+  const [data, compare] = await Promise.all([getDashboardData(scope, days, await getTimeZone(userId)), comparePeriods(scope, days)]);
 
   // 30-day funnel across the Instagram accounts in view: reach, profile visits, link taps, follows
   type Funnel = { profileViews: number | null; linkTaps: number | null; follows: number | null; unfollows: number | null; accountsEngaged: number | null };
@@ -29,5 +29,5 @@ export async function GET(req: Request) {
     follows: sum((f) => f.follows),
     unfollows: sum((f) => f.unfollows),
   } : null;
-  return NextResponse.json({ days, hasData: data.profiles.length > 0, timeSeries: data.timeSeries, funnel });
+  return NextResponse.json({ days, hasData: data.profiles.length > 0, timeSeries: data.timeSeries, funnel, compare });
 }

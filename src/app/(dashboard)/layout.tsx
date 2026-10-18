@@ -1,5 +1,6 @@
 import { SiteHeader } from '@/components/layout/SiteHeader';
 import { HealthBanner } from '@/components/layout/HealthBanner';
+import { CommandPalette } from '@/components/layout/CommandPalette';
 import { AIChat } from '@/components/ai-assistant/AIChat';
 import { PageTransition } from '@/components/layout/PageTransition';
 
@@ -17,6 +18,7 @@ export default function DashboardLayout({
         </div>
         <SiteHeader />
         <HealthBanner />
+        <CommandPalette />
         <main className="relative max-w-[1480px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <PageTransition>{children}</PageTransition>
         </main>

@@ -31,7 +31,7 @@ export function FunnelCard({ funnel }: { funnel: FunnelData }) {
                 <span className="text-muted-foreground">{s.label}</span>
                 <span className="tabular-nums"><b className="text-foreground">{formatNumber(s.value)}</b>{rate != null && <span className="text-muted-foreground"> · {rate < 1 ? rate.toFixed(2) : rate.toFixed(1)}% of {prev!.label.split(' (')[0].toLowerCase()}</span>}</span>
               </div>
-              <div className="h-3 rounded-full bg-white/[0.05] overflow-hidden">
+              <div className="h-3 rounded-full bg-ink/[0.05] overflow-hidden">
                 <div className={`h-full rounded-full ${s.color}`} style={{ width: `${Math.max(1.5, (s.value / top) * 100)}%` }} />
               </div>
             </div>
@@ -44,7 +44,7 @@ export function FunnelCard({ funnel }: { funnel: FunnelData }) {
           { label: 'Unfollows', value: funnel.unfollows, tone: 'text-rose-400' },
           { label: 'Net', value: net, tone: net != null && net < 0 ? 'text-rose-400' : 'text-foreground' },
         ].map((x) => (
-          <div key={x.label} className="rounded-2xl bg-white/[0.03] border border-white/[0.05] px-3 py-2.5">
+          <div key={x.label} className="rounded-2xl bg-ink/[0.03] border border-ink/[0.05] px-3 py-2.5">
             <p className={`font-display font-extrabold text-[22px] leading-none ${x.tone}`}>{x.value == null ? '—' : `${x.label === 'Net' && x.value > 0 ? '+' : ''}${formatNumber(x.value)}`}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{x.label}</p>
           </div>

@@ -49,7 +49,7 @@ export default function AccountPage() {
         </div>
       </div>
 
-      <form onSubmit={save} className="rounded-[30px] bg-card border border-white/[0.05] p-5 sm:p-6 space-y-4">
+      <form onSubmit={save} className="rounded-[30px] bg-card border border-ink/[0.05] p-5 sm:p-6 space-y-4">
         <h2 className="text-lg font-bold">Profile</h2>
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -70,9 +70,9 @@ export default function AccountPage() {
 
       <CreatorProfileForm />
 
-      <section className="rounded-[30px] bg-card border border-white/[0.05] p-5 sm:p-6 space-y-4">
+      <section className="rounded-[30px] bg-card border border-ink/[0.05] p-5 sm:p-6 space-y-4">
         <h2 className="text-lg font-bold">Security</h2>
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-ink/[0.03] border border-ink/[0.05]">
           <ShieldCheck className="w-5 h-5 text-indigo-400 shrink-0" />
           <p className="text-[13px] text-muted-foreground">Password protected. To change the password, update <code className="text-[11px] px-1 rounded bg-secondary">APP_PASSWORD</code> in Vercel and redeploy.</p>
         </div>

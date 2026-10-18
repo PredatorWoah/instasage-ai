@@ -18,11 +18,11 @@ export function GrowthCurve({ data }: { data: Snapshot[] }) {
             <stop offset="100%" stopColor="#8E78FF" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
         <XAxis dataKey="hours" type="number" domain={['dataMin', 'dataMax']} tickFormatter={age} tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} />
         <YAxis tickFormatter={(v) => formatNumber(v)} tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} width={48} />
         <Tooltip
-          contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(h) => `${age(Number(h))} after posting`}
           formatter={(v) => [formatNumber(Number(v)), 'Views']}
         />
