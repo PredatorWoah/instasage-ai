@@ -43,7 +43,7 @@ export function HealthBanner() {
       <div role="status" className="flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-[13px]">
         <TriangleAlert className="w-4 h-4 text-amber-400 shrink-0" />
         <p className="flex-1 min-w-0">{m.text}{others > 0 ? ` (and ${others} more)` : ''}</p>
-        <Link href={m.href} className="shrink-0 font-bold text-amber-300 hover:underline">{m.action}</Link>
+        <Link href={m.href} prefetch={false} className="shrink-0 font-bold text-amber-300 hover:underline">{m.action}</Link>
         <button
           onClick={() => {
             try { sessionStorage.setItem('health-banner-hidden', '1'); } catch { /* private mode */ }

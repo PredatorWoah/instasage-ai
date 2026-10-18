@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { ArrowRight, FileText, Hash, LogOut, Moon, RefreshCw, Search, Sun, Monitor, User, Zap } from 'lucide-react';
+import { FileText, Hash, LogOut, Moon, RefreshCw, Search, Sun, Monitor, User, Zap } from 'lucide-react';
 import { NAV_TABS, MENU_LINKS } from '@/constants/navigation';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { ACCOUNT_COOKIE, usePlatform } from '@/lib/usePlatform';
@@ -82,7 +82,7 @@ function Palette({ onClose }: { onClose: () => void }) {
 
   const commands = useMemo<Command[]>(() => {
     const go = (href: string) => () => router.push(href);
-    const pages = [...NAV_TABS, ...MENU_LINKS].map((t) => ({ id: `page:${t.id}`, group: 'Pages', label: t.label, keywords: t.id, icon: ArrowRight, run: go(t.href) }));
+    const pages = [...NAV_TABS, ...MENU_LINKS].map((t) => ({ id: `page:${t.id}`, group: 'Pages', label: t.label, keywords: t.id, icon: t.icon, run: go(t.href) }));
     const jumps = JUMPS.map((j) => ({ id: `jump:${j.href}`, group: 'Jump to', label: j.label, keywords: j.keywords, icon: Hash, run: go(j.href) }));
     const choose = (id: string) => () => {
       document.cookie = `${ACCOUNT_COOKIE}=${id}; path=/; max-age=31536000; samesite=lax`;

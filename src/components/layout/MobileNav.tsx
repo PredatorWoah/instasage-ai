@@ -4,27 +4,9 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  BarChart3, ChevronDown, FileText, Grid2X2, LayoutDashboard, Lightbulb, Settings, Sparkles, Swords, UserCheck, UserRound, Users,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { cn } from '@/lib/utils';
-
-const TAB_ICONS: Record<string, React.ElementType> = {
-  overview: LayoutDashboard,
-  analytics: BarChart3,
-  content: Grid2X2,
-  insights: Sparkles,
-  recommendations: Lightbulb,
-  audience: Users,
-};
-const MENU_ICONS: Record<string, React.ElementType> = {
-  accounts: UserCheck,
-  reports: FileText,
-  competitors: Swords,
-  account: UserRound,
-  settings: Settings,
-};
 
 // Phones: one glass pill naming the current page; tapping it drops a frosted panel of every page
 export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
@@ -84,7 +66,7 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
           >
             <nav aria-label="Pages" className="grid grid-cols-2 gap-2 stagger">
               {NAV_TABS.map((tab, i) => {
-                const Icon = TAB_ICONS[tab.id];
+                const Icon = tab.icon;
                 const active = i === current;
                 return (
                   <Link
@@ -111,7 +93,7 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
             </nav>
             <div className="mt-3 pt-3 border-t border-ink/[0.08] flex flex-wrap gap-2">
               {MENU_LINKS.map((item) => {
-                const Icon = MENU_ICONS[item.id];
+                const Icon = item.icon;
                 const active = pathname.startsWith(item.href);
                 return (
                   <Link
