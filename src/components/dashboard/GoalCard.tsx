@@ -7,7 +7,7 @@ import { Flag, Pencil } from 'lucide-react';
 import { Modal } from '@/components/ui/modal';
 import { clearJsonCache } from '@/lib/useCachedJson';
 import { STATUS_CHANGED } from '@/lib/status';
-import type { GoalForecast } from '@/lib/goal';
+import { goalForecast, type Goal, type GoalForecast } from '@/lib/goal';
 import { formatNumber } from '@/utils/formatters';
 
 function Ring({ value }: { value: number }) {
@@ -29,9 +29,19 @@ function Ring({ value }: { value: number }) {
 }
 
 // Follower (or subscriber) goal with a forecast at the current pace
-export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast | null; current: number; unit: string }) {
+export function GoalCard({ forecast: initial, current, unit, perDay, timeZone }: {
+  forecast: GoalForecast | null;
+  current: number;
+  unit: string;
+  perDay: number | null;
+  timeZone: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // After a save the card works the forecast out itself (same maths as the server), so it updates at
+  // once instead of waiting on a page refresh that a background preload can overtake
+  const [saved, setSaved] = useState<Goal | null | undefined>(undefined);
+  const forecast = saved === undefined ? initial : goalForecast(saved, current, perDay, timeZone);
   const [target, setTarget] = useState(String(forecast?.target ?? (Math.ceil((current * 1.25) / 100) * 100 || 100)));
   const [deadline, setDeadline] = useState(forecast?.deadline?.slice(0, 10) ?? '');
   const [saving, setSaving] = useState(false);
@@ -43,6 +53,7 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
     setSaving(false);
     if (!res.ok) return toast.error('Goal not saved', { description: data.error });
     setOpen(false);
+    setSaved(goal);
     toast.success(goal ? 'Goal set' : 'Goal removed');
     clearJsonCache();
     window.dispatchEvent(new Event(STATUS_CHANGED));
@@ -59,7 +70,7 @@ export function GoalCard({ forecast, current, unit }: { forecast: GoalForecast |
               <span className="absolute inset-0 flex items-center justify-center font-display font-extrabold text-[15px]">{Math.round(forecast.progress * 100)}%</span>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-bold text-muted-foreground flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Goal: {formatNumber(forecast.target)} {unit}</p>
+              <p className="text-[12px] font-bold text-muted-foreground flex items-center gap-1.5"><Flag className="w-3.5 h-3.5" /> Goal: {formatNumber(forecast.target)} {forecast.target === 1 ? unit.replace(/s$/, "") : unit}</p>
               {forecast.reached ? (
                 <p className="font-display font-extrabold text-[18px] leading-tight mt-0.5">Reached. Time for a bigger one.</p>
               ) : (

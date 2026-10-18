@@ -18,6 +18,7 @@ import { GoalCard } from '@/components/dashboard/GoalCard';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
 import { prisma } from '@/lib/prisma';
+import { Guard } from '@/components/ui/Guard';
 
 export const metadata = { title: 'Overview · InstaSage' };
 
@@ -43,7 +44,13 @@ export default async function DashboardPage() {
   const maxViews = Math.max(1, ...recentViews.map((p) => p.views ?? 0));
   const hasData = data.profiles.length > 0;
   const t = terms(scope.mode);
-  const forecast = goalForecast(owner?.goal as Goal | null, kpis.followers, followersPerDay(timeSeries), timeZone);
+  // A bad goal value must never take the whole Overview down; worst case the card shows no forecast
+  let forecast: ReturnType<typeof goalForecast> = null;
+  try {
+    forecast = goalForecast(owner?.goal as Goal | null, kpis.followers, followersPerDay(timeSeries), timeZone);
+  } catch (error) {
+    console.error('Goal forecast failed:', error, owner?.goal);
+  }
   const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
   // The banner tells the month's story: the latest AI insight, or a line built from the numbers
@@ -69,14 +76,14 @@ export default async function DashboardPage() {
           <div className="space-y-2">
             <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
             {hasData && (
-              <SinceLastVisit
+              <Guard name="SinceLastVisit"><SinceLastVisit
                 scopeKey={scope.key}
                 followers={kpis.followers}
                 unit={t.followersLower}
                 postTimes={data.posts.map((p) => p.publishedAt.toISOString())}
                 post={t.post}
                 posts={t.posts}
-              />
+              /></Guard>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -104,7 +111,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <SetupChecklist />
+      <Guard name="SetupChecklist"><SetupChecklist /></Guard>
 
       {/* Stat tiles */}
       <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -148,7 +155,7 @@ export default async function DashboardPage() {
             })}
           </div>
         </div>
-        <BestTimeTile />
+        <Guard name="BestTimeTile"><BestTimeTile /></Guard>
       </section>
 
       {/* Top posts + AI */}
@@ -184,7 +191,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-        <GoalCard forecast={forecast} current={kpis.followers} unit={t.followersLower} />
+        <Guard name="GoalCard"><GoalCard forecast={forecast} current={kpis.followers} unit={t.followersLower} perDay={followersPerDay(timeSeries)} timeZone={timeZone} /></Guard>
         <div className="flex-1 rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
           <span className="text-[13px] font-bold prism-text">AI recommends</span>
           <p className="font-display font-extrabold text-[26px] leading-[1.05] tracking-[-0.03em]">
