@@ -5,6 +5,7 @@ import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
 import type { TimeSeriesPoint } from '@/types';
+import { FunnelCard, type FunnelData } from '@/components/charts/FunnelCard';
 import { FollowersChart } from '@/components/charts/FollowersChart';
 import { ViewsChart } from '@/components/charts/ViewsChart';
 import { EngagementChart } from '@/components/charts/EngagementChart';
@@ -15,7 +16,7 @@ import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(30);
-  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[] } | null>(`/api/analytics?days=${days}`);
+  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[]; funnel: FunnelData | null } | null>(`/api/analytics?days=${days}`);
 
   const { t } = usePlatform();
   const series = data?.timeSeries ?? [];
@@ -92,6 +93,16 @@ export default function AnalyticsPage() {
           <Link href="/accounts" className="text-indigo-400 hover:underline">Accounts page</Link>. Follower and reach
           history builds up with each sync, so these charts fill in over time.
         </p>
+      )}
+
+      {!t.yt && data?.funnel && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold">From seeing you to following you</CardTitle>
+            <p className="text-[11px] text-muted-foreground">Last 30 days on Instagram. The biggest drop is where to focus: hooks for reach to engagement, profile and bio for visits to follows.</p>
+          </CardHeader>
+          <CardContent className="px-4 pb-4"><FunnelCard funnel={data.funnel} /></CardContent>
+        </Card>
       )}
 
       {/* Grid */}

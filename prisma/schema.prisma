@@ -26,6 +26,7 @@ model User {
   aiRouting     Json?     // per-feature AI choice: { plan: { provider, model }, chat: {...} }
   goal          Json?     // { target, deadline? } for followers or subscribers
   setupDismissed Boolean  @default(false) // first-run checklist hidden
+  dismissedAlerts Json?   // ids of alerts the creator closed
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
@@ -54,6 +55,7 @@ model SocialProfile {
   tokenExpiresAt    DateTime?
   audience          Json?     // Follower demographics from the platform, refreshed on sync
   reach30           Int?      // Unique accounts reached over the last 30 days (Instagram), refreshed on sync
+  funnel            Json?     // 30-day profile visits, link taps, follows and unfollows (Instagram)
   posts             Post[]
   metrics           Metric[]
 }
@@ -76,7 +78,27 @@ model Post {
   isBoosted        Boolean  @default(false) // Promoted posts: platform insights cover organic results only
   publishedAt      DateTime
   type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story'
+  avgWatchMs       Int?     // reels: average watch time per play
+  skipRate         Float?   // reels: % of plays skipped in the first seconds, when Instagram reports it
   ideas            SavedIdea[]
+  snapshots        PostSnapshot[]
+}
+
+// A post's numbers at a point in its life (hours since posting), to draw growth curves
+model PostSnapshot {
+  id         String   @id // "<postId>:<hoursSincePost>"
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hours      Int
+  takenAt    DateTime @default(now())
+  views      Int
+  reach      Int?
+  likes      Int
+  comments   Int
+  saves      Int
+  shares     Int
+
+  @@index([postId])
 }
 
 // One row per profile per day (id = "<profileId>:<yyyy-mm-dd>")
@@ -200,8 +222,23 @@ model Competitor {
   error             String?
   lastSyncedAt      DateTime @default(now())
   createdAt         DateTime @default(now())
+  history           CompetitorSnapshot[]
 
   @@unique([userId, username])
+}
+
+// One reading of a competitor per day, for growth lines
+model CompetitorSnapshot {
+  id           String     @id // "<competitorId>:<yyyy-mm-dd>"
+  competitorId String
+  competitor   Competitor @relation(fields: [competitorId], references: [id], onDelete: Cascade)
+  date         DateTime
+  followers    Int
+  mediaCount   Int
+  engagement   Float?
+  postsPerWeek Float?
+
+  @@index([competitorId])
 }
 
 // One row per AI answer, for the usage and cost view in Settings

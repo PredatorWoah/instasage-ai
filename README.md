@@ -32,6 +32,10 @@ Other details:
 * **Goal tracker.** Set a follower or subscriber goal and see progress, the date you'll hit it at your current pace, and the pace a deadline needs.
 * **Different AI per feature, and usage.** For example a strong model for the Game plan and a free one for chat. Settings shows what each feature used over 30 days and the estimated cost.
 * **Heads-up banner and setup checklist.** A warning when an account disconnects, a token is about to expire or a sync fails, and a first-run checklist for new installs.
+* **Funnel.** Accounts reached, engaged, profile visits, link taps, follows and unfollows for the last 30 days on Analytics, so you can see where people drop off.
+* **How each post grew.** Every post's first two weeks are tracked, so its page shows a growth curve, views at about a day old against your usual post, and reel watch time and skip rate.
+* **Rival trends.** Daily follower snapshots give every competitor a sparkline and a 30 day growth column.
+* **Alerts.** The bell flags a post outperforming your average, a long gap since your last post, follower milestones and drops, and a rival post going viral.
 * **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
 * **Always fresh.** Counts refresh whenever you open the app, and posts, insights and competitors sync every morning on Vercel Cron.
 

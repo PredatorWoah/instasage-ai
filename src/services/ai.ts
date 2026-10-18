@@ -371,29 +371,49 @@ export type PostAnalysis = {
 };
 
 export async function getPostWithBenchmarks(userId: string, postId: string) {
-  const post = await prisma.post.findFirst({ where: { id: postId, socialProfile: { userId } }, include: { socialProfile: true } });
+  const post = await prisma.post.findFirst({
+    where: { id: postId, socialProfile: { userId } },
+    include: { socialProfile: true, snapshots: { orderBy: { hours: 'asc' }, select: { hours: true, views: true, likes: true, comments: true, saves: true, shares: true } } },
+  });
   if (!post) return null;
 
   const siblings = await prisma.post.findMany({
     where: { socialProfileId: post.socialProfileId },
-    select: { id: true, views: true, reach: true, likes: true, comments: true, saves: true, shares: true, performanceScore: true },
+    select: { id: true, type: true, views: true, reach: true, likes: true, comments: true, saves: true, shares: true, performanceScore: true, avgWatchMs: true, skipRate: true },
   });
-  const avg = (pick: (p: (typeof siblings)[number]) => number) =>
-    siblings.length ? siblings.reduce((a, p) => a + pick(p), 0) / siblings.length : 0;
+  const avg = (rows: typeof siblings, pick: (p: (typeof siblings)[number]) => number) =>
+    rows.length ? rows.reduce((a, p) => a + pick(p), 0) / rows.length : 0;
   const rank = [...siblings].sort((a, b) => b.performanceScore - a.performanceScore).findIndex((p) => p.id === post.id) + 1;
+  const watched = siblings.filter((p) => p.avgWatchMs != null);
+  const skipped = siblings.filter((p) => p.skipRate != null);
+
+  // Views at about a day old, against the account's other posts at the same age
+  const nearDay = (snaps: { hours: number; views: number }[]) =>
+    snaps.filter((x) => x.hours >= 18 && x.hours <= 36).sort((a, b) => Math.abs(a.hours - 24) - Math.abs(b.hours - 24))[0] ?? null;
+  const own = nearDay(post.snapshots);
+  const others = await prisma.postSnapshot.findMany({
+    where: { post: { socialProfileId: post.socialProfileId }, postId: { not: post.id }, hours: { gte: 18, lte: 36 } },
+    select: { postId: true, hours: true, views: true },
+  });
+  const perPost = new Map<string, { hours: number; views: number }[]>();
+  for (const o of others) perPost.set(o.postId, [...(perPost.get(o.postId) ?? []), o]);
+  const peers = [...perPost.values()].map(nearDay).filter((x): x is { hours: number; views: number } => !!x);
 
   return {
     post,
     benchmarks: {
       posts: siblings.length,
       rank,
-      views: avg((p) => p.views),
-      reach: avg((p) => p.reach ?? 0),
-      likes: avg((p) => p.likes),
-      comments: avg((p) => p.comments),
-      saves: avg((p) => p.saves),
-      shares: avg((p) => p.shares),
-      engagement: avg((p) => p.performanceScore),
+      views: avg(siblings, (p) => p.views),
+      reach: avg(siblings, (p) => p.reach ?? 0),
+      likes: avg(siblings, (p) => p.likes),
+      comments: avg(siblings, (p) => p.comments),
+      saves: avg(siblings, (p) => p.saves),
+      shares: avg(siblings, (p) => p.shares),
+      engagement: avg(siblings, (p) => p.performanceScore),
+      avgWatchMs: watched.length ? avg(watched, (p) => p.avgWatchMs!) : null,
+      skipRate: skipped.length ? avg(skipped, (p) => p.skipRate!) : null,
+      at24: own ? { views: own.views, hours: own.hours, usual: peers.length >= 2 ? Math.round(peers.reduce((a, x) => a + x.views, 0) / peers.length) : null, compared: peers.length } : null,
     },
   };
 }
@@ -417,7 +437,7 @@ ${line('Likes', post.likes, b.likes)}
 ${line('Comments', post.comments, b.comments)}
 ${line('Saves', post.saves, b.saves)}
 ${line('Shares', post.shares, b.shares)}
-Engagement: ${post.performanceScore.toFixed(1)}% (account average ${b.engagement.toFixed(1)}%)
+Engagement: ${post.performanceScore.toFixed(1)}% (account average ${b.engagement.toFixed(1)}%)${post.avgWatchMs != null ? `\nAverage watch time: ${(post.avgWatchMs / 1000).toFixed(1)}s per play${b.avgWatchMs ? ` (account reels average ${(b.avgWatchMs / 1000).toFixed(1)}s)` : ''}` : ''}${post.skipRate != null ? `\nSkip rate: ${post.skipRate.toFixed(0)}%${b.skipRate != null ? ` (account average ${b.skipRate.toFixed(0)}%)` : ''}` : ''}${b.at24 ? `\nViews at ${b.at24.hours} hours old: ${b.at24.views}${b.at24.usual != null ? ` (other posts at that age: ${b.at24.usual})` : ''}` : ''}
 Rank by engagement: ${b.rank} of ${b.posts} synced posts${post.isBoosted ? '\nThis post was boosted (paid promotion). The numbers above are organic only; paid views and likes are not included, so do not call it underperforming for that reason.' : ''}
 
 Judge the caption (hook, clarity, call to action, hashtags), the format and the timing against these numbers. You cannot see the image or video, so do not describe visuals.

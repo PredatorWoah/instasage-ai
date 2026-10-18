@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Check, Copy, ExternalLink, Heart, MessageCircle, Plus, RefreshCw, Sparkles, Trash2, TriangleAlert } from 'lucide-react';
-import type { CompetitorPost, CompetitorStats } from '@/services/competitors';
+import type { CompetitorPost, CompetitorStats, FollowerTrend } from '@/services/competitors';
 import type { CompetitorTakeaways } from '@/services/ai';
 import { useCachedJson, primeJson } from '@/lib/useCachedJson';
 import { AiNotice } from '@/components/ai-assistant/AiNotice';
@@ -25,6 +25,7 @@ type Row = {
   biography?: string | null;
   error?: string | null;
   lastSyncedAt?: string;
+  trend?: FollowerTrend | null;
 };
 type Data = {
   configured: boolean;
@@ -257,6 +258,7 @@ function Comparison({ you, rivals }: { you: Row[]; rivals: Row[] }) {
   const rows = [...you.map((r) => ({ ...r, mine: true })), ...rivals.map((r) => ({ ...r, mine: false }))];
   const cols: { label: string; get: (r: Row) => number | null; fmt: (n: number) => string }[] = [
     { label: 'Followers', get: (r) => r.followers, fmt: formatNumber },
+    { label: '30 day growth', get: (r) => (r.trend && r.followers ? (r.trend.change / Math.max(1, r.followers - r.trend.change)) * 100 : null), fmt: (n) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}%` },
     { label: 'Posts / week', get: (r) => r.stats?.postsPerWeek ?? null, fmt: (n) => n.toFixed(1) },
     { label: 'Engagement', get: (r) => r.stats?.engagement ?? null, fmt: (n) => `${n.toFixed(2)}%` },
     { label: 'Avg likes', get: (r) => r.stats?.avgLikes ?? null, fmt: formatNumber },
@@ -369,6 +371,29 @@ function TakeawaysCard() {
   );
 }
 
+function Sparkline({ points, up }: { points: number[]; up: boolean }) {
+  const min = Math.min(...points);
+  const span = Math.max(...points) - min || 1;
+  const d = points.map((v, i) => `${(i / (points.length - 1)) * 100},${28 - ((v - min) / span) * 24}`).join(' ');
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-8" aria-hidden>
+      <polyline points={d} fill="none" stroke={up ? '#4ADE9E' : '#FB7185'} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Trend({ trend }: { trend: FollowerTrend }) {
+  const up = trend.change >= 0;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 min-w-0"><Sparkline points={trend.points} up={up} /></div>
+      <p className={cn('text-[12px] font-bold tabular-nums shrink-0', up ? 'text-emerald-400' : 'text-rose-400')}>
+        {up ? '+' : '-'}{formatNumber(Math.abs(trend.change))} <span className="font-normal text-muted-foreground">in {trend.days}d</span>
+      </p>
+    </div>
+  );
+}
+
 function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
   const s = row.stats;
   const top = [...(row.posts ?? [])].sort((a, b) => (b.likes ?? b.comments) - (a.likes ?? a.comments)).slice(0, 3);
@@ -386,6 +411,7 @@ function RivalCard({ row, onRemove }: { row: Row; onRemove: () => void }) {
       </div>
       {row.error && <p className="text-[12px] text-amber-400 bg-amber-500/5 border border-amber-500/15 rounded-xl px-3 py-2">Last refresh failed: {row.error}</p>}
       {row.biography && <p className="text-[12px] text-muted-foreground line-clamp-2">{row.biography}</p>}
+      {row.trend ? <Trend trend={row.trend} /> : <p className="text-[11px] text-muted-foreground">Follower trend appears after a few days of refreshes.</p>}
 
       {s && (
         <>

@@ -6,6 +6,8 @@ import {
   getInstagramDailyInsights,
   getInstagramDemographics,
   getInstagramReachTotal,
+  getInstagramReelMetrics,
+  getInstagramFunnel,
   refreshInstagramToken,
   isBoosted,
   type InstagramMedia,
@@ -97,6 +99,7 @@ async function syncYouTubeProfile(profile: SocialProfile) {
         shares: 0,
       },
     });
+    await snapshotPost(video.id, new Date(video.snippet?.publishedAt || Date.now()), { views, reach: null, likes, comments, saves: 0, shares: 0 });
   });
   return { followers: followerCount, posts: videos.length };
 }
@@ -122,6 +125,14 @@ function instagramPostType(m: InstagramMedia) {
   if (m.media_type === 'CAROUSEL_ALBUM') return 'carousel';
   if (m.media_type === 'VIDEO') return 'video';
   return 'post';
+}
+
+// Growth curve points for posts in their first two weeks (one per hour since posting; repeat syncs overwrite)
+async function snapshotPost(postId: string, publishedAt: Date, n: { views: number; reach: number | null; likes: number; comments: number; saves: number; shares: number }) {
+  const hours = Math.floor((Date.now() - publishedAt.getTime()) / 3_600_000);
+  if (hours < 0 || hours > 14 * 24) return;
+  const id = `${postId}:${hours}`;
+  await prisma.postSnapshot.upsert({ where: { id }, update: { ...n, takenAt: new Date() }, create: { id, postId, hours, ...n } }).catch(() => {});
 }
 
 async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
@@ -175,6 +186,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
 
     // Engagement rate by reach, the usual Instagram definition
     const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
+    const reel = m.media_product_type === 'REELS' ? await getInstagramReelMetrics(token, m.id) : null;
     const fields = {
       views,
       reach,
@@ -187,6 +199,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
       isBoosted: isBoosted(m),
       thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
       caption: m.caption || '',
+      ...(reel ? { avgWatchMs: reel.avgWatchMs, skipRate: reel.skipRate } : {}),
     };
 
     await prisma.post.upsert({
@@ -201,6 +214,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
         publishedAt: new Date(m.timestamp),
       },
     });
+    await snapshotPost(m.id, new Date(m.timestamp), { views, reach, likes, comments, saves, shares });
   });
   if (failedMetrics.size) console.warn('Instagram metrics unavailable on some posts:', [...failedMetrics].join(', '));
 
@@ -230,7 +244,8 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   const todayId = `${profile.id}:${dayKey(new Date())}`;
   await prisma.metric.update({ where: { id: todayId }, data: { postsCount: ig.media_count ?? media.length } }).catch(() => {});
 
-  const reach30 = await getInstagramReachTotal(token, igUserId);
+  const [reach30, funnel] = await Promise.all([getInstagramReachTotal(token, igUserId), getInstagramFunnel(token, igUserId)]);
+  const hasFunnel = Object.values(funnel).some((v) => v != null);
 
   const { audience, warnings } = await getInstagramDemographics(token, igUserId);
   if (warnings.length) console.warn('Instagram demographics:', warnings.join(' | '));
@@ -241,6 +256,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
     data: {
       ...(hasAudience ? { audience } : {}),
       ...(reach30 != null ? { reach30 } : {}),
+      ...(hasFunnel ? { funnel: { ...funnel, at: new Date().toISOString() } } : {}),
     },
   });
   return { followers: followerCount, posts: media.length };

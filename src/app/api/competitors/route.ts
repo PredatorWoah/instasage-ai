@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUserId, unauthorized } from '@/lib/api';
-import { metaCallbackUrl, metaOAuthConfig, ownBenchmark, refreshCompetitor } from '@/services/competitors';
+import { followerTrend, metaCallbackUrl, metaOAuthConfig, ownBenchmark, refreshCompetitor } from '@/services/competitors';
 
 export const maxDuration = 60;
 
@@ -11,7 +11,11 @@ export async function GET(req: Request) {
   if (!userId) return unauthorized();
   const [link, competitors, you] = await Promise.all([
     prisma.metaLink.findUnique({ where: { userId }, select: { igUsername: true, pageName: true, expiresAt: true } }),
-    prisma.competitor.findMany({ where: { userId }, orderBy: { followers: 'desc' } }),
+    prisma.competitor.findMany({
+      where: { userId },
+      orderBy: { followers: 'desc' },
+      include: { history: { orderBy: { date: 'asc' }, where: { date: { gte: new Date(Date.now() - 31 * 86_400_000) } }, select: { date: true, followers: true } } },
+    }),
     ownBenchmark(userId),
   ]);
   const config = metaOAuthConfig();
@@ -21,7 +25,7 @@ export async function GET(req: Request) {
     redirectUri: metaCallbackUrl(req),
     link,
     you,
-    competitors,
+    competitors: competitors.map(({ history, ...c }) => ({ ...c, trend: followerTrend(history, c.followers) })),
   });
 }
 

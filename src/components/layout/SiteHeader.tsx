@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
+import { AlertsBell } from './AlertsBell';
 import { MobileNav } from './MobileNav';
 import { clearJsonCache, prefetchJson } from '@/lib/useCachedJson';
 
@@ -118,6 +119,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
+          <AlertsBell />
           <AccountSwitcher />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
