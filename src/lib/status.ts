@@ -15,8 +15,9 @@ export type AppStatus = {
   ai: { provider: string; label: string; model: string | null; saved: string[] } | null;
   timezone: string | null;
   youtubeKey: boolean;
-  facebook: { igUsername: string; expiresAt: string | null } | null;
+  facebook: { igUsername: string; expiresAt: string | null; expired: boolean } | null;
   setup: { dismissed: boolean; steps: Record<'account' | 'synced' | 'ai' | 'timezone' | 'profile' | 'goal', boolean> };
+  jobs: { id: string; username: string; platform: string; status: string; error: string | null; at: string; seconds: number | null }[];
   version: string | null;
 };
 

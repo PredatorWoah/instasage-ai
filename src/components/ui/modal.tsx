@@ -35,7 +35,7 @@ export function Modal({ open, onClose, title, subtitle, children, wide }: {
             <h2 className="text-xl font-bold">{title}</h2>
             {subtitle && <div className="text-[13px] text-muted-foreground mt-1">{subtitle}</div>}
           </div>
-          <button type="button" onClick={onClose} className="p-2 -m-2 rounded-full hover:bg-white/[0.08] shrink-0" aria-label="Close"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} className="p-2 -m-2 rounded-full hover:bg-ink/[0.08] shrink-0" aria-label="Close"><X className="w-5 h-5" /></button>
         </div>
         {children}
       </div>

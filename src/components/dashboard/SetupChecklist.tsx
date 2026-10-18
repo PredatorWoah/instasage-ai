@@ -35,22 +35,22 @@ export function SetupChecklist() {
   };
 
   return (
-    <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-4 animate-rise">
+    <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-4 animate-rise">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold">Get set up · {done} of {STEPS.length} done</h2>
-          <div className="mt-2 h-1.5 w-56 max-w-full rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="mt-2 h-1.5 w-56 max-w-full rounded-full bg-ink/[0.06] overflow-hidden">
             <div className="h-full prism-hero rounded-full transition-all" style={{ width: `${(done / STEPS.length) * 100}%` }} />
           </div>
         </div>
-        <button onClick={dismiss} className="p-2 -m-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08]" aria-label="Hide setup checklist"><X className="w-4 h-4" /></button>
+        <button onClick={dismiss} className="p-2 -m-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]" aria-label="Hide setup checklist"><X className="w-4 h-4" /></button>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {STEPS.map((s) => {
           const ok = data.setup.steps[s.key];
           return (
-            <Link key={s.key} href={s.href} className={cn('flex items-center gap-3 p-3 rounded-2xl border transition-colors', ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/[0.07] bg-white/[0.03] hover:bg-white/[0.06]')}>
-              <span className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0', ok ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/[0.08] text-muted-foreground')}>
+            <Link key={s.key} href={s.href} className={cn('flex items-center gap-3 p-3 rounded-2xl border transition-colors', ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-ink/[0.07] bg-ink/[0.03] hover:bg-ink/[0.06]')}>
+              <span className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0', ok ? 'bg-emerald-500/20 text-emerald-400' : 'bg-ink/[0.08] text-muted-foreground')}>
                 {ok ? <Check className="w-4 h-4" /> : <span className="w-2 h-2 rounded-full bg-current" />}
               </span>
               <span className="min-w-0">

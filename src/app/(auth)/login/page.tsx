@@ -45,7 +45,7 @@ export default function LoginPage() {
           <span className="font-display font-extrabold text-[30px] tracking-[-0.04em]">instasage</span>
         </div>
 
-        <div className="w-full rounded-[32px] p-7 bg-card/80 backdrop-blur-xl border border-white/[0.07] shadow-[0_30px_80px_-30px_rgba(123,97,255,0.45)] flex flex-col gap-6">
+        <div className="w-full rounded-[32px] p-7 bg-card/80 backdrop-blur-xl border border-ink/[0.07] shadow-[0_30px_80px_-30px_rgba(123,97,255,0.45)] flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <h1 className="text-[36px] leading-none tracking-[-0.045em]">Welcome <span className="prism-text">back</span></h1>
             <p className="text-sm text-muted-foreground">Enter your password to open your dashboard.</p>
@@ -64,7 +64,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-11 h-12 text-base bg-background/60 border-white/[0.08] rounded-2xl"
+                  className="pl-11 h-12 text-base bg-background/60 border-ink/[0.08] rounded-2xl"
                 />
               </div>
               {error && <p className="text-xs text-rose-400">{error}</p>}

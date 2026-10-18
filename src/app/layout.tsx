@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
-import { Toaster } from 'sonner';
 import './globals.css';
 
 const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bricolage', weight: ['500', '600', '700', '800'] });
@@ -12,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 import { Providers } from "@/components/Providers";
+import { THEME_SCRIPT } from "@/lib/themeScript";
 
 export default function RootLayout({
   children,
@@ -20,9 +20,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className={`${display.variable} ${sans.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
-        <Toaster theme="dark" position="top-right" richColors closeButton />
       </body>
     </html>
   );

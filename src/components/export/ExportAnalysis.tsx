@@ -105,7 +105,7 @@ export function ExportAnalysis({ className }: { className?: string }) {
           setLoading(true);
           setOpen(true);
         }}
-        className={cn('inline-flex items-center gap-2 h-10 px-4 rounded-full bg-white/[0.07] border border-white/[0.1] text-[13px] font-bold hover:bg-white/[0.12] transition-colors shrink-0', className)}
+        className={cn('inline-flex items-center gap-2 h-10 px-4 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-[13px] font-bold hover:bg-ink/[0.12] transition-colors shrink-0', className)}
       >
         <Share2 className="w-4 h-4" /> Export for ChatGPT or Claude
       </button>
@@ -121,7 +121,7 @@ export function ExportAnalysis({ className }: { className?: string }) {
                   Paste it into a chat you already pay for (ChatGPT Plus, Claude Plus, Gemini) and get a top model&apos;s answer on your real numbers, with no API cost.
                 </p>
               </div>
-              <button type="button" onClick={() => setOpen(false)} className="p-2 -m-2 rounded-full hover:bg-white/[0.08]" aria-label="Close"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setOpen(false)} className="p-2 -m-2 rounded-full hover:bg-ink/[0.08]" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-2" role="radiogroup" aria-label="What do you want from the AI?">
@@ -132,7 +132,7 @@ export function ExportAnalysis({ className }: { className?: string }) {
                   role="radio"
                   aria-checked={goal === g.id}
                   onClick={() => choose(g.id)}
-                  className={cn('text-left p-3 rounded-2xl border transition-colors', goal === g.id ? 'bg-white text-background border-white' : 'bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.08]')}
+                  className={cn('text-left p-3 rounded-2xl border transition-colors', goal === g.id ? 'bg-ink text-background border-ink' : 'bg-ink/[0.04] border-ink/[0.08] hover:bg-ink/[0.08]')}
                 >
                   <p className="text-sm font-bold">{g.title}</p>
                   <p className={cn('text-[12px] leading-snug mt-0.5', goal === g.id ? 'text-background/70' : 'text-muted-foreground')}>{g.blurb}</p>
@@ -159,14 +159,14 @@ export function ExportAnalysis({ className }: { className?: string }) {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={copy} disabled={loading || !!error} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-white text-background text-sm font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-50">
+              <button type="button" onClick={copy} disabled={loading || !!error} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-ink text-background text-sm font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-50">
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied' : 'Copy text'}
               </button>
-              <button type="button" onClick={download} disabled={loading || !!error} className="inline-flex items-center gap-2 h-11 px-4 rounded-full bg-white/[0.07] border border-white/[0.1] text-sm font-bold hover:bg-white/[0.12] disabled:opacity-50">
+              <button type="button" onClick={download} disabled={loading || !!error} className="inline-flex items-center gap-2 h-11 px-4 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-sm font-bold hover:bg-ink/[0.12] disabled:opacity-50">
                 <Download className="w-4 h-4" /> Download .md
               </button>
               {CHATS.map((l) => (
-                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-[13px] font-bold text-muted-foreground hover:text-foreground hover:bg-white/[0.06]">
+                <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full text-[13px] font-bold text-muted-foreground hover:text-foreground hover:bg-ink/[0.06]">
                   {l.label} <ExternalLink className="w-3 h-3" />
                 </a>
               ))}

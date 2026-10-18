@@ -45,7 +45,7 @@ export function CreatorProfileForm() {
   const set = (key: keyof Profile) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   return (
-    <form onSubmit={save} className="rounded-[30px] bg-card border border-white/[0.05] p-5 sm:p-6 space-y-4" id="creator-profile">
+    <form onSubmit={save} className="rounded-[30px] bg-card border border-ink/[0.05] p-5 sm:p-6 space-y-4" id="creator-profile">
       <div>
         <h2 className="text-lg font-bold flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-400" /> Creator profile</h2>
         <p className="text-[13px] text-muted-foreground mt-1">The AI reads this before every plan, idea, script and reply. The more specific, the less generic the advice.</p>

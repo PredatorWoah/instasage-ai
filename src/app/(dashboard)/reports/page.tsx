@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { formatLabel, terms } from '@/lib/platform';
 
 type StoryResult = { story: ReportStory; model: string; createdAt: string } | null;
-const TOOLTIP = { background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 12, fontSize: 12 };
+const TOOLTIP = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 12, fontSize: 12 };
 
 const change = (now: number | null, before: number | null) =>
   now == null || before == null || before === 0 ? null : ((now - before) / Math.abs(before)) * 100;
@@ -82,15 +82,15 @@ export default function ReportsPage() {
     t.yt
       ? { label: 'Channel views gained', value: k.channelViews == null ? '—' : formatNumber(k.channelViews), delta: change(k.channelViews, p.channelViews), look: 'prism-gold text-[#2A1A00]' }
       : { label: 'Accounts reached', value: k.reach == null ? '—' : formatNumber(k.reach), delta: change(k.reach, p.reach), look: 'prism-gold text-[#2A1A00]' },
-    { label: 'Avg engagement', value: `${k.engagement.toFixed(1)}%`, delta: change(k.engagement, p.engagement), look: 'bg-card border border-white/[0.05]' },
-    { label: t.Posts, value: String(k.posts), delta: change(k.posts, p.posts), look: 'bg-card border border-white/[0.05]' },
+    { label: 'Avg engagement', value: `${k.engagement.toFixed(1)}%`, delta: change(k.engagement, p.engagement), look: 'bg-card border border-ink/[0.05]' },
+    { label: t.Posts, value: String(k.posts), delta: change(k.posts, p.posts), look: 'bg-card border border-ink/[0.05]' },
     ...(t.hasSavesShares
       ? [
-          { label: 'Saves', value: formatNumber(k.saves), delta: change(k.saves, p.saves), look: 'bg-card border border-white/[0.05]' },
-          { label: 'Shares', value: formatNumber(k.shares), delta: change(k.shares, p.shares), look: 'bg-card border border-white/[0.05]' },
+          { label: 'Saves', value: formatNumber(k.saves), delta: change(k.saves, p.saves), look: 'bg-card border border-ink/[0.05]' },
+          { label: 'Shares', value: formatNumber(k.shares), delta: change(k.shares, p.shares), look: 'bg-card border border-ink/[0.05]' },
         ]
-      : [{ label: 'Likes', value: formatNumber(k.likes), delta: change(k.likes, p.likes), look: 'bg-card border border-white/[0.05]' }]),
-    { label: 'Comments', value: formatNumber(k.comments), delta: change(k.comments, p.comments), look: 'bg-card border border-white/[0.05]' },
+      : [{ label: 'Likes', value: formatNumber(k.likes), delta: change(k.likes, p.likes), look: 'bg-card border border-ink/[0.05]' }]),
+    { label: 'Comments', value: formatNumber(k.comments), delta: change(k.comments, p.comments), look: 'bg-card border border-ink/[0.05]' },
   ];
   const headline = story?.story.headline ?? (k.posts ? `${k.posts} ${t.posts}, ${formatNumber(k.views)} views in ${report.label}.` : `Nothing posted in ${report.label} yet.`);
   const chart = report.days.map((d) => ({ day: Number(d.date.slice(8)), views: d.views, posts: d.posts }));
@@ -110,15 +110,15 @@ export default function ReportsPage() {
               setMonth(e.target.value);
               setFailure(null);
             }}
-            className="h-11 rounded-full bg-white/[0.06] border border-white/[0.1] px-4 text-sm font-bold"
+            className="h-11 rounded-full bg-ink/[0.06] border border-ink/[0.1] px-4 text-sm font-bold"
             aria-label="Month"
           >
             {report.months.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
           </select>
-          <button onClick={exportPdf} disabled={exporting} className="h-11 px-5 rounded-full bg-white text-background text-sm font-bold inline-flex items-center gap-2 hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-60">
+          <button onClick={exportPdf} disabled={exporting} className="h-11 px-5 rounded-full bg-ink text-background text-sm font-bold inline-flex items-center gap-2 hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-60">
             <FileDown className="w-4 h-4" /> {exporting ? 'Building PDF...' : 'Download PDF'}
           </button>
-          <a href="/api/reports?type=csv" className="h-11 px-4 rounded-full bg-white/[0.06] border border-white/[0.1] text-sm font-bold inline-flex items-center gap-2 hover:bg-white/[0.1]">
+          <a href="/api/reports?type=csv" className="h-11 px-4 rounded-full bg-ink/[0.06] border border-ink/[0.1] text-sm font-bold inline-flex items-center gap-2 hover:bg-ink/[0.1]">
             <FileSpreadsheet className="w-4 h-4" /> CSV
           </a>
         </div>
@@ -174,7 +174,7 @@ export default function ReportsPage() {
 
       {/* Daily chart + breakdowns */}
       <section className="stagger grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05]">
+        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05]">
           <div className="flex items-baseline justify-between mb-3">
             <h3 className="text-lg font-bold">Views by day published</h3>
             <span className="text-xs text-muted-foreground">{report.label}</span>
@@ -187,19 +187,19 @@ export default function ReportsPage() {
                   <stop offset="100%" stopColor="#7B61FF" />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} interval={2} />
               <YAxis tick={{ fontSize: 10, fill: '#8A8A9C' }} tickLine={false} axisLine={false} tickFormatter={(v) => formatNumber(Number(v))} width={40} />
-              <Tooltip contentStyle={TOOLTIP} cursor={{ fill: 'rgba(255,255,255,0.03)' }} formatter={(v, _n, item) => [`${formatNumber(Number(v))} views · ${item.payload.posts} post${item.payload.posts === 1 ? '' : 's'}`, '']} labelFormatter={(d) => `Day ${d}`} />
+              <Tooltip contentStyle={TOOLTIP} cursor={{ fill: 'rgba(128,128,160,0.08)' }} formatter={(v, _n, item) => [`${formatNumber(Number(v))} views · ${item.payload.posts} post${item.payload.posts === 1 ? '' : 's'}`, '']} labelFormatter={(d) => `Day ${d}`} />
               <Bar dataKey="views" fill="url(#reportBar)" radius={[6, 6, 0, 0]} maxBarSize={22} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-3">
+        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-3">
           <h3 className="text-lg font-bold">By format</h3>
           {report.byFormat.length === 0 && <p className="text-sm text-muted-foreground">No posts this month.</p>}
           {report.byFormat.map((f) => (
-            <div key={f.label} className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+            <div key={f.label} className="p-3 rounded-2xl bg-ink/[0.03] border border-ink/[0.05]">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-bold">{formatLabel(f.label)} <span className="text-muted-foreground font-medium">· {f.posts}</span></p>
                 <p className={cn('text-[12px] font-bold', f.viewsLift >= 0 ? 'text-emerald-400' : 'text-rose-400')}>{f.viewsLift >= 0 ? '+' : ''}{f.viewsLift}%</p>
@@ -212,12 +212,12 @@ export default function ReportsPage() {
 
       {/* Top posts */}
       {report.topPosts.length > 0 && (
-        <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05]">
+        <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05]">
           <h3 className="text-lg font-bold mb-4">Top {t.posts} of the month</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {report.topPosts.map((post, i) => (
-              <Link key={post.id} href={`/content/${encodeURIComponent(post.id)}`} className="group rounded-[22px] overflow-hidden bg-white/[0.03] border border-white/[0.05]">
-                <div className={cn('relative bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]', t.yt ? 'aspect-video' : 'aspect-[4/5]')}>
+              <Link key={post.id} href={`/content/${encodeURIComponent(post.id)}`} className="group rounded-[22px] overflow-hidden bg-ink/[0.03] border border-ink/[0.05]">
+                <div className={cn('relative on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]', t.yt ? 'aspect-video' : 'aspect-[4/5]')}>
                   {post.thumbnail && <Image src={post.thumbnail} alt="" fill unoptimized sizes="220px" className="object-cover transition-transform duration-500 group-hover:scale-[1.05]" />}
                   <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white drop-shadow">#{i + 1}</span>
                 </div>

@@ -6,6 +6,8 @@ import { usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
 import type { TimeSeriesPoint } from '@/types';
 import { FunnelCard, type FunnelData } from '@/components/charts/FunnelCard';
+import { PeriodCompare } from '@/components/charts/PeriodCompare';
+import type { PeriodTotals } from '@/services/dashboard';
 import { FollowersChart } from '@/components/charts/FollowersChart';
 import { ViewsChart } from '@/components/charts/ViewsChart';
 import { EngagementChart } from '@/components/charts/EngagementChart';
@@ -16,7 +18,7 @@ import { Button } from '@/components/ui/button';
 
 export default function AnalyticsPage() {
   const [days, setDays] = useState<number>(30);
-  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[]; funnel: FunnelData | null } | null>(`/api/analytics?days=${days}`);
+  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[]; funnel: FunnelData | null; compare?: { current: PeriodTotals; previous: PeriodTotals } } | null>(`/api/analytics?days=${days}`);
 
   const { t } = usePlatform();
   const series = data?.timeSeries ?? [];
@@ -93,6 +95,10 @@ export default function AnalyticsPage() {
           <Link href="/accounts" className="text-indigo-400 hover:underline">Accounts page</Link>. Follower and reach
           history builds up with each sync, so these charts fill in over time.
         </p>
+      )}
+
+      {data?.hasData && data.compare && (
+        <PeriodCompare current={data.compare.current} previous={data.compare.previous} days={data.days} labels={{ posts: t.posts, followers: t.followers, yt: t.yt }} />
       )}
 
       {!t.yt && data?.funnel && (

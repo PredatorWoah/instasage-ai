@@ -43,7 +43,7 @@ export function AiUsageCard() {
           { label: 'Tokens', value: tokens(data.total.input + data.total.output) },
           { label: 'Estimated cost', value: money(data.total) },
         ].map((x) => (
-          <div key={x.label} className="rounded-2xl bg-white/[0.03] border border-white/[0.05] p-3">
+          <div key={x.label} className="rounded-2xl bg-ink/[0.03] border border-ink/[0.05] p-3">
             <p className="font-display font-extrabold text-[20px] leading-none">{x.value}</p>
             <p className="text-[11px] text-muted-foreground mt-1">{x.label}</p>
           </div>

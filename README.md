@@ -11,13 +11,14 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | Page | What you get |
 | --- | --- |
 | **Overview** | Month story, followers or subscribers, reach or channel views, engagement, views per day, best time to post, top posts |
-| **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days |
-| **Content** | Every post or video, searchable and sortable. Open any one for an AI breakdown against your own averages |
+| **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days, each headline number against the period before, and the follow funnel |
+| **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for an AI breakdown against your own averages |
 | **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action |
 | **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Quick wins** |
-| **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best |
+| **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
 | **Reports** | Real monthly numbers vs the previous month, an AI review, and a designed **PDF export** (plus CSV) |
+| **Status** | Health of every account, the AI, competitor tracking and recent syncs, with a fix button next to anything broken |
 | **Sage** | The chat bubble in the corner: ask anything about your numbers |
 
 Other details:
@@ -36,6 +37,8 @@ Other details:
 * **How each post grew.** Every post's first two weeks are tracked, so its page shows a growth curve, views at about a day old against your usual post, and reel watch time and skip rate.
 * **Rival trends.** Daily follower snapshots give every competitor a sparkline and a 30 day growth column.
 * **Alerts.** The bell flags a post outperforming your average, a long gap since your last post, follower milestones and drops, and a rival post going viral.
+* **Command palette.** Ctrl+K (Cmd+K on Mac) jumps to any page, section or post, switches accounts, syncs, or changes the theme.
+* **Light and dark themes.** Pick one in Settings, or follow your device.
 * **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
 * **Always fresh.** Counts refresh whenever you open the app, and posts, insights and competitors sync every morning on Vercel Cron.
 

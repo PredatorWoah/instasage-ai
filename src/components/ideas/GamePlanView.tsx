@@ -124,7 +124,7 @@ export function GamePlanView() {
 
       {/* Pillars + schedule */}
       <section className="stagger grid lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-4">
+        <div className="lg:col-span-3 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-4">
           <h3 className="text-lg font-bold flex items-center gap-2"><Layers className="w-4 h-4 text-muted-foreground" /> Content pillars</h3>
           <div className="grid sm:grid-cols-2 gap-3">
             {plan.pillars?.map((p, i) => (
@@ -139,10 +139,10 @@ export function GamePlanView() {
             ))}
           </div>
         </div>
-        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-3">
+        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-3">
           <h3 className="text-lg font-bold flex items-center gap-2"><CalendarDays className="w-4 h-4 text-muted-foreground" /> Posting slots</h3>
           {plan.schedule?.map((s, i) => (
-            <div key={i} className="flex gap-3 items-start p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+            <div key={i} className="flex gap-3 items-start p-3 rounded-2xl bg-ink/[0.03] border border-ink/[0.05]">
               <div className="w-14 shrink-0 text-center">
                 <p className="font-display font-extrabold text-[18px] leading-none">{s.day}</p>
                 <p className="text-[11px] text-muted-foreground mt-1 whitespace-nowrap">{s.time}</p>
@@ -157,11 +157,11 @@ export function GamePlanView() {
       </section>
 
       {/* Week by week */}
-      <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-4">
+      <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-4">
         <h3 className="text-lg font-bold">Week by week</h3>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
           {plan.weeks?.map((w) => (
-            <div key={w.week} className="rounded-[24px] p-4 bg-white/[0.03] border border-white/[0.06] flex flex-col gap-3">
+            <div key={w.week} className="rounded-[24px] p-4 bg-ink/[0.03] border border-ink/[0.06] flex flex-col gap-3">
               <div>
                 <p className="text-[12px] font-bold prism-text">Week {w.week}</p>
                 <p className="font-display font-extrabold text-[18px] leading-tight">{w.theme}</p>
@@ -171,12 +171,12 @@ export function GamePlanView() {
                 {w.posts?.map((p, i) => {
                   const key = `${w.week}-${i}`;
                   return (
-                    <div key={key} className="group rounded-2xl p-3 bg-background/60 border border-white/[0.05]">
+                    <div key={key} className="group rounded-2xl p-3 bg-background/60 border border-ink/[0.05]">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-bold text-muted-foreground">{p.day} · <span className="capitalize">{p.format}</span></span>
                         <button
                           onClick={() => keep(key, { title: p.idea, notes: `Hook: ${p.hook}\nWeek ${w.week}: ${w.theme}`, format: p.format })}
-                          className={cn('p-1 rounded-full transition-colors', saved[key] ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.08]')}
+                          className={cn('p-1 rounded-full transition-colors', saved[key] ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]')}
                           aria-label={saved[key] ? 'Saved to board' : 'Save to idea board'}
                           title={saved[key] ? 'Saved to board' : 'Save to idea board'}
                         >
@@ -219,13 +219,13 @@ function ListCard({ title, icon: Icon, tone, items }: {
   items: { title: string; why: string }[];
 }) {
   return (
-    <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] space-y-3">
+    <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] space-y-3">
       <h3 className="text-lg font-bold flex items-center gap-2">
         <span className={cn('w-8 h-8 rounded-xl flex items-center justify-center', tone)}><Icon className="w-4 h-4" /></span>
         {title}
       </h3>
       {items?.map((item) => (
-        <div key={item.title} className="p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05]">
+        <div key={item.title} className="p-3 rounded-2xl bg-ink/[0.03] border border-ink/[0.05]">
           <p className="text-sm font-bold">{item.title}</p>
           <p className="text-[13px] text-muted-foreground leading-snug mt-0.5">{item.why}</p>
         </div>
@@ -236,7 +236,7 @@ function ListCard({ title, icon: Icon, tone, items }: {
 
 function Thinking({ step }: { step: number }) {
   return (
-    <div className="rounded-[34px] bg-card border border-white/[0.05] p-10 flex flex-col items-center text-center gap-5 min-h-[320px] justify-center">
+    <div className="rounded-[34px] bg-card border border-ink/[0.05] p-10 flex flex-col items-center text-center gap-5 min-h-[320px] justify-center">
       <SageOrb size={84} />
       <div className="space-y-1">
         <p className="font-display font-extrabold text-[22px]">Building your game plan</p>

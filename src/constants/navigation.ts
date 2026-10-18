@@ -17,6 +17,7 @@ export const MENU_LINKS: NavItem[] = [
   { id: 'competitors', label: 'Competitors', href: '/competitors' },
   { id: 'account', label: 'Profile', href: '/account' },
   { id: 'settings', label: 'Settings', href: '/settings' },
+  { id: 'status', label: 'Status', href: '/status' },
 ];
 
 // Which tab a path belongs to (a post page lives under Content)

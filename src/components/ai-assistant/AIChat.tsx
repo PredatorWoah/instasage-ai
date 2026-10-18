@@ -80,7 +80,7 @@ export function AIChat() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-[92px] right-4 sm:right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-card/95 backdrop-blur-xl border border-white/[0.08] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-rise" style={{ height: 460 }}>
+        <div className="fixed bottom-[92px] right-4 sm:right-6 z-50 w-[calc(100vw-3rem)] max-w-sm bg-card/95 backdrop-blur-xl border border-ink/[0.08] rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-rise" style={{ height: 460 }}>
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 shrink-0">
             <SageOrb size={34} className="shrink-0" />

@@ -6,7 +6,7 @@ function inline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|_[^_\s][^_]*_)/g);
   return parts.map((part, i) => {
     if (/^\*\*[^*]+\*\*$/.test(part)) return <strong key={i} className="font-bold text-foreground">{part.slice(2, -2)}</strong>;
-    if (/^`[^`]+`$/.test(part)) return <code key={i} className="px-1 py-0.5 rounded bg-white/[0.08] text-[0.9em]">{part.slice(1, -1)}</code>;
+    if (/^`[^`]+`$/.test(part)) return <code key={i} className="px-1 py-0.5 rounded bg-ink/[0.08] text-[0.9em]">{part.slice(1, -1)}</code>;
     if (/^(\*[^*]+\*|_[^_]+_)$/.test(part)) return <em key={i}>{part.slice(1, -1)}</em>;
     return <Fragment key={i}>{part}</Fragment>;
   });
@@ -56,7 +56,7 @@ export function Markdown({ text }: { text: string }) {
         if (b.kind === 'h') {
           return <p key={i} className={b.level <= 2 ? 'font-display font-extrabold text-[17px] pt-1' : 'font-bold text-[15px] pt-1'}>{inline(b.text)}</p>;
         }
-        if (b.kind === 'hr') return <hr key={i} className="border-white/[0.08]" />;
+        if (b.kind === 'hr') return <hr key={i} className="border-ink/[0.08]" />;
         if (b.kind === 'ul') return <ul key={i} className="list-disc pl-5 space-y-1 marker:text-muted-foreground">{b.items.map((t, j) => <li key={j}>{inline(t)}</li>)}</ul>;
         if (b.kind === 'ol') return <ol key={i} className="list-decimal pl-5 space-y-1 marker:text-muted-foreground marker:font-bold">{b.items.map((t, j) => <li key={j}>{inline(t)}</li>)}</ol>;
         return <p key={i}>{inline(b.text)}</p>;

@@ -51,7 +51,7 @@ export async function GET() {
     ai: active ? { provider: active, label: PROVIDERS[active].label, model: activeCred?.model ?? null, saved: [...creds.keys()] } : null,
     timezone: user?.timezone ?? null,
     youtubeKey: !!(user?.youtubeApiKey || process.env.YOUTUBE_API_KEY),
-    facebook: meta,
+    facebook: meta ? { ...meta, expired: !!meta.expiresAt && meta.expiresAt.getTime() < now } : null,
     setup: {
       dismissed: user?.setupDismissed ?? false,
       steps: {
@@ -63,6 +63,15 @@ export async function GET() {
         goal: !!user?.goal,
       },
     },
+    jobs: jobs.slice(0, 20).map((j) => ({
+      id: j.id,
+      username: profiles.find((p) => p.id === j.socialProfileId)?.username ?? j.platform,
+      platform: j.platform,
+      status: j.status,
+      error: j.errorMessage,
+      at: j.startedAt,
+      seconds: j.completedAt ? Math.max(0, Math.round((j.completedAt.getTime() - j.startedAt.getTime()) / 1000)) : null,
+    })),
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
   });
 }

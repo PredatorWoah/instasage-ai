@@ -76,9 +76,9 @@ export function IdeaBoard() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Jot down an idea before it escapes..."
-          className="flex-1 h-12 rounded-full bg-card border border-white/[0.07] px-5 text-sm outline-none focus:border-white/[0.2]"
+          className="flex-1 h-12 rounded-full bg-card border border-ink/[0.07] px-5 text-sm outline-none focus:border-ink/[0.2]"
         />
-        <button type="submit" disabled={!title.trim()} className="h-12 px-5 rounded-full bg-white text-background text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-40">
+        <button type="submit" disabled={!title.trim()} className="h-12 px-5 rounded-full bg-ink text-background text-sm font-bold inline-flex items-center gap-1.5 disabled:opacity-40">
           <Plus className="w-4 h-4" /> Add
         </button>
       </form>
@@ -90,7 +90,7 @@ export function IdeaBoard() {
       )}
 
       {list.length === 0 && (
-        <p className="text-sm text-muted-foreground p-4 rounded-2xl border border-dashed border-white/[0.1]">
+        <p className="text-sm text-muted-foreground p-4 rounded-2xl border border-dashed border-ink/[0.1]">
           Nothing here yet. Save posts from your game plan, replies from a brainstorm, or add your own above.
         </p>
       )}
@@ -99,25 +99,25 @@ export function IdeaBoard() {
         {COLUMNS.map((col, ci) => {
           const items = list.filter((i) => i.status === col.id);
           return (
-            <div key={col.id} className="rounded-[30px] bg-card border border-white/[0.05] p-3 flex flex-col gap-2 min-h-[200px]">
+            <div key={col.id} className="rounded-[30px] bg-card border border-ink/[0.05] p-3 flex flex-col gap-2 min-h-[200px]">
               <div className="flex items-center justify-between px-2 pt-1 pb-2">
                 <p className="text-sm font-bold flex items-center gap-2"><span className={cn('w-2.5 h-2.5 rounded-full', col.dot)} /> {col.title}</p>
                 <span className="text-[11px] text-muted-foreground">{items.length} · {col.hint}</span>
               </div>
               {items.map((idea) => (
-                <div key={idea.id} className="rounded-2xl p-3 bg-white/[0.03] border border-white/[0.06]">
+                <div key={idea.id} className="rounded-2xl p-3 bg-ink/[0.03] border border-ink/[0.06]">
                   <button onClick={() => setOpenId(openId === idea.id ? null : idea.id)} className="text-left w-full">
                     <p className="text-[13px] font-semibold leading-snug">{idea.title}</p>
                   </button>
                   {openId === idea.id && idea.notes && (
-                    <div className="mt-2 pt-2 border-t border-white/[0.06] text-muted-foreground [&_p]:text-[13px] [&_li]:text-[13px]">
+                    <div className="mt-2 pt-2 border-t border-ink/[0.06] text-muted-foreground [&_p]:text-[13px] [&_li]:text-[13px]">
                       <Markdown text={idea.notes} />
                     </div>
                   )}
 
                   {idea.post && (
-                    <Link href={`/content/${encodeURIComponent(idea.post.id)}`} className="mt-2 flex items-center gap-2 rounded-xl p-1.5 bg-white/[0.04] hover:bg-white/[0.07]">
-                      <span className="relative w-9 h-9 rounded-lg overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0">
+                    <Link href={`/content/${encodeURIComponent(idea.post.id)}`} className="mt-2 flex items-center gap-2 rounded-xl p-1.5 bg-ink/[0.04] hover:bg-ink/[0.07]">
+                      <span className="relative w-9 h-9 rounded-lg overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0">
                         {idea.post.thumbnail && <Image src={idea.post.thumbnail} alt="" fill unoptimized sizes="36px" className="object-cover" />}
                       </span>
                       <span className="min-w-0 text-[11px] leading-snug">
@@ -141,28 +141,28 @@ export function IdeaBoard() {
                   )}
 
                   <div className="flex items-center gap-1 mt-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/[0.06] text-muted-foreground">{SOURCE[idea.source] ?? 'You'}</span>
-                    {idea.format && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/[0.06] text-muted-foreground capitalize">{idea.format}</span>}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-ink/[0.06] text-muted-foreground">{SOURCE[idea.source] ?? 'You'}</span>
+                    {idea.format && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-ink/[0.06] text-muted-foreground capitalize">{idea.format}</span>}
                     <span className="ml-auto flex items-center">
-                      <button onClick={() => setWriting(idea)} className="p-1.5 rounded-full text-muted-foreground hover:text-indigo-300 hover:bg-white/[0.08]" aria-label="Write it for me" title="Write it for me">
+                      <button onClick={() => setWriting(idea)} className="p-1.5 rounded-full text-muted-foreground hover:text-indigo-300 hover:bg-ink/[0.08]" aria-label="Write it for me" title="Write it for me">
                         <PenLine className="w-3.5 h-3.5" />
                       </button>
                       {idea.post && (
-                        <button onClick={() => patch(idea, { postId: null })} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08]" aria-label="Unlink post" title="Unlink post">
+                        <button onClick={() => patch(idea, { postId: null })} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]" aria-label="Unlink post" title="Unlink post">
                           <Unlink className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {ci > 0 && (
-                        <button onClick={() => move(idea, COLUMNS[ci - 1].id)} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08]" aria-label={`Move to ${COLUMNS[ci - 1].title}`}>
+                        <button onClick={() => move(idea, COLUMNS[ci - 1].id)} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]" aria-label={`Move to ${COLUMNS[ci - 1].title}`}>
                           <ChevronLeft className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {ci < COLUMNS.length - 1 && (
-                        <button onClick={() => move(idea, COLUMNS[ci + 1].id)} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08]" aria-label={`Move to ${COLUMNS[ci + 1].title}`}>
+                        <button onClick={() => move(idea, COLUMNS[ci + 1].id)} className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]" aria-label={`Move to ${COLUMNS[ci + 1].title}`}>
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => remove(idea.id)} className="p-1.5 rounded-full text-muted-foreground hover:text-rose-400 hover:bg-white/[0.08]" aria-label="Delete idea">
+                      <button onClick={() => remove(idea.id)} className="p-1.5 rounded-full text-muted-foreground hover:text-rose-400 hover:bg-ink/[0.08]" aria-label="Delete idea">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </span>
@@ -208,18 +208,18 @@ function LinkPostModal({ idea, onClose, onPick }: { idea: SavedIdea; onClose: ()
     <Modal open onClose={onClose} title="Which post did this idea become?" subtitle={<>&ldquo;{idea.title}&rdquo;</>}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search captions..." autoFocus className="w-full h-10 rounded-full bg-white/[0.05] border border-white/[0.08] pl-9 pr-4 text-sm outline-none focus:border-white/[0.2]" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search captions..." autoFocus className="w-full h-10 rounded-full bg-ink/[0.05] border border-ink/[0.08] pl-9 pr-4 text-sm outline-none focus:border-ink/[0.2]" />
       </div>
       {data === undefined ? (
-        <div className="h-40 rounded-2xl bg-white/[0.03] animate-pulse" />
+        <div className="h-40 rounded-2xl bg-ink/[0.03] animate-pulse" />
       ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">No posts match. Sync first if you just posted it.</p>
       ) : (
         <ul className="max-h-[50vh] overflow-y-auto space-y-1.5">
           {shown.map(({ post, score }, i) => (
             <li key={post.id}>
-              <button onClick={() => onPick(post.id)} className="w-full flex items-center gap-3 p-2 rounded-2xl text-left hover:bg-white/[0.06] border border-transparent hover:border-white/[0.08]">
-                <span className="relative w-12 h-12 rounded-xl overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0">
+              <button onClick={() => onPick(post.id)} className="w-full flex items-center gap-3 p-2 rounded-2xl text-left hover:bg-ink/[0.06] border border-transparent hover:border-ink/[0.08]">
+                <span className="relative w-12 h-12 rounded-xl overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] shrink-0">
                   {post.thumbnail && <Image src={post.thumbnail} alt="" fill unoptimized sizes="48px" className="object-cover" />}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -266,27 +266,27 @@ function WriteModal({ idea, onClose }: { idea: SavedIdea; onClose: () => void })
   const text = drafts[tab];
   return (
     <Modal open onClose={onClose} wide title="Write it for me" subtitle={<>&ldquo;{idea.title}&rdquo;, in your voice, using what already works for you</>}>
-      <div className="flex gap-1 p-1 rounded-full bg-white/[0.05] border border-white/[0.06] w-full sm:w-auto sm:inline-flex">
+      <div className="flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06] w-full sm:w-auto sm:inline-flex">
         {DRAFT_TABS.map((t) => (
-          <button key={t.id} onClick={() => { setTab(t.id); setFailure(null); }} className={cn('flex-1 sm:flex-none h-9 px-4 rounded-full text-[13px] font-bold transition-colors', tab === t.id ? 'bg-white text-background' : 'text-muted-foreground hover:text-foreground')}>
+          <button key={t.id} onClick={() => { setTab(t.id); setFailure(null); }} className={cn('flex-1 sm:flex-none h-9 px-4 rounded-full text-[13px] font-bold transition-colors', tab === t.id ? 'bg-ink text-background' : 'text-muted-foreground hover:text-foreground')}>
             {t.label}{drafts[t.id] ? ' ✓' : ''}
           </button>
         ))}
       </div>
       {failure && <AiNotice code={failure.code} message={failure.error} />}
       {busy ? (
-        <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-6 text-sm text-muted-foreground animate-pulse">Writing your {DRAFT_TABS.find((t) => t.id === tab)?.label.toLowerCase()}...</div>
+        <div className="rounded-2xl bg-ink/[0.03] border border-ink/[0.06] p-6 text-sm text-muted-foreground animate-pulse">Writing your {DRAFT_TABS.find((t) => t.id === tab)?.label.toLowerCase()}...</div>
       ) : text ? (
-        <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 max-h-[50vh] overflow-y-auto"><Markdown text={text} /></div>
+        <div className="rounded-2xl bg-ink/[0.03] border border-ink/[0.06] p-4 max-h-[50vh] overflow-y-auto"><Markdown text={text} /></div>
       ) : (
         <p className="text-sm text-muted-foreground">Nothing written yet. It reads your creator profile and your numbers first, so it sounds like you.</p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button onClick={write} disabled={busy} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-white text-background text-sm font-bold disabled:opacity-60">
+        <button onClick={write} disabled={busy} className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-ink text-background text-sm font-bold disabled:opacity-60">
           <PenLine className="w-4 h-4" /> {text ? 'Rewrite' : 'Write it'}
         </button>
         {text && (
-          <button onClick={copy} className="inline-flex items-center gap-2 h-11 px-4 rounded-full bg-white/[0.07] border border-white/[0.1] text-sm font-bold">
+          <button onClick={copy} className="inline-flex items-center gap-2 h-11 px-4 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-sm font-bold">
             <Copy className="w-4 h-4" /> Copy
           </button>
         )}

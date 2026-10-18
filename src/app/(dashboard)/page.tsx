@@ -97,25 +97,25 @@ export default async function DashboardPage() {
       {/* Stat tiles */}
       <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="prism-sunset rounded-[30px] p-5 flex flex-col justify-between min-h-[190px]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-white/25 text-[13px] font-bold">{t.followers}</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-ink/25 text-[13px] font-bold">{t.followers}</span>
           <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
         </div>
         <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-white/30 text-[13px] font-bold">{t.yt ? 'Channel views · 30 days' : 'Reached · 30 days'}</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-ink/30 text-[13px] font-bold">{t.yt ? 'Channel views · 30 days' : 'Reached · 30 days'}</span>
           <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
             {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : kpis.reach30 != null ? formatNumber(kpis.reach30) : '—'}
           </span>
         </div>
         <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-white/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from the last 30 days`}>Engagement</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-ink/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from the last 30 days`}>Engagement</span>
           <div className="flex items-end justify-between gap-2">
             <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
             {hasData && <span className="text-[13px] font-bold pb-1">{getPerformanceLabel(kpis.engagement)}</span>}
           </div>
         </div>
-        <div className="rounded-[30px] p-5 bg-card border border-white/[0.05] flex flex-col justify-between min-h-[190px]">
+        <div className="rounded-[30px] p-5 bg-card border border-ink/[0.05] flex flex-col justify-between min-h-[190px]">
           <div className="flex items-center justify-between gap-2">
-            <span className="px-3 py-1.5 rounded-full bg-white/[0.07] text-[13px] font-bold text-muted-foreground">Views</span>
+            <span className="px-3 py-1.5 rounded-full bg-ink/[0.07] text-[13px] font-bold text-muted-foreground">Views</span>
             <span className="font-display font-extrabold text-[22px]">{formatNumber(kpis.views)}</span>
           </div>
           <div className="flex items-end gap-1.5 h-[88px]" aria-label={`Views on ${t.posts} from the last 14 days`}>
@@ -141,10 +141,10 @@ export default async function DashboardPage() {
 
       {/* Top posts + AI */}
       <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-4">
+        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Top {t.posts}</h2>
-            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-[#FFE08A] hover:text-[#FFF0C2]">All content →</Link>
+            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
           </div>
           {data.topPosts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8">Nothing synced yet. Connect an account and press Sync on the Accounts page.</p>
@@ -156,12 +156,12 @@ export default async function DashboardPage() {
                   href={`/content/${encodeURIComponent(post.id)}`}
                   transitionTypes={['page-fade']}
                   aria-label={post.caption.slice(0, 80) || `Open ${t.post}`}
-                  className={`group relative ${post.platform === 'youtube' ? 'aspect-video' : 'aspect-[4/5]'} rounded-[20px] overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]`}
+                  className={`group relative ${post.platform === 'youtube' ? 'aspect-video' : 'aspect-[4/5]'} rounded-[20px] overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]`}
                 >
                   <PostThumb src={post.thumbnail} type={post.type} sizes="200px" />
                   <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white/90">#{i + 1}</span>
-                  <span className="absolute left-2 bottom-2 px-2.5 py-1 rounded-full bg-[rgba(10,10,15,0.8)] text-[12px] font-bold">
+                  <span className="absolute left-2 bottom-2 px-2.5 py-1 rounded-full bg-[rgba(10,10,15,0.8)] text-white text-[12px] font-bold">
                     {post.performanceScore.toFixed(1)}%
                   </span>
                   {post.isBoosted && <span className="absolute right-2 top-2 px-2 py-0.5 rounded-full bg-amber-500/90 text-[10px] font-bold text-black">Boosted</span>}
@@ -192,10 +192,10 @@ export default async function DashboardPage() {
 
       {/* Latest posts */}
       {latest.length > 0 && (
-        <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-4">
+        <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Latest {t.posts}</h2>
-            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-[#FFE08A] hover:text-[#FFF0C2]">All content →</Link>
+            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             {latest.map((post) => {
@@ -212,9 +212,9 @@ export default async function DashboardPage() {
                   key={post.id}
                   href={`/content/${encodeURIComponent(post.id)}`}
                   transitionTypes={['page-fade']}
-                  className="group flex gap-3 rounded-[22px] p-3 bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors"
+                  className="group flex gap-3 rounded-[22px] p-3 bg-ink/[0.03] border border-ink/[0.06] hover:bg-ink/[0.06] transition-colors"
                 >
-                  <span className={`relative shrink-0 rounded-[16px] overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] ${yt && post.type !== 'short' ? 'w-[112px] aspect-video self-start' : 'w-[84px] aspect-[4/5]'}`}>
+                  <span className={`relative shrink-0 rounded-[16px] overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)] ${yt && post.type !== 'short' ? 'w-[112px] aspect-video self-start' : 'w-[84px] aspect-[4/5]'}`}>
                     <PostThumb src={post.thumbnail} type={post.type} sizes="112px" />
                   </span>
                   <span className="min-w-0 flex-1 flex flex-col gap-1.5">
@@ -228,7 +228,7 @@ export default async function DashboardPage() {
                       {stats.map((x) => <span key={x.label}><b className="text-foreground">{formatNumber(x.value)}</b> {x.label}</span>)}
                     </span>
                     <span className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="px-2 py-0.5 rounded-full bg-white/[0.07] text-[11px] font-bold">{post.performanceScore.toFixed(1)}% eng</span>
+                      <span className="px-2 py-0.5 rounded-full bg-ink/[0.07] text-[11px] font-bold">{post.performanceScore.toFixed(1)}% eng</span>
                       {post.ageDays < 2 ? (
                         <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[11px] font-bold" title="Numbers keep climbing for the first day or two">Still collecting</span>
                       ) : vsAvg != null ? (
@@ -248,11 +248,11 @@ export default async function DashboardPage() {
 
       {/* Trends */}
       <section className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
+        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-3">
           <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">{t.followers}</h2><span className="text-xs text-muted-foreground">30 days</span></div>
           <FollowersChart data={timeSeries} label={t.followers} />
         </div>
-        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-white/[0.05] flex flex-col gap-3">
+        <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-3">
           <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">Engagement</h2><span className="text-xs text-muted-foreground">{t.Posts} per day vs your average</span></div>
           <EngagementChart data={timeSeries} />
         </div>

@@ -46,7 +46,7 @@ export function AlertsBell() {
         onClick={() => setOpen((v) => !v)}
         aria-label={alerts.length ? `${alerts.length} alerts` : 'Alerts'}
         aria-expanded={open}
-        className="relative w-11 h-11 rounded-full bg-card border border-white/[0.06] flex items-center justify-center hover:bg-secondary shrink-0"
+        className="relative w-11 h-11 rounded-full bg-card border border-ink/[0.06] flex items-center justify-center hover:bg-secondary shrink-0"
       >
         <Bell className="w-[18px] h-[18px]" />
         {alerts.length > 0 && (
@@ -68,7 +68,7 @@ export function AlertsBell() {
                 {alerts.map((a) => {
                   const Icon = ICON[a.kind];
                   return (
-                    <li key={a.id} className="group flex gap-3 p-2.5 rounded-2xl hover:bg-white/[0.05]">
+                    <li key={a.id} className="group flex gap-3 p-2.5 rounded-2xl hover:bg-ink/[0.05]">
                       <span className={cn('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', TONE[a.tone])}><Icon className="w-4 h-4" /></span>
                       <button
                         type="button"
@@ -82,7 +82,7 @@ export function AlertsBell() {
                         <span className="block text-[12px] text-muted-foreground leading-snug mt-0.5">{a.body}</span>
                         <span className="block text-[10px] text-muted-foreground mt-1">{ago(a.at)}</span>
                       </button>
-                      <button type="button" onClick={() => dismiss(a.id)} className="p-1 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-white/[0.08] shrink-0" aria-label="Dismiss alert"><X className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => dismiss(a.id)} className="p-1 h-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08] shrink-0" aria-label="Dismiss alert"><X className="w-3.5 h-3.5" /></button>
                     </li>
                   );
                 })}

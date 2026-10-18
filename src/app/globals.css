@@ -21,6 +21,8 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  /* Overlays and active pills: white on the dark theme, near black on the light one */
+  --color-ink: hsl(var(--ink));
 
   /* The app's "indigo" accents become Prism iris/violet everywhere */
   --color-indigo-300: #CFC4FF;
@@ -69,7 +71,69 @@
     --input: 240 14% 17%;
     --ring: 251 100% 69%;
     --radius: 1.25rem;
+    --ink: 0 0% 100%;
+    --chart-grid: rgba(255, 255, 255, 0.05);
+    --scroll-thumb: #2E2E3C;
   }
+  html.light {
+    color-scheme: light;
+    --background: 250 25% 96%;      /* #F3F2F8 */
+    --foreground: 240 20% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 20% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 20% 8%;
+    --primary: 240 20% 8%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 250 20% 92%;
+    --secondary-foreground: 240 20% 8%;
+    --muted: 250 20% 92%;
+    --muted-foreground: 240 8% 38%;
+    --accent: 250 20% 90%;
+    --accent-foreground: 240 20% 8%;
+    --border: 250 15% 86%;
+    --input: 250 15% 86%;
+    --ink: 240 20% 8%;
+    --chart-grid: rgba(20, 20, 40, 0.08);
+    --scroll-thumb: #C9C7D6;
+  }
+}
+
+/* Light theme: the accent text shades are tuned for dark backgrounds, so deepen them */
+html.light {
+  --color-indigo-300: #6E53FF;
+  --color-indigo-400: #5B3BFF;
+  --color-emerald-400: #059669;
+  --color-rose-400: #E11D48;
+  --color-amber-400: #B45309;
+  --color-sky-400: #0284C7;
+}
+/* Gradients and photos stay colourful in both themes, so whatever sits on them keeps the dark
+   theme's white text and overlays. Base layer, so an explicit text colour class still wins. */
+@layer base {
+  html.light :where(.prism-hero, .prism-sunset, .prism-ocean, .prism-gold, .on-color) {
+    --foreground: 0 0% 100%;
+    --muted-foreground: 0 0% 90%;
+    --ink: 0 0% 100%;
+    --background: 240 20% 4%;
+    --color-emerald-400: #34D399;
+    --color-rose-400: #FB7185;
+    --color-amber-400: #FBBF24;
+    --color-amber-300: #FCD34D;
+    --color-indigo-300: #CFC4FF;
+    --color-indigo-400: #B3A2FF;
+    color: hsl(var(--foreground));
+  }
+}
+html.light {
+  --color-amber-200: #92400E;
+  --color-amber-300: #B45309;
+  --color-pink-300: #DB2777;
+}
+html.light .acrylic-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.75) 40%), rgba(245, 244, 250, 0.82);
+  border-color: rgba(20, 20, 40, 0.1);
+  box-shadow: 0 30px 80px -20px rgba(30, 20, 80, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 @layer base {
@@ -361,7 +425,7 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2E2E3C;
+  background: var(--scroll-thumb);
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {

@@ -12,7 +12,7 @@ function message(a: AccountHealth) {
     return { text: `${who} is disconnected, so its numbers have stopped updating.`, action: a.platform === 'instagram' ? 'Reconnect' : 'Open Accounts', href: a.platform === 'instagram' ? '/api/connect/instagram' : '/accounts' };
   }
   if (a.problems.includes('sync_failed')) {
-    return { text: `The last sync of ${who} failed${a.lastJob?.error ? `: ${a.lastJob.error.slice(0, 120)}` : '.'}`, action: 'Open Accounts', href: '/accounts' };
+    return { text: `The last sync of ${who} failed${a.lastJob?.error ? `: ${a.lastJob.error.slice(0, 120)}` : '.'}`, action: 'See status', href: '/status' };
   }
   const days = a.tokenExpiresAt ? Math.max(0, Math.round((Date.parse(a.tokenExpiresAt) - Date.now()) / 86_400_000)) : 0;
   return { text: `Instagram access for ${who} runs out in ${days} day${days === 1 ? '' : 's'}. A sync renews it.`, action: 'Open Accounts', href: '/accounts' };
@@ -49,7 +49,7 @@ export function HealthBanner() {
             try { sessionStorage.setItem('health-banner-hidden', '1'); } catch { /* private mode */ }
             setHidden(true);
           }}
-          className="p-1 rounded-full hover:bg-white/[0.08] shrink-0"
+          className="p-1 rounded-full hover:bg-ink/[0.08] shrink-0"
           aria-label="Hide for now"
         >
           <X className="w-3.5 h-3.5" />

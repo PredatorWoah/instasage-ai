@@ -24,7 +24,7 @@ export function ReachChart({ data, dataKey = 'reach', label = 'Reach' }: ReachCh
             <stop offset="95%" stopColor="#3CC8E8" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
@@ -41,7 +41,7 @@ export function ReachChart({ data, dataKey = 'reach', label = 'Reach' }: ReachCh
           width={48}
         />
         <Tooltip
-          contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
           formatter={(v) => [formatNumber(Number(v)), label]}
         />

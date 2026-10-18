@@ -19,7 +19,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,160,0.15)" vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
@@ -45,7 +45,7 @@ export function EngagementChart({ data }: EngagementChartProps) {
           />
         )}
         <Tooltip
-          contentStyle={{ background: '#17171F', border: '1px solid #2E2E3C', borderRadius: 8, fontSize: 12 }}
+          contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 8, fontSize: 12 }}
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
           formatter={(v) => [`${v}%`, 'Engagement Rate']}
         />
