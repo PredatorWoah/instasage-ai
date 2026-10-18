@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline · InstaSage</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #0A0A0F; color: #fff; font-family: system-ui, sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+  img { width: 72px; height: 72px; }
+  h1 { font-size: 24px; margin: 18px 0 8px; }
+  p { color: #A9A9B8; margin: 0 0 22px; }
+  button { border: 0; border-radius: 999px; background: #fff; color: #0A0A0F; font-weight: 700; padding: 12px 22px; font-size: 14px; cursor: pointer; }
+  @media (prefers-color-scheme: light) { body { background: #F3F2F8; color: #111; } p { color: #555; } button { background: #111; color: #fff; } }
+</style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>InstaSage needs the internet to fetch your latest numbers.</p>
+    <button onclick="location.reload()">Try again</button>
+  </main>
+</body>
+</html>
