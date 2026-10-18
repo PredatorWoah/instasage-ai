@@ -77,7 +77,7 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
   const k = report.kpis;
   const p = report.previous.kpis;
   const headline = story?.headline ?? (k.posts
-    ? `${k.posts} posts and ${num(k.views)} views in ${report.label}.`
+    ? `${k.posts} ${k.posts === 1 ? 'post' : 'posts'} and ${num(k.views)} views in ${report.label}.`
     : `A quiet month: no posts in ${report.label}.`);
   doc.setFont('helvetica', 'bold').setFontSize(17).setTextColor(...INK);
   const hl = doc.splitTextToSize(clean(headline), W - 2 * M) as string[];
@@ -86,8 +86,15 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
 
   // ----- KPI tiles -----
   const yt = report.mode === 'youtube';
-  const tiles: { label: string; value: string; change: number | null }[] = [
-    { label: yt ? 'Subscribers gained' : 'Followers gained', value: k.followersGained == null ? '-' : `${k.followersGained >= 0 ? '+' : ''}${num(k.followersGained)}`, change: delta(k.followersGained, p.followersGained) },
+  const prevName = report.previous.partial ? report.previous.label : report.previous.label.split(' ')[0];
+  // Followers gained compares as a plain difference; a percent of "gained" breaks when one month was negative
+  const tiles: { label: string; value: string; change: number | null; absolute?: boolean }[] = [
+    {
+      label: yt ? 'Subscribers gained' : 'Followers gained',
+      value: k.followersGained == null ? '-' : `${k.followersGained >= 0 ? '+' : ''}${num(k.followersGained)}`,
+      change: k.followersGained != null && p.followersGained != null ? k.followersGained - p.followersGained : null,
+      absolute: true,
+    },
     { label: yt ? 'Views on videos' : 'Views on posts', value: num(k.views), change: delta(k.views, p.views) },
     yt
       ? { label: 'Channel views gained', value: num(k.channelViews), change: delta(k.channelViews, p.channelViews) }
@@ -111,7 +118,7 @@ export async function downloadReportPdf(report: MonthlyReport, story: ReportStor
     doc.setFont('helvetica', 'bold').setFontSize(18).setTextColor(...INK).text(t.value, x + 10, ty + 40);
     if (t.change != null && Number.isFinite(t.change)) {
       doc.setFontSize(8.5).setTextColor(...(t.change >= 0 ? GREEN : RED));
-      doc.text(`${t.change >= 0 ? '+' : ''}${t.change.toFixed(0)}% vs ${report.previous.label.split(' ')[0]}`, x + 10, ty + 54);
+      doc.text(`${t.change >= 0 ? '+' : ''}${t.absolute ? num(t.change) : `${t.change.toFixed(0)}%`} vs ${prevName}`, x + 10, ty + 54);
     }
   });
   y += 2 * th + gap + 26;

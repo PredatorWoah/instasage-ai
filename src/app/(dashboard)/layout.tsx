@@ -20,7 +20,8 @@ export default function DashboardLayout({
         <SiteHeader />
         <Guard name="HealthBanner"><HealthBanner /></Guard>
         <Guard name="CommandPalette"><CommandPalette /></Guard>
-        <main className="relative max-w-[1480px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Extra room at the bottom on phones so the Sage button never covers the last item */}
+        <main className="relative max-w-[1480px] mx-auto px-4 sm:px-6 pt-6 pb-24 sm:py-8">
           <PageTransition>{children}</PageTransition>
         </main>
         <Guard name="AIChat"><AIChat /></Guard>

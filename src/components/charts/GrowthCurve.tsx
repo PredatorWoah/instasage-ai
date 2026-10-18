@@ -5,7 +5,7 @@ import { formatNumber } from '@/utils/formatters';
 
 export type Snapshot = { hours: number; views: number; likes: number; comments: number; saves: number; shares: number };
 
-const age = (h: number) => (h < 48 ? `${h}h` : `${Math.round(h / 24)}d`);
+const age = (h: number) => (h < 24 ? `${h}h` : `${Math.round(h / 24)}d`);
 
 // Views by hours since posting, from the points each sync records during a post's first two weeks
 export function GrowthCurve({ data }: { data: Snapshot[] }) {

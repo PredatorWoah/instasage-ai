@@ -11,7 +11,7 @@ import type { ReportStory } from '@/services/ai';
 import { useCachedJson, primeJson } from '@/lib/useCachedJson';
 import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { formatNumber } from '@/utils/formatters';
-import { cn } from '@/lib/utils';
+import { cn, displayTimeZone } from '@/lib/utils';
 import { formatLabel, terms } from '@/lib/platform';
 
 type StoryResult = { story: ReportStory; model: string; createdAt: string } | null;
@@ -74,10 +74,17 @@ export default function ReportsPage() {
 
   const k = report.kpis;
   const p = report.previous.kpis;
-  const prevName = report.previous.label.split(' ')[0];
+  const prevName = report.previous.partial ? report.previous.label : report.previous.label.split(' ')[0];
   const t = terms(report.mode);
   const tiles = [
-    { label: `${t.followers} gained`, value: k.followersGained == null ? '—' : `${k.followersGained >= 0 ? '+' : '−'}${formatNumber(Math.abs(k.followersGained))}`, delta: change(k.followersGained, p.followersGained), look: 'prism-sunset text-white' },
+    // A percent change of "gained" is meaningless when last month was negative, so show the plain difference
+    {
+      label: `${t.followers} gained`,
+      value: k.followersGained == null ? '—' : `${k.followersGained >= 0 ? '+' : '−'}${formatNumber(Math.abs(k.followersGained))}`,
+      delta: k.followersGained != null && p.followersGained != null ? k.followersGained - p.followersGained : null,
+      absolute: true,
+      look: 'prism-sunset text-white',
+    },
     { label: `Views on ${t.posts}`, value: formatNumber(k.views), delta: change(k.views, p.views), look: 'prism-ocean text-[#04151E]' },
     t.yt
       ? { label: 'Channel views gained', value: k.channelViews == null ? '—' : formatNumber(k.channelViews), delta: change(k.channelViews, p.channelViews), look: 'prism-gold text-[#2A1A00]' }
@@ -92,7 +99,7 @@ export default function ReportsPage() {
       : [{ label: 'Likes', value: formatNumber(k.likes), delta: change(k.likes, p.likes), look: 'bg-card border border-ink/[0.05]' }]),
     { label: 'Comments', value: formatNumber(k.comments), delta: change(k.comments, p.comments), look: 'bg-card border border-ink/[0.05]' },
   ];
-  const headline = story?.story.headline ?? (k.posts ? `${k.posts} ${t.posts}, ${formatNumber(k.views)} views in ${report.label}.` : `Nothing posted in ${report.label} yet.`);
+  const headline = story?.story.headline ?? (k.posts ? `${k.posts} ${k.posts === 1 ? t.post : t.posts}, ${formatNumber(k.views)} views in ${report.label}.` : `Nothing posted in ${report.label} yet.`);
   const chart = report.days.map((d) => ({ day: Number(d.date.slice(8)), views: d.views, posts: d.posts }));
 
   return (
@@ -101,7 +108,7 @@ export default function ReportsPage() {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div>
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Reports</h1>
-          <p className="text-[15px] text-muted-foreground mt-3">Your month in numbers, in {report.timeZone.replace(/_/g, ' ')} time. Download it as a PDF to share.</p>
+          <p className="text-[15px] text-muted-foreground mt-3">Your month in numbers, in {displayTimeZone(report.timeZone).replace(/_/g, ' ')} time. Download it as a PDF to share.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
@@ -164,7 +171,7 @@ export default function ReportsPage() {
               {t.delta != null && Number.isFinite(t.delta) && (
                 <p className={cn('text-[12px] font-bold mt-2 inline-flex items-center gap-0.5', t.look.includes('bg-card') && (t.delta >= 0 ? 'text-emerald-400' : 'text-rose-400'))}>
                   {t.delta >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                  {Math.abs(t.delta).toFixed(0)}% vs {prevName}
+                  {'absolute' in t && t.absolute ? `${t.delta >= 0 ? '+' : '−'}${formatNumber(Math.abs(t.delta))}` : `${Math.abs(t.delta).toFixed(0)}%`} vs {prevName}
                 </p>
               )}
             </div>

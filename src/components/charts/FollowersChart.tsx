@@ -12,7 +12,18 @@ type FollowersChartProps = {
   label?: string;
 };
 
+// Fit the axis to the counts themselves: from zero, 14.6K to 14.7K would look like a flat line
+function domainFor(data: TimeSeriesPoint[]): [number, number] | undefined {
+  const values = data.map((d) => d.followers).filter((v): v is number => v != null);
+  if (!values.length) return undefined;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const pad = Math.max((max - min) * 0.2, max * 0.002, 2);
+  return [Math.max(0, Math.floor(min - pad)), Math.ceil(max + pad)];
+}
+
 export function FollowersChart({ data, label = 'Followers' }: FollowersChartProps) {
+  const domain = domainFor(data);
   return (
     <ResponsiveContainer width="100%" height={200}>
       <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
@@ -32,6 +43,8 @@ export function FollowersChart({ data, label = 'Followers' }: FollowersChartProp
           interval={data.length > 90 ? 45 : data.length > 30 ? 10 : data.length > 7 ? 4 : 0}
         />
         <YAxis
+          domain={domain ?? ['auto', 'auto']}
+          allowDecimals={false}
           tickFormatter={(v) => formatNumber(v)}
           tick={{ fontSize: 10, fill: '#8A8A9C' }}
           tickLine={false}
@@ -46,6 +59,7 @@ export function FollowersChart({ data, label = 'Followers' }: FollowersChartProp
         <Area
           type="monotone"
           dataKey="followers"
+          baseValue="dataMin"
           stroke="#FF7A8A"
           strokeWidth={2}
           fill="url(#followersGrad)"

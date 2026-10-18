@@ -190,16 +190,12 @@ export function AiSettings() {
                 {LOOK[p.id].mark}
               </span>
               <span className="min-w-0">
-                <span className="block text-sm font-bold">{p.label}</span>
-                <span className="block text-[11px] text-muted-foreground truncate">
-                  {p.connected ? (p.last4 ? `••••${p.last4}` : 'From hosting env') : p.company}
+                <span className="block text-sm font-bold truncate">{p.label}</span>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground min-w-0">
+                  {active && <span className="inline-flex items-center gap-0.5 text-emerald-400 font-bold shrink-0"><Zap className="w-2.5 h-2.5" />Active ·</span>}
+                  <span className="truncate">{p.connected ? (p.last4 ? `••••${p.last4}` : 'From hosting env') : p.company}</span>
                 </span>
               </span>
-              {active && (
-                <span className="absolute top-2 right-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-[9px] font-bold uppercase tracking-wide">
-                  <Zap className="w-2.5 h-2.5" /> Active
-                </span>
-              )}
             </button>
           );
         })}

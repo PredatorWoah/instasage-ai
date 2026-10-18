@@ -1,5 +1,6 @@
 'use client';
 
+import { displayTimeZone } from '@/lib/utils';
 import { BestTimeHeatmap } from '@/components/charts/BestTimeHeatmap';
 import { useMemo } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
@@ -69,7 +70,7 @@ export function AudienceView() {
   // Average engagement by weekday and hour, in the viewer's own timezone
   const timing = useMemo(() => {
     const byDay = WEEKDAYS.map((d) => ({ label: d, total: 0, count: 0 }));
-    const byHour = Array.from({ length: 24 }, (_, h) => ({ label: `${h}:00`, total: 0, count: 0 }));
+    const byHour = Array.from({ length: 24 }, (_, h) => ({ label: new Date(2000, 0, 1, h).toLocaleTimeString(undefined, { hour: 'numeric' }), total: 0, count: 0 }));
     for (const p of posts) {
       const d = new Date(p.publishedAt);
       byDay[d.getDay()].total += p.performanceScore;
@@ -89,7 +90,7 @@ export function AudienceView() {
   const countries = audience ? withShare(audience.country) : [];
   const cities = audience ? withShare(audience.city) : [];
   const bestDay = [...timing.days].sort((a, b) => b.engagement - a.engagement)[0];
-  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = displayTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   return (
     <div className="space-y-6">

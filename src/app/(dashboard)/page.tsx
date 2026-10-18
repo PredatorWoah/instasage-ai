@@ -30,7 +30,6 @@ export default async function DashboardPage() {
   if (!session || !session.user) redirect('/login');
 
   const [scope, timeZone] = await Promise.all([getAccountScope(session.user.id), getTimeZone(session.user.id)]);
-  const month = new Date().toLocaleString('en-US', { month: 'long', timeZone });
   const [data, insights, ideas, owner] = await Promise.all([
     getDashboardData(scope, 30, timeZone),
     getCachedResult<Insight>(session.user.id, 'insights', scope.key),
@@ -51,7 +50,7 @@ export default async function DashboardPage() {
   const story =
     insights?.items[0]?.title ??
     (kpis.followersChange > 0
-      ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} this month.`
+      ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} in the last 30 days.`
       : hasData
         ? `${formatNumber(kpis.views)} views across your ${t.posts} so far.`
         : 'Connect Instagram or YouTube to start your story.');
@@ -65,7 +64,7 @@ export default async function DashboardPage() {
         <div aria-hidden className="absolute right-[18%] -top-36 w-[420px] h-[420px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.55),transparent)]" />
         <div className="relative flex flex-col justify-between gap-6 max-w-[720px]">
           <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
-            <Sparkles className="w-3.5 h-3.5" /> Your {month} story · {who}
+            <Sparkles className="w-3.5 h-3.5" /> Your last 30 days · {who}
           </span>
           <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
@@ -98,18 +97,18 @@ export default async function DashboardPage() {
       <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="prism-sunset rounded-[30px] p-5 flex flex-col justify-between min-h-[190px]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/25 text-[13px] font-bold">{t.followers}</span>
-          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
+          <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
         </div>
         <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/30 text-[13px] font-bold">{t.yt ? 'Channel views · 30 days' : 'Reached · 30 days'}</span>
-          <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
+          <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
             {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : kpis.reach30 != null ? formatNumber(kpis.reach30) : '—'}
           </span>
         </div>
         <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from the last 30 days`}>Engagement</span>
-          <div className="flex items-end justify-between gap-2">
-            <span className="font-display font-extrabold text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
+          <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
+            <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
             {hasData && <span className="text-[13px] font-bold pb-1">{getPerformanceLabel(kpis.engagement)}</span>}
           </div>
         </div>

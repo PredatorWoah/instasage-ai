@@ -128,7 +128,7 @@ export function PostAnalyzer({ id }: { id: string }) {
 
       <div className={cn('grid grid-cols-1 gap-6', yt ? 'md:grid-cols-[360px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
         <div className="space-y-3">
-          <div className={cn('relative rounded-xl overflow-hidden border border-border bg-secondary', yt && post.type !== 'short' ? 'aspect-video' : yt ? 'aspect-[9/16] max-w-[240px]' : 'aspect-[4/5]')}>
+          <div className={cn('relative rounded-xl overflow-hidden border border-border bg-secondary', yt && post.type !== 'short' ? 'aspect-video' : yt ? 'aspect-[9/16] max-w-[200px] md:max-w-[240px]' : 'aspect-[4/5] max-w-[200px] md:max-w-none')}>
             {post.thumbnail && <Image src={post.thumbnail} alt="" fill className="object-cover" sizes="360px" unoptimized />}
           </div>
           {post.permalink && (
@@ -163,7 +163,7 @@ export function PostAnalyzer({ id }: { id: string }) {
             <span className={cn('text-xs', getPerformanceColor(post.performanceScore))}>{getPerformanceLabel(post.performanceScore)}</span>
             {b.rank > 0 && <span className="text-xs text-muted-foreground">· #{b.rank} of {b.posts} {yt ? 'videos' : 'posts'}</span>}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
             <StatTile label="Views" value={post.views} average={b.views} />
             {post.reach != null && <StatTile label="Reach" value={post.reach} average={b.reach} />}
             <StatTile label="Likes" value={post.likes} average={b.likes} />
