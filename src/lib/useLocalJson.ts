@@ -42,3 +42,13 @@ export function useLocalJson<T>(key: string, fallback: T): [T, (value: T | undef
   const set = useCallback((v: T | undefined) => writeLocal(key, v), [key]);
   return [value, set];
 }
+
+export function readLocal<T>(key: string): T | null {
+  const raw = read(key);
+  if (raw == null) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}

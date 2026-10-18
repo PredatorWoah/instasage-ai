@@ -63,3 +63,8 @@ export function formatAge(minutes: number): string {
   if (minutes < 60 * 24) return `${Math.round(minutes / 60)} h ago`;
   return `${Math.round(minutes / 60 / 24)} d ago`;
 }
+
+// "5 h ago" for an epoch-ms moment (keeps the clock read out of components)
+export function ageOf(ms: number): string {
+  return formatAge((Date.now() - ms) / 60_000);
+}
