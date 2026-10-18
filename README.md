@@ -37,6 +37,8 @@ Other details:
 * **How each post grew.** Every post's first two weeks are tracked, so its page shows a growth curve, views at about a day old against your usual post, and reel watch time and skip rate.
 * **Rival trends.** Daily follower snapshots give every competitor a sparkline and a 30 day growth column.
 * **Alerts.** The bell flags a post outperforming your average, a long gap since your last post, follower milestones and drops, and a rival post going viral.
+* **Install it as an app.** Add InstaSage to your phone's home screen or install it from the desktop browser's address bar. It opens full screen and shows a friendly page when offline.
+* **Push notifications.** Turn them on per device in Settings: alerts (each sent once) and a morning digest after the daily sync. On iPhone, add it to the home screen first.
 * **Command palette.** Ctrl+K (Cmd+K on Mac) jumps to any page, section or post, switches accounts, syncs, or changes the theme.
 * **Light and dark themes.** Pick one in Settings, or follow your device.
 * **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
@@ -116,6 +118,7 @@ Everything is listed in [`.env.example`](.env.example). Put them in `.env.local`
 | `YOUTUBE_API_KEY` | YouTube | Optional; the key can be pasted on the Accounts page instead |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | AI | Optional default; AI keys are normally pasted in Settings |
 | `CRON_SECRET` | Daily auto sync | Any long random string |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications | Optional. A key pair is generated on first use and stored in the database; set these only to bring your own |
 
 API keys you paste inside the app (AI providers, YouTube) are stored in your database and are never sent back to the browser. Only the last 4 characters are shown.
 
@@ -138,7 +141,7 @@ When you open the app, follower and subscriber counts refresh within seconds, an
 
 ### Daily auto sync
 
-[`vercel.json`](vercel.json) schedules `/api/cron/sync` every day at 01:00 UTC (6:30 AM in India). Change the `schedule` (cron syntax, UTC) to suit your timezone. Vercel sends `CRON_SECRET` with each run, and the route refuses anyone else. Each run syncs every account (oldest first), refreshes competitors, then regenerates AI insights if an AI key is saved. You can see runs under the project's **Cron Jobs** and **Logs**.
+[`vercel.json`](vercel.json) schedules `/api/cron/sync` every day at 01:00 UTC (6:30 AM in India). Change the `schedule` (cron syntax, UTC) to suit your timezone. Vercel sends `CRON_SECRET` with each run, and the route refuses anyone else. Each run syncs every account (oldest first), refreshes competitors, sends push notifications (new alerts and the morning digest) to devices that turned them on, then regenerates AI insights if an AI key is saved. You can see runs under the project's **Cron Jobs** and **Logs**.
 
 `vercel.json` holds only this schedule: no keys, URLs or personal data.
 

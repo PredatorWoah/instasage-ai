@@ -7,6 +7,7 @@ import { AiSettings } from '@/components/settings/AiSettings';
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
 import { AiUsageCard } from '@/components/settings/AiUsageCard';
 import { ThemePicker } from '@/components/settings/ThemePicker';
+import { NotificationSettings } from '@/components/settings/NotificationSettings';
 
 export const metadata = { title: 'Settings · InstaSage' };
 
@@ -25,6 +26,16 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <ThemePicker />
+        </CardContent>
+      </Card>
+
+      <Card className="bg-card border-border" id="notifications">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">Notifications</CardTitle>
+          <p className="text-[11px] text-muted-foreground">Sent after the daily sync each morning. Turn them on separately on each phone or computer.</p>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <NotificationSettings />
         </CardContent>
       </Card>
 

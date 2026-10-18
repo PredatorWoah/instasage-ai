@@ -27,6 +27,8 @@ model User {
   goal          Json?     // { target, deadline? } for followers or subscribers
   setupDismissed Boolean  @default(false) // first-run checklist hidden
   dismissedAlerts Json?   // ids of alerts the creator closed
+  notifyPrefs   Json?     // { digest: boolean, alerts: boolean } for push notifications
+  notifiedAlerts Json?    // ids of alerts already sent as a push, so each goes out once
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
@@ -37,6 +39,7 @@ model User {
   metaLink      MetaLink?
   competitors   Competitor[]
   aiUsage       AiUsage[]
+  pushSubscriptions PushSubscription[]
 }
 
 model SocialProfile {
@@ -255,4 +258,26 @@ model AiUsage {
   createdAt    DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// A browser or phone that asked for notifications (Web Push)
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  device    String?  // short label from the user agent, e.g. "Chrome on Android"
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
+}
+
+// App-wide settings generated on first use, such as the Web Push (VAPID) key pair
+model AppConfig {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
 }
