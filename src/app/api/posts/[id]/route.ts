@@ -10,9 +10,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const data = await getPostWithBenchmarks(userId, id);
   if (!data) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
-  const { socialProfile, ...post } = data.post;
+  const { socialProfile, snapshots, ...post } = data.post;
   return NextResponse.json({
     post: { ...post, publishedAt: post.publishedAt.toISOString(), username: socialProfile.username },
+    snapshots,
     benchmarks: data.benchmarks,
   });
 }

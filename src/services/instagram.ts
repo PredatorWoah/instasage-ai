@@ -118,6 +118,49 @@ export async function getInstagramMediaInsights(token: string, mediaId: string) 
   return { values, failed };
 }
 
+// Reels only: average watch time (ms) and skip rate. Each metric is asked for on its own, because
+// Instagram rejects the whole request if any one name is not supported for this media or API version.
+export async function getInstagramReelMetrics(token: string, mediaId: string) {
+  const one = async (metric: string) => {
+    try {
+      const res = await igGet<{ data: InsightRow[] }>(`/${mediaId}/insights`, token, { metric });
+      return res.data[0] ? readValue(res.data[0]) : null;
+    } catch {
+      return null;
+    }
+  };
+  const [avgWatchMs, skipRate] = await Promise.all([one('ig_reels_avg_watch_time'), one('reels_skip_rate')]);
+  return { avgWatchMs: avgWatchMs != null ? Math.round(avgWatchMs) : null, skipRate };
+}
+
+export type Funnel = { profileViews: number | null; linkTaps: number | null; follows: number | null; unfollows: number | null; accountsEngaged: number | null };
+
+// The last 30 days as totals: how many people visited the profile, tapped the link, followed or left
+export async function getInstagramFunnel(token: string, igUserId: string): Promise<Funnel> {
+  const until = Math.floor(Date.now() / 1000);
+  const params = { period: 'day', metric_type: 'total_value', since: String(until - 29 * 24 * 60 * 60), until: String(until) };
+  type Total = { data: { total_value?: { value?: number; breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] };
+  const total = async (metric: string) => {
+    try {
+      const res = await igGet<Total>(`/${igUserId}/insights`, token, { ...params, metric });
+      return res.data[0]?.total_value?.value ?? null;
+    } catch {
+      return null;
+    }
+  };
+  let follows: number | null = null;
+  let unfollows: number | null = null;
+  try {
+    const res = await igGet<Total>(`/${igUserId}/insights`, token, { ...params, metric: 'follows_and_unfollows', breakdown: 'follow_type' });
+    for (const r of res.data[0]?.total_value?.breakdowns?.[0]?.results ?? []) {
+      if (r.dimension_values[0] === 'FOLLOWER') follows = r.value;
+      if (r.dimension_values[0] === 'NON_FOLLOWER') unfollows = r.value;
+    }
+  } catch { /* not available for this account or API version */ }
+  const [profileViews, linkTaps, accountsEngaged] = await Promise.all([total('profile_views'), total('profile_links_taps'), total('accounts_engaged')]);
+  return { profileViews, linkTaps, follows, unfollows, accountsEngaged };
+}
+
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
 // Daily account history for the last 30 days: accounts reached and new followers per day

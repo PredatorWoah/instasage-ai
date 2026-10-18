@@ -222,7 +222,13 @@ export async function refreshCompetitor(userId: string, rawUsername: string) {
       error: null,
       lastSyncedAt: new Date(),
     };
-    return prisma.competitor.upsert({ where: { userId_username: { userId, username } }, update: data, create: { ...data, userId, username } });
+    const row = await prisma.competitor.upsert({ where: { userId_username: { userId, username } }, update: data, create: { ...data, userId, username } });
+    // One reading per day for growth lines
+    const day = new Date().toISOString().slice(0, 10);
+    const stats = data.stats as CompetitorStats;
+    const snap = { followers, mediaCount: data.mediaCount, engagement: stats.engagement, postsPerWeek: stats.postsPerWeek, date: new Date(`${day}T12:00:00Z`) };
+    await prisma.competitorSnapshot.upsert({ where: { id: `${row.id}:${day}` }, update: snap, create: { ...snap, id: `${row.id}:${day}`, competitorId: row.id } }).catch(() => {});
+    return row;
   } catch (error) {
     // Keep an existing row (and its last good numbers) but remember why the refresh failed
     await prisma.competitor.updateMany({ where: { userId, username }, data: { error: (error as Error).message } });
@@ -231,17 +237,34 @@ export async function refreshCompetitor(userId: string, rawUsername: string) {
 }
 
 // Your own numbers measured the same way (likes and comments per follower), for a fair comparison
+export type FollowerTrend = { change: number; days: number; points: number[] };
+
+// Follower change over roughly the last 30 days, plus the daily counts for a sparkline
+export function followerTrend(history: { date: Date; followers: number | null }[], current: number): FollowerTrend | null {
+  const since = Date.now() - 30 * 86_400_000;
+  const rows = history.filter((h): h is { date: Date; followers: number } => h.followers != null && h.date.getTime() >= since - 86_400_000);
+  if (!rows.length) return null;
+  const days = Math.round((Date.now() - rows[0].date.getTime()) / 86_400_000);
+  if (days < 2) return null;
+  return { change: current - rows[0].followers, days: Math.min(days, 30), points: [...rows.map((r) => r.followers), current] };
+}
+
 export async function ownBenchmark(userId: string) {
   const profiles = await prisma.socialProfile.findMany({ where: { userId, platform: 'instagram' } });
   const results = [];
   for (const p of profiles) {
+    const metrics = await prisma.metric.findMany({
+      where: { socialProfileId: p.id, followers: { not: null }, date: { gte: new Date(Date.now() - 31 * 86_400_000) } },
+      orderBy: { date: 'asc' },
+      select: { date: true, followers: true },
+    });
     const rows = await prisma.post.findMany({ where: { socialProfileId: p.id }, orderBy: { publishedAt: 'desc' }, take: 30 });
     const posts: CompetitorPost[] = rows.map((r) => ({
       id: r.id, caption: r.caption, likes: r.likes, comments: r.comments, type: r.type, permalink: r.permalink,
       image: r.thumbnail || null, timestamp: r.publishedAt.toISOString(),
       engagement: p.followerCount ? Number((((r.likes + r.comments) / p.followerCount) * 100).toFixed(2)) : null,
     }));
-    results.push({ username: p.username, name: p.displayName, profilePictureUrl: p.profilePictureUrl, followers: p.followerCount, mediaCount: rows.length, stats: competitorStats(p.followerCount, posts) });
+    results.push({ username: p.username, name: p.displayName, profilePictureUrl: p.profilePictureUrl, followers: p.followerCount, mediaCount: rows.length, stats: competitorStats(p.followerCount, posts), trend: followerTrend(metrics, p.followerCount) });
   }
   return results;
 }

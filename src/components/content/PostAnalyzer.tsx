@@ -11,6 +11,7 @@ import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { cn } from '@/lib/utils';
 import { formatLabel } from '@/lib/platform';
 import { formatNumber, formatRelativeTime, getPerformanceColor, getPerformanceLabel, getPlatformColor, getPlatformLabel } from '@/utils/formatters';
+import { GrowthCurve, type Snapshot } from '@/components/charts/GrowthCurve';
 import type { PostAnalysis } from '@/services/ai';
 
 type PostData = {
@@ -31,23 +32,43 @@ type PostData = {
     performanceScore: number;
     isBoosted: boolean;
     username: string;
+    avgWatchMs: number | null;
+    skipRate: number | null;
   };
-  benchmarks: Record<'views' | 'reach' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement', number> & { posts: number; rank: number };
+  snapshots: Snapshot[];
+  benchmarks: Record<'views' | 'reach' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement', number> & {
+    posts: number;
+    rank: number;
+    avgWatchMs: number | null;
+    skipRate: number | null;
+    at24: { views: number; hours: number; usual: number | null; compared: number } | null;
+  };
 };
 
 type Analysis = { analysis: PostAnalysis; model: string; createdAt: string };
 
-function StatTile({ label, value, average, percent }: { label: string; value: number; average: number; percent?: boolean }) {
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+
+function StatTile({ label, value, average, percent, show, lowerIsBetter }: {
+  label: string;
+  value: number;
+  average: number;
+  percent?: boolean;
+  show?: (n: number) => string;
+  lowerIsBetter?: boolean;
+}) {
   const diff = average > 0 ? ((value - average) / average) * 100 : 0;
   const up = diff >= 0;
+  const good = lowerIsBetter ? !up : up;
+  const fmt = show ?? ((n: number) => (percent ? `${n.toFixed(1)}%` : formatNumber(Math.round(n))));
   return (
     <div className="p-3 rounded-lg border border-border bg-secondary/15">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-bold tabular-nums mt-0.5">{percent ? `${value.toFixed(1)}%` : formatNumber(value)}</p>
+      <p className="text-lg font-bold tabular-nums mt-0.5">{fmt(value)}</p>
       {average > 0 && (
-        <p className={cn('text-[10px] flex items-center gap-0.5 tabular-nums', up ? 'text-emerald-400' : 'text-rose-400')}>
+        <p className={cn('text-[10px] flex items-center gap-0.5 tabular-nums', good ? 'text-emerald-400' : 'text-rose-400')}>
           {up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(diff).toFixed(0)}% vs avg {percent ? `${average.toFixed(1)}%` : formatNumber(Math.round(average))}
+          {Math.abs(diff).toFixed(0)}% vs avg {fmt(average)}
         </p>
       )}
     </div>
@@ -97,7 +118,7 @@ export function PostAnalyzer({ id }: { id: string }) {
     );
   }
 
-  const { post, benchmarks: b } = data;
+  const { post, snapshots, benchmarks: b } = data;
   const yt = post.platform === 'youtube';
   return (
     <div className="space-y-6 max-w-5xl">
@@ -145,9 +166,36 @@ export function PostAnalyzer({ id }: { id: string }) {
             {!yt && <StatTile label="Saves" value={post.saves} average={b.saves} />}
             {!yt && <StatTile label="Shares" value={post.shares} average={b.shares} />}
             <StatTile label="Engagement" value={post.performanceScore} average={b.engagement} percent />
+            {post.avgWatchMs != null && <StatTile label="Avg watch time" value={post.avgWatchMs} average={b.avgWatchMs ?? 0} show={seconds} />}
+            {post.skipRate != null && <StatTile label="Skip rate" value={post.skipRate} average={b.skipRate ?? 0} show={(n) => `${n.toFixed(0)}%`} lowerIsBetter />}
           </div>
         </div>
       </div>
+
+      {snapshots.length >= 2 && (
+        <Card className="bg-card border-border">
+          <CardHeader className="pb-1 pt-4 px-5 space-y-1">
+            <CardTitle className="text-sm font-semibold">How it grew</CardTitle>
+            {b.at24 && (
+              <p className="text-xs text-muted-foreground">
+                At {b.at24.hours}h old it had <span className="text-foreground font-semibold tabular-nums">{formatNumber(b.at24.views)}</span> views
+                {b.at24.usual != null && (
+                  <>
+                    {' '}vs <span className="tabular-nums">{formatNumber(b.at24.usual)}</span> for your usual post at that age{' '}
+                    <span className={b.at24.views >= b.at24.usual ? 'text-emerald-400' : 'text-rose-400'}>
+                      ({b.at24.usual > 0 ? `${b.at24.views >= b.at24.usual ? '+' : ''}${Math.round(((b.at24.views - b.at24.usual) / b.at24.usual) * 100)}%` : 'new high'})
+                    </span>
+                  </>
+                )}
+                .
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="px-3 pb-4">
+            <GrowthCurve data={snapshots} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between gap-3 space-y-0">
