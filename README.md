@@ -13,7 +13,7 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | **Overview** | Month story, followers or subscribers, reach or channel views, engagement, views per day, best time to post, top posts |
 | **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days, each headline number against the period before, and the follow funnel |
 | **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for an AI breakdown against your own averages |
-| **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action |
+| **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action. Below the AI's read, "The numbers behind it" shows every pattern straight from your posts, with or without an AI key |
 | **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and open game plan slots; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
 | **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
@@ -40,6 +40,9 @@ Other details:
 * **Alerts.** The bell flags a post outperforming your average, a long gap since your last post, follower milestones and drops, and a rival post going viral.
 * **Install it as an app.** Add InstaSage to your phone's home screen or install it from the desktop browser's address bar. It opens full screen and shows a friendly page when offline.
 * **Push notifications.** Turn them on per device in Settings: alerts (each sent once) and a morning digest after the daily sync. On iPhone, add it to the home screen first.
+* **Since your last visit.** The Overview tells you what changed since you last looked (new followers, new posts), and flags a sync that is over a day old.
+* **Flip through posts.** Newer and Older buttons (or the ← → keys) on every post page.
+* **Crash-proof.** If one page or widget breaks, the rest of the app keeps working, with a Try again button and an error ID to report.
 * **Command palette.** Ctrl+K (Cmd+K on Mac) jumps to any page, section or post, switches accounts, syncs, or changes the theme.
 * **Light and dark themes.** Pick one in Settings, or follow your device.
 * **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
