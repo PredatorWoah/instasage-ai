@@ -91,7 +91,7 @@ export function StatusView() {
               detail={
                 <>
                   {a.problems.map((p) => <p key={p}>{PROBLEM_TEXT[p]}{p === 'sync_failed' && a.lastJob?.error ? `: ${a.lastJob.error}` : ''}</p>)}
-                  <p>Last synced {formatRelativeTime(a.lastSyncedAt).toLowerCase()}{a.tokenExpiresAt ? ` · access valid until ${new Date(a.tokenExpiresAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}` : ''}</p>
+                  <p>Last synced {formatRelativeTime(a.lastSyncedAt).toLowerCase()}{a.tokenExpiresAt && a.isConnected && !a.problems.includes('token_expired') ? ` · access valid until ${new Date(a.tokenExpiresAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}` : ''}</p>
                 </>
               }
               action={reconnect

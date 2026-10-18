@@ -9,6 +9,7 @@ import type { Insight } from '@/services/ai';
 import { AiNotice } from './AiNotice';
 import { GeneratedAt } from './GeneratedAt';
 import { useAiResult } from './useAiResult';
+import { PatternsView } from './PatternsView';
 
 const IMPACT_STYLE: Record<string, string> = {
   high: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
@@ -62,6 +63,8 @@ export function InsightsView() {
           ))}
         </div>
       )}
+
+      <PatternsView />
     </div>
   );
 }
