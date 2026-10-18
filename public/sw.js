@@ -1,7 +1,7 @@
 // InstaSage service worker: push notifications, and a friendly page when the network is gone.
 // Data is never cached here, so numbers are always live when you are online.
 const OFFLINE = '/offline.html';
-const CACHE = 'instasage-v1';
+const CACHE = 'instasage-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll([OFFLINE, '/icons/icon-192.png'])).then(() => self.skipWaiting()));
@@ -9,14 +9,28 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()),
+    Promise.all([
+      caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+      // Navigation preload: the browser starts loading the page while this worker boots,
+      // so having a service worker never makes a page load slower
+      self.registration.navigationPreload ? self.registration.navigationPreload.enable() : null,
+    ]).then(() => self.clients.claim()),
   );
 });
 
-// Page loads only: try the network, fall back to the offline page
+// Page loads only: use the preloaded response (or the network), fall back to the offline page
 self.addEventListener('fetch', (event) => {
   if (event.request.mode !== 'navigate') return;
-  event.respondWith(fetch(event.request).catch(() => caches.match(OFFLINE)));
+  event.respondWith(
+    (async () => {
+      try {
+        const preloaded = await event.preloadResponse;
+        return preloaded || (await fetch(event.request));
+      } catch {
+        return (await caches.match(OFFLINE)) || Response.error();
+      }
+    })(),
+  );
 });
 
 self.addEventListener('push', (event) => {

@@ -171,8 +171,25 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   const media = await getInstagramMedia(token);
   const failedMetrics = new Set<string>();
 
+  // Account-level numbers don't depend on the posts, so ask for them while the posts are fetched
+  const accountLevel = Promise.all([
+    getInstagramDailyInsights(token, igUserId),
+    getInstagramReachTotal(token, igUserId),
+    getInstagramFunnel(token, igUserId),
+    getInstagramDemographics(token, igUserId),
+  ]);
+  // Keep a failure here from surfacing as an unhandled rejection before it is awaited below
+  accountLevel.catch(() => {});
+
+  // Watch time and skip rate barely move once a reel is a month old, so older reels are asked once
+  const watched = new Set((await prisma.post.findMany({ where: { socialProfileId: profile.id, avgWatchMs: { not: null } }, select: { id: true } })).map((p) => p.id));
+
   await inBatches(media, 5, async (m) => {
-    const { values, failed } = await getInstagramMediaInsights(token, m.id);
+    const askReel = m.media_product_type === 'REELS' && (Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000 || !watched.has(m.id));
+    const [{ values, failed }, reel] = await Promise.all([
+      getInstagramMediaInsights(token, m.id),
+      askReel ? getInstagramReelMetrics(token, m.id) : Promise.resolve(null),
+    ]);
     failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
     if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
 
@@ -186,7 +203,6 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
 
     // Engagement rate by reach, the usual Instagram definition
     const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
-    const reel = m.media_product_type === 'REELS' ? await getInstagramReelMetrics(token, m.id) : null;
     const fields = {
       views,
       reach,
@@ -218,8 +234,9 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   });
   if (failedMetrics.size) console.warn('Instagram metrics unavailable on some posts:', [...failedMetrics].join(', '));
 
+  const [daily, reach30, funnel, { audience, warnings }] = await accountLevel;
+
   // Daily history: accounts reached per day, and follower totals rebuilt from daily new followers
-  const daily = await getInstagramDailyInsights(token, igUserId);
   if (daily.warnings.length) console.warn('Instagram daily insights:', daily.warnings.join(' | '));
 
   const followers = new Map<string, number>();
@@ -244,10 +261,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   const todayId = `${profile.id}:${dayKey(new Date())}`;
   await prisma.metric.update({ where: { id: todayId }, data: { postsCount: ig.media_count ?? media.length } }).catch(() => {});
 
-  const [reach30, funnel] = await Promise.all([getInstagramReachTotal(token, igUserId), getInstagramFunnel(token, igUserId)]);
   const hasFunnel = Object.values(funnel).some((v) => v != null);
-
-  const { audience, warnings } = await getInstagramDemographics(token, igUserId);
   if (warnings.length) console.warn('Instagram demographics:', warnings.join(' | '));
   const hasAudience = Object.values(audience).some((rows) => rows.length > 0);
 

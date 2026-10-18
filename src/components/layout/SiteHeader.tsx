@@ -60,11 +60,20 @@ export function SiteHeader() {
         router.refresh();
       })
       .catch(() => {});
-    NAV_TABS.forEach((tab) => router.prefetch(tab.href));
-    const warmAll = () => Object.keys(TAB_DATA).forEach(warm);
+    // Preload the other tabs only once this page has settled, so they never compete with it
+    const warmAll = () => {
+      NAV_TABS.forEach((tab) => router.prefetch(tab.href));
+      Object.keys(TAB_DATA).forEach(warm);
+    };
     const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1200));
-    const handle = idle(warmAll);
-    return () => (window.cancelIdleCallback ?? window.clearTimeout)(handle as number);
+    let handle: number | undefined;
+    const timer = window.setTimeout(() => {
+      handle = idle(warmAll, { timeout: 4000 }) as number;
+    }, 2500);
+    return () => {
+      window.clearTimeout(timer);
+      if (handle !== undefined) (window.cancelIdleCallback ?? window.clearTimeout)(handle);
+    };
   }, [router]);
   const current = activeTabIndex(pathname);
   const name = session?.user?.name || 'Owner';

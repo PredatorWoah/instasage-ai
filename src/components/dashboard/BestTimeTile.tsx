@@ -37,7 +37,7 @@ export function BestTimeTile() {
   }, [posts]);
 
   return (
-    <Link href="/audience#best-time" title="See every day and hour" className="relative overflow-hidden p-5 rounded-[30px] bg-card border border-[rgba(244,114,182,0.25)] flex flex-col justify-between min-h-[190px] hover:border-[rgba(244,114,182,0.5)] transition-colors">
+    <Link href="/audience#best-time" prefetch={false} title="See every day and hour" className="relative overflow-hidden p-5 rounded-[30px] bg-card border border-[rgba(244,114,182,0.25)] flex flex-col justify-between min-h-[190px] hover:border-[rgba(244,114,182,0.5)] transition-colors">
       <div aria-hidden className="absolute -left-16 -bottom-20 w-56 h-56 rounded-full bg-[radial-gradient(closest-side,rgba(244,114,182,0.4),transparent)]" />
       <span className="relative self-start px-3 py-1.5 rounded-full bg-ink/[0.07] text-[13px] font-bold text-pink-300">Best time to post</span>
       {slot === undefined ? (
