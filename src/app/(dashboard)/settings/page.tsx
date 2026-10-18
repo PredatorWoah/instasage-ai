@@ -5,6 +5,7 @@ import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { DeleteAccountButton } from '@/components/accounts/DeleteAccountButton';
 import { AiSettings } from '@/components/settings/AiSettings';
 import { TimezoneSettings } from '@/components/settings/TimezoneSettings';
+import { AiUsageCard } from '@/components/settings/AiUsageCard';
 
 export const metadata = { title: 'Settings · InstaSage' };
 
@@ -34,6 +35,16 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="px-5 pb-5">
           <AiSettings />
+        </CardContent>
+      </Card>
+
+      {/* AI usage */}
+      <Card className="bg-card border-border" id="usage">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold">AI usage, last 30 days</CardTitle>
+        </CardHeader>
+        <CardContent className="px-5 pb-5">
+          <AiUsageCard />
         </CardContent>
       </Card>
 

@@ -2,6 +2,7 @@
 
 import { toast } from 'sonner';
 import { clearJsonCache } from '@/lib/useCachedJson';
+import { STATUS_CHANGED } from '@/lib/status';
 
 type SyncResult = { previous: number; followers: number; posts: number };
 
@@ -30,5 +31,6 @@ export async function syncAccount(id: string, label: string, unit = 'followers',
     return false;
   } finally {
     clearJsonCache();
+    window.dispatchEvent(new Event(STATUS_CHANGED));
   }
 }

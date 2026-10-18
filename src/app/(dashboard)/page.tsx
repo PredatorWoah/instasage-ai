@@ -14,6 +14,10 @@ import { EngagementChart } from '@/components/charts/EngagementChart';
 import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
 import { formatAge, formatNumber, getPerformanceLabel } from '@/utils/formatters';
 import { SyncNowButton } from '@/components/dashboard/SyncNowButton';
+import { GoalCard } from '@/components/dashboard/GoalCard';
+import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
+import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
+import { prisma } from '@/lib/prisma';
 
 export const metadata = { title: 'Overview · InstaSage' };
 
@@ -27,10 +31,11 @@ export default async function DashboardPage() {
 
   const [scope, timeZone] = await Promise.all([getAccountScope(session.user.id), getTimeZone(session.user.id)]);
   const month = new Date().toLocaleString('en-US', { month: 'long', timeZone });
-  const [data, insights, ideas] = await Promise.all([
+  const [data, insights, ideas, owner] = await Promise.all([
     getDashboardData(scope, 30, timeZone),
     getCachedResult<Insight>(session.user.id, 'insights', scope.key),
     getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.key),
+    prisma.user.findUnique({ where: { id: session.user.id }, select: { goal: true } }),
   ]);
 
   const { kpis, timeSeries } = data;
@@ -39,6 +44,7 @@ export default async function DashboardPage() {
   const maxViews = Math.max(1, ...recentViews.map((p) => p.views ?? 0));
   const hasData = data.profiles.length > 0;
   const t = terms(scope.mode);
+  const forecast = goalForecast(owner?.goal as Goal | null, kpis.followers, followersPerDay(timeSeries), timeZone);
   const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
   // The banner tells the month's story: the latest AI insight, or a line built from the numbers
@@ -85,6 +91,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <SetupChecklist />
 
       {/* Stat tiles */}
       <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -163,7 +171,9 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
+        <GoalCard forecast={forecast} current={kpis.followers} unit={t.followersLower} />
+        <div className="flex-1 rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
           <span className="text-[13px] font-bold prism-text">AI recommends</span>
           <p className="font-display font-extrabold text-[26px] leading-[1.05] tracking-[-0.03em]">
             {idea ? idea.title : 'Get a 30-day game plan built from your own numbers.'}
@@ -176,6 +186,7 @@ export default async function DashboardPage() {
           >
             {idea ? 'See all ideas' : 'Generate ideas'} <ArrowRight className="w-4 h-4" />
           </Link>
+        </div>
         </div>
       </section>
 

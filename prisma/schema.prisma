@@ -22,6 +22,10 @@ model User {
   timezoneAuto  Boolean   @default(true) // false once picked by hand in Settings, so the browser stops overriding it
   aiProvider    String?   // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
   youtubeApiKey String?   // YouTube Data API v3 key (falls back to YOUTUBE_API_KEY)
+  creatorProfile Json?    // niche, audience, goals, posts per week, voice, topics to avoid (fed to the AI)
+  aiRouting     Json?     // per-feature AI choice: { plan: { provider, model }, chat: {...} }
+  goal          Json?     // { target, deadline? } for followers or subscribers
+  setupDismissed Boolean  @default(false) // first-run checklist hidden
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   socialProfiles SocialProfile[]
@@ -31,6 +35,7 @@ model User {
   savedIdeas    SavedIdea[]
   metaLink      MetaLink?
   competitors   Competitor[]
+  aiUsage       AiUsage[]
 }
 
 model SocialProfile {
@@ -70,7 +75,8 @@ model Post {
   performanceScore Float
   isBoosted        Boolean  @default(false) // Promoted posts: platform insights cover organic results only
   publishedAt      DateTime
-  type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'story'
+  type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story'
+  ideas            SavedIdea[]
 }
 
 // One row per profile per day (id = "<profileId>:<yyyy-mm-dd>")
@@ -156,6 +162,10 @@ model SavedIdea {
   format    String?
   status    String   @default("idea") // 'idea' | 'planned' | 'posted'
   source    String   @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
+  postId       String?  // the real post this idea became, to see how it did
+  post         Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  scheduledFor DateTime? // planned date on the content calendar
+  drafts       Json?    // AI-written script, carousel outline and caption
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -192,4 +202,20 @@ model Competitor {
   createdAt         DateTime @default(now())
 
   @@unique([userId, username])
+}
+
+// One row per AI answer, for the usage and cost view in Settings
+model AiUsage {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature      String
+  provider     String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  cost         Float?   // USD, when known (Claude price list, or what OpenRouter reports)
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

@@ -26,6 +26,12 @@ Other details:
 * **YouTube mode.** Pick a channel and every page switches to subscribers, Shorts vs long videos and titles, and hides numbers YouTube does not share.
 * **Your AI, your choice.** Save keys for several providers and pick the active one. If it is overloaded, the others step in automatically.
 * **Local time everywhere.** Your timezone is detected (or picked in Settings) and used by charts, reports, the AI and the daily sync.
+* **Creator profile.** Your niche, audience, goals, voice, topics to avoid and how many posts a week you can make. Every plan, idea and script respects it.
+* **Ideas that learn.** Link a posted idea to the real post and see how it did against your average; the Game plan and Brainstorm learn from the results.
+* **Write it for me.** One click on any idea gives a reel script, carousel outline or caption in your voice.
+* **Goal tracker.** Set a follower or subscriber goal and see progress, the date you'll hit it at your current pace, and the pace a deadline needs.
+* **Different AI per feature, and usage.** For example a strong model for the Game plan and a free one for chat. Settings shows what each feature used over 30 days and the estimated cost.
+* **Heads-up banner and setup checklist.** A warning when an account disconnects, a token is about to expire or a sync fails, and a first-run checklist for new installs.
 * **Export for ChatGPT or Claude.** One click copies your worked-out numbers plus ready-made instructions (game plan, review, brainstorm or your own question) to paste into a chat app you already pay for. No API needed.
 * **Always fresh.** Counts refresh whenever you open the app, and posts, insights and competitors sync every morning on Vercel Cron.
 
