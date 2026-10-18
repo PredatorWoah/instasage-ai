@@ -2,11 +2,12 @@
 
 import { Suspense } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Compass, KanbanSquare, MessagesSquare, Zap } from 'lucide-react';
+import { CalendarDays, Compass, KanbanSquare, MessagesSquare, Zap } from 'lucide-react';
 import { ExportAnalysis } from '@/components/export/ExportAnalysis';
 import { GamePlanView } from '@/components/ideas/GamePlanView';
 import { Brainstorm } from '@/components/ideas/Brainstorm';
 import { IdeaBoard } from '@/components/ideas/IdeaBoard';
+import { ContentCalendar } from '@/components/ideas/ContentCalendar';
 import { QuickWins } from '@/components/ideas/QuickWins';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +15,7 @@ const TABS = [
   { id: 'plan', label: 'Game plan', short: 'Plan', icon: Compass, blurb: 'Do\'s, don\'ts and the next 30 days, worked out from your numbers' },
   { id: 'brainstorm', label: 'Brainstorm', short: 'Chat', icon: MessagesSquare, blurb: 'Think out loud with Sage. Every conversation is saved' },
   { id: 'board', label: 'Idea board', short: 'Board', icon: KanbanSquare, blurb: 'Everything you kept, from idea to posted' },
+  { id: 'calendar', label: 'Calendar', short: 'Cal', icon: CalendarDays, blurb: 'What went out, what is planned, and the open slots in your game plan' },
   { id: 'quick', label: 'Quick wins', short: 'Wins', icon: Zap, blurb: 'Small moves you can make this week' },
 ] as const;
 
@@ -27,14 +29,14 @@ function IdeasStudio() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div className="flex flex-col 2xl:flex-row 2xl:items-end 2xl:justify-between gap-4">
         <div>
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Ideas Studio</h1>
           <p className="text-[15px] text-muted-foreground mt-3">{tab.blurb}</p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:justify-end">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 2xl:justify-end">
         <ExportAnalysis />
-        <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-4 lg:flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06] self-start w-full lg:w-auto">
+        <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-5 lg:flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06] self-start w-full lg:w-auto">
           {TABS.map((t) => {
             const Icon = t.icon;
             const active = t.id === tab.id;
@@ -63,6 +65,7 @@ function IdeasStudio() {
         {tab.id === 'plan' && <GamePlanView />}
         {tab.id === 'brainstorm' && <Brainstorm />}
         {tab.id === 'board' && <IdeaBoard />}
+        {tab.id === 'calendar' && <ContentCalendar />}
         {tab.id === 'quick' && <QuickWins />}
       </div>
     </div>

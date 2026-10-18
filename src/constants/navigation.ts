@@ -15,6 +15,7 @@ export const MENU_LINKS: NavItem[] = [
   { id: 'accounts', label: 'Accounts', href: '/accounts' },
   { id: 'reports', label: 'Reports', href: '/reports' },
   { id: 'competitors', label: 'Competitors', href: '/competitors' },
+  { id: 'comments', label: 'Comments', href: '/comments' },
   { id: 'account', label: 'Profile', href: '/account' },
   { id: 'settings', label: 'Settings', href: '/settings' },
   { id: 'status', label: 'Status', href: '/status' },

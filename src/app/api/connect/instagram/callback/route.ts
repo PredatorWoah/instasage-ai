@@ -7,8 +7,11 @@ import { callbackUrl, STATE_COOKIE } from '@/lib/instagram-oauth';
 // Instagram sends the browser back here with ?code=... (or ?error=...)
 export async function GET(req: Request) {
   const url = new URL(req.url);
+  const saved = (await cookies()).get(STATE_COOKIE)?.value ?? '';
+  const [expected, purpose] = saved.split(':');
   const back = (params: Record<string, string>) => {
-    const res = NextResponse.redirect(`${url.origin}/accounts?${new URLSearchParams(params)}`);
+    const page = purpose === 'comments' && params.connected ? '/comments' : '/accounts';
+    const res = NextResponse.redirect(`${url.origin}${page}?${new URLSearchParams(params)}`);
     res.cookies.delete(STATE_COOKIE);
     return res;
   };
@@ -20,7 +23,6 @@ export async function GET(req: Request) {
     return back({ error: url.searchParams.get('error_description') || 'Instagram login was cancelled.' });
   }
 
-  const expected = (await cookies()).get(STATE_COOKIE)?.value;
   if (!expected || expected !== url.searchParams.get('state')) {
     return back({ error: 'Login session expired. Click Connect with Instagram again.' });
   }
