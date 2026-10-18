@@ -14,9 +14,10 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days, each headline number against the period before, and the follow funnel |
 | **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for an AI breakdown against your own averages |
 | **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action |
-| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Quick wins** |
+| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and open game plan slots; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
 | **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
+| **Comments** | Unanswered Instagram comments on recent posts, three AI reply drafts each in your voice, reply or hide in one tap (needs the comments permission, asked for on first use) |
 | **Reports** | Real monthly numbers vs the previous month, an AI review, and a designed **PDF export** (plus CSV) |
 | **Status** | Health of every account, the AI, competitor tracking and recent syncs, with a fix button next to anything broken |
 | **Sage** | The chat bubble in the corner: ask anything about your numbers |

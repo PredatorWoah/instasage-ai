@@ -14,8 +14,10 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${origin}/accounts?error=${encodeURIComponent('Instagram login is not set up yet. Add INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET in Vercel.')}`);
   }
 
+  // ?comments=1 also asks for permission to read and answer comments, then returns to the Comments page
+  const withComments = new URL(req.url).searchParams.get('comments') === '1';
   const state = randomBytes(16).toString('hex');
-  const res = NextResponse.redirect(instagramAuthorizeUrl(config.appId, callbackUrl(req), state));
-  res.cookies.set(STATE_COOKIE, state, { httpOnly: true, secure: origin.startsWith('https'), sameSite: 'lax', path: '/', maxAge: 600 });
+  const res = NextResponse.redirect(instagramAuthorizeUrl(config.appId, callbackUrl(req), state, withComments));
+  res.cookies.set(STATE_COOKIE, withComments ? `${state}:comments` : state, { httpOnly: true, secure: origin.startsWith('https'), sameSite: 'lax', path: '/', maxAge: 600 });
   return res;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ArrowDown, ArrowUp, ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, ExternalLink, MessageCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -135,6 +135,11 @@ export function PostAnalyzer({ id }: { id: string }) {
             <a href={post.permalink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:underline">
               Open on {getPlatformLabel(post.platform)} <ExternalLink className="w-3 h-3" />
             </a>
+          )}
+          {post.platform === 'instagram' && (
+            <Link href={`/comments?post=${encodeURIComponent(post.id)}`} className="flex items-center gap-1 text-xs text-indigo-400 hover:underline">
+              Reply to comments ({post.comments}) <MessageCircle className="w-3 h-3" />
+            </Link>
           )}
         </div>
 

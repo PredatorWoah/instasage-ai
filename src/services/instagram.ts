@@ -283,6 +283,8 @@ export async function connectInstagramProfile(userId: string, rawToken: string) 
 // ---------- Instagram Business Login (OAuth) ----------
 
 const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
+// Asked for only when the creator turns on comment replies, so plain connecting never depends on it
+export const COMMENTS_SCOPE = 'instagram_business_manage_comments';
 
 export function instagramOAuthConfig() {
   // Trim: a stray space or newline from copy-paste makes Instagram reject the app ("Invalid platform app")
@@ -291,12 +293,12 @@ export function instagramOAuthConfig() {
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
-export function instagramAuthorizeUrl(appId: string, redirectUri: string, state: string) {
+export function instagramAuthorizeUrl(appId: string, redirectUri: string, state: string, withComments = false) {
   const url = new URL('https://www.instagram.com/oauth/authorize');
   url.searchParams.set('client_id', appId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', INSTAGRAM_SCOPES.join(','));
+  url.searchParams.set('scope', [...INSTAGRAM_SCOPES, ...(withComments ? [COMMENTS_SCOPE] : [])].join(','));
   url.searchParams.set('state', state);
   // Always show the login screen so a different Instagram account can be picked
   url.searchParams.set('force_reauth', 'true');
@@ -328,4 +330,51 @@ export async function exchangeInstagramCode(code: string, redirectUri: string) {
     client_secret: config.appSecret,
   });
   return long.access_token;
+}
+
+// ---------- Comments (needs instagram_business_manage_comments) ----------
+
+export class IgPermissionError extends Error {}
+
+type RawComment = { id: string; text?: string; username?: string; timestamp: string; like_count?: number; hidden?: boolean; replies?: { data: { id: string; text?: string; username?: string; timestamp: string }[] } };
+
+async function igSend<T>(path: string, token: string, params: Record<string, string>): Promise<T> {
+  const res = await fetch(`${IG}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ ...params, access_token: token }),
+    cache: 'no-store',
+  });
+  const body = (await res.json().catch(() => ({}))) as T & IgError;
+  if (!res.ok || body.error) throw igCommentError(body.error, res.status);
+  return body;
+}
+
+// Instagram answers missing permissions with code 10 or 200 (or a message saying so)
+function igCommentError(error: IgError['error'], status: number) {
+  const message = error?.message || `Instagram request failed (${status})`;
+  if (error?.code === 10 || error?.code === 200 || /permission/i.test(message)) return new IgPermissionError(message);
+  return new Error(error?.code === 190 ? `Instagram token is invalid or expired: ${message}` : message);
+}
+
+export async function getInstagramComments(token: string, mediaId: string) {
+  try {
+    const body = await igGet<{ data: RawComment[] }>(`/${mediaId}/comments`, token, {
+      fields: 'id,text,username,timestamp,like_count,hidden,replies{id,text,username,timestamp}',
+      limit: '50',
+    });
+    return body.data ?? [];
+  } catch (error) {
+    const message = (error as Error).message;
+    if (/permission|\(#10\)|\(#200\)/i.test(message)) throw new IgPermissionError(message);
+    throw error;
+  }
+}
+
+export async function replyToInstagramComment(token: string, commentId: string, message: string) {
+  return igSend<{ id: string }>(`/${commentId}/replies`, token, { message });
+}
+
+export async function hideInstagramComment(token: string, commentId: string, hide: boolean) {
+  return igSend<{ success: boolean }>(`/${commentId}`, token, { hide: String(hide) });
 }
