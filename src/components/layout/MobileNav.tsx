@@ -41,12 +41,12 @@ export function MobileNav({ onWarm }: { onWarm: (id: string) => void }) {
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
         className={cn(
-          'flex items-center gap-2 h-11 pl-4 pr-3 rounded-full border text-sm font-bold transition-all duration-300 active:scale-[0.97]',
+          'flex items-center gap-1.5 h-11 pl-3.5 pr-2.5 max-w-full min-w-0 rounded-full border text-sm font-bold transition-all duration-300 active:scale-[0.97]',
           'bg-ink/[0.07] border-ink/[0.12] backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]',
           open && 'bg-ink text-background border-ink'
         )}
       >
-        <span className="truncate max-w-[120px]">{currentLabel}</span>
+        <span className="truncate min-w-0">{currentLabel}</span>
         <ChevronDown className={cn('w-4 h-4 shrink-0 transition-transform duration-300', open && 'rotate-180')} />
       </button>
 

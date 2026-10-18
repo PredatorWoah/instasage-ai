@@ -2,7 +2,7 @@
 
 import { ACCOUNT_COOKIE, usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
-import { Check, ChevronDown, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -27,10 +27,17 @@ export function AccountSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 text-[13px] h-11 px-4 border-ink/[0.06] bg-card hover:bg-secondary max-w-[132px] sm:max-w-[220px]">
-          <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: current ? DOT[current.platform] : '#6366f1' }} />
-          <span className="truncate">{current ? `@${current.username}` : 'All accounts'}</span>
-          <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0" />
+        {/* Phones get a round button (dot and initial) so the page name next to it has room */}
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={`Accounts: ${current ? `@${current.username}` : 'all accounts'}`}
+          className="relative gap-2 text-[13px] h-11 w-11 sm:w-auto px-0 sm:px-4 rounded-full sm:rounded-md border-ink/[0.06] bg-card hover:bg-secondary sm:max-w-[220px]"
+        >
+          <span className="max-sm:absolute max-sm:top-1 max-sm:right-1 w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: current ? DOT[current.platform] : '#6366f1' }} />
+          <span className="sm:hidden font-bold">{current ? current.username.slice(0, 1).toUpperCase() : <Users className="w-4 h-4" />}</span>
+          <span className="hidden sm:inline truncate">{current ? `@${current.username}` : 'All accounts'}</span>
+          <ChevronDown className="hidden sm:block w-3 h-3 text-muted-foreground shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

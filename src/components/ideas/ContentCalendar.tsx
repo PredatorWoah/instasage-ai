@@ -194,7 +194,7 @@ export function ContentCalendar() {
       <aside className="rounded-[30px] bg-card border border-ink/[0.05] p-4 sm:p-5 space-y-3 self-start lg:sticky lg:top-24">
         <div>
           <h3 className="font-bold">Not scheduled yet</h3>
-          <p className="text-[12px] text-muted-foreground">Drag onto a day, or tap to pick a date.</p>
+          <p className="text-[12px] text-muted-foreground"><span className="hidden sm:inline">Drag onto a day, or click to pick a date.</span><span className="sm:hidden">Tap one to pick its date.</span></p>
         </div>
         {unscheduled.length === 0 ? (
           <p className="text-[12px] text-muted-foreground">Everything is scheduled. <Link href="/recommendations?tab=brainstorm" className="underline">Get more ideas</Link></p>
@@ -214,7 +214,7 @@ export function ContentCalendar() {
                 >
                   <GripVertical className="w-3.5 h-3.5 mt-0.5 text-muted-foreground shrink-0" />
                   <span className="min-w-0">
-                    <span className="block text-[13px] font-semibold leading-snug line-clamp-2">{i.title}</span>
+                    <span className="text-[13px] font-semibold leading-snug line-clamp-2">{i.title}</span>
                     {i.format && <span className="text-[11px] text-muted-foreground">{formatLabel(i.format)}</span>}
                   </span>
                 </button>

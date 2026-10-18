@@ -73,9 +73,12 @@ export function AIChat() {
         onClick={() => setOpen((p) => !p)}
         aria-label={open ? 'Close Sage, the AI assistant' : 'Ask Sage, the AI assistant'}
         aria-expanded={open}
-        className="sage-button fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 rounded-full"
+        className="sage-button fixed bottom-4 right-3 sm:bottom-6 sm:right-6 z-50 rounded-full"
       >
-        <SageOrb sleeping={open} />
+        {/* A little smaller on phones, where it sits over the content */}
+        <span className="block max-sm:scale-[0.8] max-sm:origin-bottom-right">
+          <SageOrb sleeping={open} />
+        </span>
       </button>
 
       {/* Chat panel */}

@@ -221,21 +221,21 @@ function ContentLibraryContent() {
           />
         </div>
 
-        {/* Dropdowns */}
-        <div className="flex items-center gap-3">
+        {/* Dropdowns: a full-width row on phones, inline on bigger screens */}
+        <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
           {mode === 'mixed' && <Select value={platform} onValueChange={setPlatform}>
-            <SelectTrigger className="h-9 w-36 bg-secondary/40 border-border text-xs">
+            <SelectTrigger className="h-9 flex-1 min-w-0 md:flex-none md:w-36 bg-secondary/40 border-border text-xs">
               <SelectValue placeholder="Platform" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-xs">All Platforms</SelectItem>
+              <SelectItem value="all" className="text-xs">Platforms</SelectItem>
               <SelectItem value="instagram" className="text-xs">Instagram</SelectItem>
               <SelectItem value="youtube" className="text-xs">YouTube</SelectItem>
             </SelectContent>
           </Select>}
 
           <Select value={range} onValueChange={(v) => setParam({ range: v })}>
-            <SelectTrigger className="h-9 w-32 bg-secondary/40 border-border text-xs" aria-label="Date range">
+            <SelectTrigger className="h-9 flex-1 min-w-0 md:flex-none md:w-32 bg-secondary/40 border-border text-xs" aria-label="Date range">
               <SelectValue placeholder="Any time" />
             </SelectTrigger>
             <SelectContent>
@@ -244,16 +244,16 @@ function ContentLibraryContent() {
           </Select>
 
           <Select value={postType} onValueChange={setPostType}>
-            <SelectTrigger className="h-9 w-32 bg-secondary/40 border-border text-xs">
+            <SelectTrigger className="h-9 flex-1 min-w-0 md:flex-none md:w-32 bg-secondary/40 border-border text-xs" aria-label="Format">
               <SelectValue placeholder="Format" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-xs">All Formats</SelectItem>
+              <SelectItem value="all" className="text-xs">Formats</SelectItem>
               {t.formats.map((f) => <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>)}
             </SelectContent>
           </Select>
 
-          <div className="flex items-center rounded-md border border-border bg-secondary/40 p-0.5" role="group" aria-label="Layout">
+          <div className="flex items-center shrink-0 rounded-md border border-border bg-secondary/40 p-0.5" role="group" aria-label="Layout">
             <button type="button" onClick={() => setParam({ view: 'table' })} aria-pressed={view === 'table'} aria-label="Table view" className={cn('p-1.5 rounded', view === 'table' ? 'bg-ink text-background' : 'text-muted-foreground hover:text-foreground')}><Rows3 className="w-4 h-4" /></button>
             <button type="button" onClick={() => setParam({ view: 'grid' })} aria-pressed={view === 'grid'} aria-label="Grid view" className={cn('p-1.5 rounded', view === 'grid' ? 'bg-ink text-background' : 'text-muted-foreground hover:text-foreground')}><LayoutGrid className="w-4 h-4" /></button>
           </div>
@@ -307,8 +307,34 @@ function ContentLibraryContent() {
         </div>
       )}
 
+      {/* Phones: a compact list instead of the wide table */}
+      {view === 'table' && posts && processedPosts.length > 0 && (
+        <ul className="md:hidden space-y-2">
+          {processedPosts.map((post) => (
+            <li key={post.id}>
+              <Link href={`/content/${encodeURIComponent(post.id)}`} className="flex gap-3 p-2.5 rounded-2xl bg-card border border-ink/[0.05] active:bg-ink/[0.04]">
+                <span className={cn('on-color relative shrink-0 rounded-xl overflow-hidden bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]', post.platform === 'youtube' && post.type !== 'short' ? 'w-24 h-14' : 'w-14 h-[70px]')}>
+                  {post.thumbnail && <Image src={post.thumbnail} alt="" fill unoptimized sizes="96px" className="object-cover" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="text-[13px] font-semibold leading-snug line-clamp-2">{post.caption || (post.platform === 'youtube' ? 'Untitled video' : 'Untitled post')}</span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5">
+                    {formatLabel(post.type)} · {new Date(post.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' })}{post.isBoosted ? ' · Boosted' : ''}
+                  </span>
+                  <span className="flex items-center gap-2.5 mt-1 text-[11px] tabular-nums">
+                    <span><b>{formatNumber(post.views)}</b> <span className="text-muted-foreground">views</span></span>
+                    <span><b>{formatNumber(post.likes)}</b> <span className="text-muted-foreground">likes</span></span>
+                    <span className={cn('ml-auto inline-flex items-center gap-0.5 font-bold', getPerformanceColor(post.performanceScore))}><Flame className="w-3 h-3" />{post.performanceScore.toFixed(1)}%</span>
+                  </span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {/* Table */}
-      <div className={cn('rounded-lg border border-border bg-card overflow-hidden', view === 'grid' && posts && processedPosts.length > 0 && 'hidden')}>
+      <div className={cn('rounded-lg border border-border bg-card overflow-hidden', view === 'grid' && posts && processedPosts.length > 0 && 'hidden', view === 'table' && posts && processedPosts.length > 0 && 'hidden md:block')}>
         <Table>
           <TableHeader className="bg-secondary/40">
             <TableRow>

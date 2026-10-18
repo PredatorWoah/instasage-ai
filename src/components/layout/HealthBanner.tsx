@@ -40,9 +40,9 @@ export function HealthBanner() {
 
   return (
     <div className="max-w-[1480px] mx-auto px-3 sm:px-6 pt-3">
-      <div role="status" className="flex items-center gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-4 py-2.5 text-[13px]">
+      <div role="status" className="flex items-center gap-2.5 sm:gap-3 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3 sm:px-4 py-2 sm:py-2.5 text-[12px] sm:text-[13px]">
         <TriangleAlert className="w-4 h-4 text-amber-400 shrink-0" />
-        <p className="flex-1 min-w-0">{m.text}{others > 0 ? ` (and ${others} more)` : ''}</p>
+        <p className="flex-1 min-w-0 line-clamp-2 sm:line-clamp-none" title={m.text}>{m.text}{others > 0 ? ` (and ${others} more)` : ''}</p>
         <Link href={m.href} prefetch={false} className="shrink-0 font-bold text-amber-300 hover:underline">{m.action}</Link>
         <button
           onClick={() => {

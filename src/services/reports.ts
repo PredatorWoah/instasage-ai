@@ -48,9 +48,11 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
     .reverse();
   const month = requested && /^\d{4}-\d{2}$/.test(requested) ? requested : current;
 
-  const kpis = (key: string): MonthKpis => {
-    const inMonth = posts.filter((p) => monthOf.get(p.id)!.monthKey === key);
-    const monthMetrics = metrics.filter((m) => m.date.toISOString().startsWith(key));
+  // `untilDay` cuts a month at that day of the month, for fair comparisons with a month in progress
+  const kpis = (key: string, untilDay = 31): MonthKpis => {
+    const dayNum = (dayKey: string) => Number(dayKey.slice(8, 10));
+    const inMonth = posts.filter((p) => monthOf.get(p.id)!.monthKey === key && dayNum(monthOf.get(p.id)!.dayKey) <= untilDay);
+    const monthMetrics = metrics.filter((m) => m.date.toISOString().startsWith(key) && m.date.getUTCDate() <= untilDay);
     // Followers: first and last snapshot of each account inside the month
     let start: number | null = null;
     let end: number | null = null;
@@ -111,6 +113,11 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
   });
 
   const byViews = [...monthPosts].sort((a, b) => b.views - a.views);
+  // The month in progress is compared with the same days of the month before, not all of it
+  const today = localParts(new Date(), timeZone);
+  const partialDay = month === current ? Number(today.dayKey.slice(8, 10)) : null;
+  const prev = previousMonth(month);
+  const prevShort = new Date(Date.UTC(Number(prev.slice(0, 4)), Number(prev.slice(5)) - 1, 15)).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
   return {
     month,
     label: monthLabel(month),
@@ -119,7 +126,9 @@ export async function getMonthlyReport(profileIds: string[], timeZone: string, r
     months: months.map((key) => ({ key, label: monthLabel(key) })),
     accounts: profiles.map((p) => ({ platform: p.platform, username: p.username, followers: p.followerCount })),
     kpis: kpis(month),
-    previous: { month: previousMonth(month), label: monthLabel(previousMonth(month)), kpis: kpis(previousMonth(month)) },
+    previous: partialDay
+      ? { month: prev, label: `${prevShort} 1–${Math.min(partialDay, daysIn(prev))}`, kpis: kpis(prev, partialDay), partial: true }
+      : { month: prev, label: monthLabel(prev), kpis: kpis(prev), partial: false },
     byFormat: group((p) => p.type),
     byWeekday: group((p) => WEEKDAYS[monthOf.get(p.id)!.weekday], WEEKDAYS),
     days,
@@ -141,7 +150,7 @@ export function reportToPrompt(r: MonthlyReport) {
   return [
     `Monthly report for ${r.label}. Accounts: ${r.accounts.map((a) => `${a.platform} @${a.username}`).join(', ')}. Timezone ${r.timeZone}; times are local, never mention UTC.`,
     `This month: ${k(r.kpis)}`,
-    `Previous month (${r.previous.label}): ${k(r.previous.kpis)}`,
+    `${r.previous.partial ? `Same days of the previous month (${r.previous.label}; this month is still in progress, so compare like for like)` : `Previous month (${r.previous.label})`}: ${k(r.previous.kpis)}`,
     `By format: ${r.byFormat.map(g).join('; ') || 'none'}`,
     `By weekday: ${r.byWeekday.map(g).join('; ') || 'none'}`,
     `Top posts:\n${r.topPosts.map(p).join('\n') || 'none'}`,

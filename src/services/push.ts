@@ -103,7 +103,9 @@ export async function buildDigest(userId: string): Promise<{ title: string; body
   const profiles = await prisma.socialProfile.findMany({ where: { userId }, select: { id: true, username: true, platform: true, followerCount: true } });
   if (!profiles.length) return null;
   const dayAgo = new Date(Date.now() - 30 * 3_600_000);
-  let gained = 0;
+  // Instagram followers and YouTube subscribers are added up separately, never mixed
+  const gained = { followers: 0, subscribers: 0 };
+  const seen = { followers: false, subscribers: false };
   const parts: string[] = [];
   for (const p of profiles) {
     const before = await prisma.metric.findFirst({
@@ -113,7 +115,9 @@ export async function buildDigest(userId: string): Promise<{ title: string; body
     });
     if (before?.followers == null) continue;
     const diff = p.followerCount - before.followers;
-    gained += diff;
+    const unit = p.platform === 'youtube' ? 'subscribers' : 'followers';
+    gained[unit] += diff;
+    seen[unit] = true;
     parts.push(`@${p.username} ${diff >= 0 ? '+' : ''}${diff}`);
   }
   const best = await prisma.post.findFirst({
@@ -122,8 +126,9 @@ export async function buildDigest(userId: string): Promise<{ title: string; body
     select: { caption: true, views: true },
   });
   if (!parts.length && !best) return null;
-  const unit = profiles.every((p) => p.platform === 'youtube') ? 'subscribers' : 'followers';
-  const title = parts.length ? `${gained >= 0 ? '+' : ''}${gained} ${unit} since yesterday` : 'Your morning update';
+  const signed = (n: number) => `${n >= 0 ? '+' : ''}${n}`;
+  const totals = (['followers', 'subscribers'] as const).filter((u) => seen[u]).map((u) => `${signed(gained[u])} ${u}`);
+  const title = totals.length ? `${totals.join(' · ')} since yesterday` : 'Your morning update';
   const body = [parts.length > 1 ? parts.join(' · ') : '', best ? `Top post this week: "${best.caption.replace(/\s+/g, ' ').slice(0, 60) || 'Untitled'}" with ${best.views.toLocaleString()} views` : ''].filter(Boolean).join('\n');
   return { title, body: body || 'Your numbers are fresh. Open InstaSage for the details.' };
 }

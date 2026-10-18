@@ -49,8 +49,9 @@ export function EngagementChart({ data }: EngagementChartProps) {
           labelFormatter={(label) => label ? formatDate(String(label)) : ''}
           formatter={(v) => [`${v}%`, 'Engagement Rate']}
         />
+        {/* Straight segments: days without posts have no value, so a smooth curve would invent a trend */}
         <Line
-          type="monotone"
+          type="linear"
           dataKey="engagement"
           stroke="#FFD15C"
           strokeWidth={2}

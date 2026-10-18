@@ -2,12 +2,14 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AlertCircle, PlaySquare, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConnectedAccounts } from '@/components/accounts/ConnectedAccounts';
 import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
 import { syncAccount } from '@/lib/syncClient';
+import { STATUS_CHANGED, STATUS_URL, type AppStatus } from '@/lib/status';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +47,14 @@ type Account = {
 
 function AccountsContent() {
   const { data, refresh } = useCachedJson<Account[]>('/api/accounts');
+  // Health per account (failed sync, expiring access) from the same data the banner and Status page use
+  const { data: status, refresh: refreshStatus } = useCachedJson<AppStatus>(STATUS_URL);
+  useEffect(() => {
+    const onChange = () => { refreshStatus(); };
+    window.addEventListener(STATUS_CHANGED, onChange);
+    return () => window.removeEventListener(STATUS_CHANGED, onChange);
+  }, [refreshStatus]);
+  const health = new Map((status?.accounts ?? []).map((a) => [a.id, a]));
   const accounts = data ?? [];
   const isLoading = data === undefined;
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
@@ -105,7 +115,7 @@ function AccountsContent() {
         <div>
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Connected Accounts</h1>
           <p className="text-[15px] text-muted-foreground mt-3">
-            Accounts sync automatically every morning (around 6:30 AM IST). Use the switcher in the top bar to view one account or all of them.
+            Accounts sync automatically every day (around <span suppressHydrationWarning>{CRON_LOCAL}</span>). Use the switcher in the top bar to view one account or all of them.
           </p>
         </div>
         {accounts.length > 1 && (
@@ -166,8 +176,17 @@ function AccountsContent() {
               </div>
 
               <div className="flex items-center justify-between gap-4 pt-1">
-                <div>
-                  {acc.isConnected ? (
+                <div className="min-w-0">
+                  {acc.isConnected && health.get(acc.id)?.problems.length ? (
+                    <Link href="/status" title={health.get(acc.id)!.lastJob?.error ?? undefined}>
+                      <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-[10px] px-2 py-0.5 flex items-center gap-1 max-w-full">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span className="truncate">
+                          {health.get(acc.id)!.problems.includes('sync_failed') ? 'Last sync failed' : health.get(acc.id)!.problems.includes('token_expired') ? 'Access expired' : 'Access expiring soon'}
+                        </span>
+                      </Badge>
+                    </Link>
+                  ) : acc.isConnected ? (
                     <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] px-2 py-0.5 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       Active
@@ -208,6 +227,9 @@ function AccountsContent() {
     </div>
   );
 }
+
+// The daily sync runs at 01:00 UTC (vercel.json); shown in the viewer's own time
+const CRON_LOCAL = new Date(Date.UTC(2000, 0, 1, 1, 0)).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
 
 export default function AccountsPage() {
   return (
