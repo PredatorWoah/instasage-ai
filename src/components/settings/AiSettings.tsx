@@ -22,7 +22,8 @@ type Provider = {
   model: string | null;
   models: string[];
 };
-type Status = { active: ProviderId | null; providers: Provider[] };
+type Route = { provider: ProviderId; model?: string };
+type Status = { active: ProviderId | null; providers: Provider[]; routing: Record<string, Route>; groups: { id: string; label: string }[] };
 
 const LOOK: Record<ProviderId, { mark: string; tile: string }> = {
   gemini: { mark: 'G', tile: 'bg-[linear-gradient(135deg,#4F8BFF,#9B72FF)]' },
@@ -312,10 +313,62 @@ export function AiSettings() {
         </div>
       )}
 
+      {status.providers.filter((p) => p.connected).length > 0 && (
+        <RoutingPanel status={status} disabled={!!busy} onSave={(routing) => call('routing', 'PATCH', { routing })} />
+      )}
+
       {status.providers.filter((p) => p.connected).length > 1 && (
         <p className="text-[11px] text-muted-foreground">
           Backup is on: if {status.providers.find((p) => p.id === status.active)?.label ?? 'your AI'} is overloaded or out of quota, InstaSage quietly asks your other saved AI instead.
         </p>
+      )}
+    </div>
+  );
+}
+
+// Which AI answers which feature, e.g. a strong model for the Game plan and a free one for chat
+function RoutingPanel({ status, disabled, onSave }: { status: Status; disabled: boolean; onSave: (routing: Record<string, Route | null>) => Promise<unknown> }) {
+  const [open, setOpen] = useState(Object.keys(status.routing).length > 0);
+  const connected = status.providers.filter((p) => p.connected);
+  const activeLabel = status.providers.find((p) => p.id === status.active)?.label ?? 'your active AI';
+  const field = 'h-8 rounded-md border border-border bg-secondary/50 px-2 text-xs min-w-0';
+
+  const change = async (group: string, provider: string, model?: string) => {
+    const data = await onSave({ [group]: provider ? { provider: provider as ProviderId, ...(model ? { model } : {}) } : null });
+    if (data) toast.success('Saved', { description: provider ? `${status.groups.find((g) => g.id === group)?.label} now uses ${status.providers.find((p) => p.id === provider)?.label}${model ? ` (${model})` : ''}.` : 'Back to your active AI.' });
+  };
+
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="w-full flex items-center justify-between px-4 py-3 text-left gap-3">
+        <span>
+          <span className="block text-sm font-bold">Different AI per feature</span>
+          <span className="block text-[11px] text-muted-foreground">For example a strong model for the Game plan and a free one for Sage chat. Anything left on default uses {activeLabel}.</span>
+        </span>
+        <span className="text-xs text-indigo-400 shrink-0">{open ? 'Hide' : 'Set up'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-2">
+          {status.groups.map((g) => {
+            const route = status.routing[g.id];
+            const models = route ? status.providers.find((p) => p.id === route.provider)?.models ?? [] : [];
+            return (
+              <div key={g.id} className="grid sm:grid-cols-[1fr_140px_1fr] gap-2 items-center">
+                <span className="text-xs font-medium">{g.label}</span>
+                <select aria-label={`AI for ${g.label}`} value={route?.provider ?? ''} disabled={disabled} onChange={(e) => change(g.id, e.target.value)} className={field}>
+                  <option value="">Default ({activeLabel})</option>
+                  {connected.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+                {route ? (
+                  <select aria-label={`Model for ${g.label}`} value={route.model ?? ''} disabled={disabled} onChange={(e) => change(g.id, route.provider, e.target.value)} className={field}>
+                    <option value="">Its saved model</option>
+                    {models.slice(0, 300).map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                ) : <span className="hidden sm:block" />}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

@@ -59,13 +59,59 @@ export const PROVIDERS: Record<ProviderId, {
 export const isProvider = (v: unknown): v is ProviderId => typeof v === 'string' && v in PROVIDERS;
 
 export type LlmConfig = { provider: ProviderId; apiKey: string; model: string; timeZone: string; userId?: string; models?: string[] };
-type Options = { json?: boolean; system?: string; history?: ChatTurn[]; long?: boolean };
+type Options = { json?: boolean; system?: string; history?: ChatTurn[]; long?: boolean; feature?: Feature };
+type Usage = { input: number; output: number; cost?: number | null };
+type Answer = { text: string; model: string; usage?: Usage };
+
+// ---------- Features and per-feature AI choice ----------
+
+export type Feature = 'insights' | 'recommendations' | 'plan' | 'brainstorm' | 'chat' | 'post' | 'report' | 'competitors' | 'writer' | 'replies';
+
+// Settings groups features so the choice stays simple: a strong model for the plan, a cheap one for chat...
+export const ROUTE_GROUPS = {
+  plan: { label: 'Game plan', features: ['plan'] },
+  insights: { label: 'Insights and quick wins', features: ['insights', 'recommendations'] },
+  brainstorm: { label: 'Brainstorm', features: ['brainstorm'] },
+  chat: { label: 'Sage chat', features: ['chat'] },
+  writer: { label: 'Writing: scripts, captions, comment replies', features: ['writer', 'replies'] },
+  analysis: { label: 'Post analysis, reports, competitors', features: ['post', 'report', 'competitors'] },
+} as const satisfies Record<string, { label: string; features: Feature[] }>;
+export type RouteGroup = keyof typeof ROUTE_GROUPS;
+export type Routing = Partial<Record<RouteGroup, { provider: ProviderId; model?: string }>>;
+
+const groupOf = (feature: Feature) =>
+  (Object.keys(ROUTE_GROUPS) as RouteGroup[]).find((g) => (ROUTE_GROUPS[g].features as readonly Feature[]).includes(feature));
+
+// Published Claude prices, USD per million tokens (input, output)
+const CLAUDE_PRICES: Record<string, [number, number]> = {
+  'claude-fable-5-1': [10, 50],
+  'claude-fable-5': [10, 50],
+  'claude-opus-5-5': [4, 20],
+  'claude-opus-5': [5, 25],
+  'claude-opus-4-8': [5, 25],
+  'claude-sonnet-5': [2, 10],
+  'claude-haiku-4-5': [1, 5],
+};
+const claudeCost = (model: string, input: number, output: number) => {
+  const key = Object.keys(CLAUDE_PRICES).find((k) => model === k || model.startsWith(`${k}-`));
+  return key ? (input * CLAUDE_PRICES[key][0] + output * CLAUDE_PRICES[key][1]) / 1_000_000 : null;
+};
+
+async function recordUsage(userId: string, feature: Feature, provider: ProviderId, answer: Answer) {
+  if (!answer.usage) return;
+  await prisma.aiUsage.create({
+    data: {
+      userId, feature, provider, model: answer.model,
+      inputTokens: answer.usage.input, outputTokens: answer.usage.output, cost: answer.usage.cost ?? null,
+    },
+  }).catch(() => {});
+}
 
 // ---------- Which key and model to use ----------
 
 export async function listCredentials(userId: string) {
   const [user, rows] = await Promise.all([
-    prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true, geminiModel: true, aiProvider: true, timezone: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { geminiApiKey: true, geminiModel: true, aiProvider: true, timezone: true, aiRouting: true } }),
     prisma.aiCredential.findMany({ where: { userId } }),
   ]);
   const creds = new Map<ProviderId, { apiKey: string; model: string; models: string[] }>();
@@ -81,17 +127,22 @@ export async function listCredentials(userId: string) {
   }
   const preferred = isProvider(user?.aiProvider) && creds.has(user.aiProvider) ? user.aiProvider : null;
   const active = preferred ?? ([...creds.keys()][0] ?? null);
-  return { creds, active, timeZone: user?.timezone || 'UTC' };
+  return { creds, active, timeZone: user?.timezone || 'UTC', routing: (user?.aiRouting as Routing | null) ?? {} };
 }
 
-export async function getAiConfig(userId: string): Promise<LlmConfig & { backups: LlmConfig[] }> {
-  const { creds, active, timeZone } = await listCredentials(userId);
+export async function getAiConfig(userId: string, feature?: Feature): Promise<LlmConfig & { backups: LlmConfig[] }> {
+  const { creds, active, timeZone, routing } = await listCredentials(userId);
   if (!active) throw new AiError('no_key', 'Add an AI key in Settings (Gemini, Claude, ChatGPT or OpenRouter) to use AI features.');
-  const toConfig = (provider: ProviderId): LlmConfig => ({ provider, ...creds.get(provider)!, timeZone, userId });
+  const toConfig = (provider: ProviderId, model?: string): LlmConfig => ({ provider, ...creds.get(provider)!, ...(model ? { model } : {}), timeZone, userId });
+
+  // A per-feature choice wins when its key is still saved; otherwise the active AI answers
+  const group = feature ? groupOf(feature) : undefined;
+  const route = group ? routing[group] : undefined;
+  const primary = route && creds.has(route.provider) ? toConfig(route.provider, route.model) : toConfig(active);
   return {
-    ...toConfig(active),
+    ...primary,
     // Other saved providers step in when the chosen one is overloaded or out of quota
-    backups: [...creds.keys()].filter((p) => p !== active).map(toConfig),
+    backups: [...creds.keys()].filter((p) => p !== primary.provider).map((p) => toConfig(p)),
   };
 }
 
@@ -109,13 +160,14 @@ async function netFetch(provider: ProviderId, input: string, init?: RequestInit)
   }
 }
 
-export async function generate(config: LlmConfig & { backups?: LlmConfig[] }, prompt: string, options: Options = {}) {
+export async function generate(config: LlmConfig & { backups?: LlmConfig[] }, prompt: string, options: Options = {}): Promise<Answer> {
   const chain = [config, ...(config.backups ?? [])];
   let lastError: unknown;
   for (const [i, c] of chain.entries()) {
     try {
       const result = await generateWith(c, prompt, options);
       if (i > 0) console.warn(`${PROVIDERS[config.provider].label} was unavailable; answered with ${c.provider}`);
+      if (config.userId && options.feature) await recordUsage(config.userId, options.feature, c.provider, result);
       return result;
     } catch (error) {
       lastError = error;
@@ -125,7 +177,7 @@ export async function generate(config: LlmConfig & { backups?: LlmConfig[] }, pr
   throw lastError;
 }
 
-function generateWith(config: LlmConfig, prompt: string, options: Options): Promise<{ text: string; model: string }> {
+function generateWith(config: LlmConfig, prompt: string, options: Options): Promise<Answer> {
   switch (config.provider) {
     case 'gemini': return gemini(config, prompt, options);
     case 'anthropic': return claude(config, prompt, options);
@@ -213,7 +265,8 @@ async function gemini(config: LlmConfig, prompt: string, options: Options) {
             await rememberGeminiModel(config.userId, config.apiKey, model, healed?.models ?? config.models ?? []).catch(() => {});
             console.warn(`Gemini model ${config.model} is gone; now using ${model}`);
           }
-          return { text, model };
+          const meta = body?.usageMetadata ?? {};
+          return { text, model, usage: { input: meta.promptTokenCount ?? 0, output: (meta.candidatesTokenCount ?? 0) + (meta.thoughtsTokenCount ?? 0) } };
         }
         lastError = new AiError('api', 'Gemini returned an empty answer. Try again.', true);
         break;
@@ -304,7 +357,9 @@ async function claude(config: LlmConfig, prompt: string, options: Options) {
     }
     const text = response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
     if (!text) throw new AiError('api', 'Claude returned an empty answer. Try again.', true);
-    return { text, model: response.model || model };
+    const used = response.model || model;
+    const input = response.usage.input_tokens + (response.usage.cache_read_input_tokens ?? 0) + (response.usage.cache_creation_input_tokens ?? 0);
+    return { text, model: used, usage: { input, output: response.usage.output_tokens, cost: claudeCost(used, input, response.usage.output_tokens) } };
   } catch (error) {
     if (error instanceof AiError) throw error;
     throw explainClaudeError(error);
@@ -339,7 +394,7 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
     messages,
     ...(options.json ? { response_format: { type: 'json_object' } } : {}),
     // OpenAI reasoning models only accept the default temperature
-    ...(config.provider === 'openrouter' ? { temperature: options.json ? 0.4 : 0.8 } : {}),
+    ...(config.provider === 'openrouter' ? { temperature: options.json ? 0.4 : 0.8, usage: { include: true } } : {}),
   });
 
   let lastError: AiError | null = null;
@@ -358,7 +413,11 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
     const body = await res.json().catch(() => ({}));
     if (res.ok) {
       const text: string = body?.choices?.[0]?.message?.content ?? '';
-      if (text) return { text, model: body.model || config.model };
+      if (text) {
+        const u = body.usage ?? {};
+        // OpenRouter reports the exact charge; OpenAI prices vary by model, so only tokens are kept
+        return { text, model: body.model || config.model, usage: { input: u.prompt_tokens ?? 0, output: u.completion_tokens ?? 0, cost: typeof u.cost === 'number' ? u.cost : null } };
+      }
       lastError = new AiError('api', `${PROVIDERS[config.provider].label} returned an empty answer. Try again.`, true);
       continue;
     }

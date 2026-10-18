@@ -12,6 +12,11 @@ export type SavedIdea = {
   source: 'manual' | 'plan' | 'brainstorm' | 'recommendation';
   createdAt: string;
   updatedAt: string;
+  postId: string | null;
+  post: { id: string; caption: string; thumbnail: string; type: string; platform: string; views: number; performanceScore: number; publishedAt: string; isBoosted: boolean } | null;
+  result: { viewsLift: number; engagementLift: number } | null;
+  scheduledFor: string | null;
+  drafts: Partial<Record<'script' | 'carousel' | 'caption', string>> | null;
 };
 
 export const SAVED_URL = '/api/ideas/saved';

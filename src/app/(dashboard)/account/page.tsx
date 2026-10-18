@@ -7,6 +7,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { CreatorProfileForm } from '@/components/settings/CreatorProfileForm';
 
 type Profile = { name: string; username: string; bio: string };
 
@@ -66,6 +67,8 @@ export default function AccountPage() {
         </div>
         <Button type="submit" size="sm" disabled={saving} className="text-xs h-9 bg-indigo-600 hover:bg-indigo-700">{saving ? 'Saving...' : 'Save changes'}</Button>
       </form>
+
+      <CreatorProfileForm />
 
       <section className="rounded-[30px] bg-card border border-white/[0.05] p-5 sm:p-6 space-y-4">
         <h2 className="text-lg font-bold">Security</h2>
