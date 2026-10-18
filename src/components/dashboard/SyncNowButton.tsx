@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 type Account = { id: string; username: string; platform: string };
 
 // Sync right from the Overview: every account in the current selection, one after another
-export function SyncNowButton({ accounts, syncedAgo }: { accounts: Account[]; syncedAgo: string | null }) {
+export function SyncNowButton({ accounts, syncedAgo, stale }: { accounts: Account[]; syncedAgo: string | null; stale?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<{ index: number; username: string } | null>(null);
 
@@ -35,7 +35,11 @@ export function SyncNowButton({ accounts, syncedAgo }: { accounts: Account[]; sy
         <RefreshCw className={cn('w-4 h-4', step && 'animate-spin')} />
         {step ? `Syncing @${step.username}${accounts.length > 1 ? ` (${step.index + 1}/${accounts.length})` : ''}...` : 'Sync now'}
       </button>
-      {syncedAgo && <span className="text-[12px] text-white/80">Last synced {syncedAgo}</span>}
+      {syncedAgo && (
+        <span className={cn('text-[12px]', stale ? 'font-bold text-[#FFE08A]' : 'text-white/80')} title={stale ? 'Over a day old. Sync now, or check Status if it keeps failing.' : undefined}>
+          {stale ? '⚠ ' : ''}Last synced {syncedAgo}
+        </span>
+      )}
     </div>
   );
 }

@@ -7,12 +7,8 @@ import Link from 'next/link';
 import type { TimeSeriesPoint } from '@/types';
 import { FunnelCard, type FunnelData } from '@/components/charts/FunnelCard';
 import { PeriodCompare } from '@/components/charts/PeriodCompare';
+import { EngagementChart, FollowersChart, PostingFrequencyChart, ReachChart, ViewsChart } from '@/components/charts/LazyCharts';
 import type { PeriodTotals } from '@/services/dashboard';
-import { FollowersChart } from '@/components/charts/FollowersChart';
-import { ViewsChart } from '@/components/charts/ViewsChart';
-import { EngagementChart } from '@/components/charts/EngagementChart';
-import { ReachChart } from '@/components/charts/ReachChart';
-import { PostingFrequencyChart } from '@/components/charts/PostingFrequencyChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 

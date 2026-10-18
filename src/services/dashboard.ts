@@ -121,7 +121,9 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
   const now = Date.now();
   const latestPosts = posts.slice(0, 4).map((p) => ({ ...p, ageDays: (now - p.publishedAt.getTime()) / 86_400_000 }));
 
-  const lastSynced = profiles.length ? Math.min(...profiles.map((p) => p.lastSyncedAt.getTime())) : null;
+  // Oldest sync among connected accounts: a disconnected one can't sync, so it shouldn't make everything look stale
+  const syncing = profiles.filter((p) => p.isConnected);
+  const lastSynced = syncing.length ? Math.min(...syncing.map((p) => p.lastSyncedAt.getTime())) : null;
 
   return {
     profiles,

@@ -9,11 +9,11 @@ import { formatLabel, terms } from '@/lib/platform';
 import { PostThumb } from '@/components/dashboard/PostThumb';
 import { getDashboardData } from '@/services/dashboard';
 import { getCachedResult, type AiRecommendation, type Insight } from '@/services/ai';
-import { FollowersChart } from '@/components/charts/FollowersChart';
-import { EngagementChart } from '@/components/charts/EngagementChart';
+import { EngagementChart, FollowersChart } from '@/components/charts/LazyCharts';
 import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
 import { formatAge, formatNumber, getPerformanceLabel } from '@/utils/formatters';
 import { SyncNowButton } from '@/components/dashboard/SyncNowButton';
+import { SinceLastVisit } from '@/components/dashboard/SinceLastVisit';
 import { GoalCard } from '@/components/dashboard/GoalCard';
 import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
@@ -66,11 +66,24 @@ export default async function DashboardPage() {
           <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
             <Sparkles className="w-3.5 h-3.5" /> Your last 30 days · {who}
           </span>
-          <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
+          <div className="space-y-2">
+            <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
+            {hasData && (
+              <SinceLastVisit
+                scopeKey={scope.key}
+                followers={kpis.followers}
+                unit={t.followersLower}
+                postTimes={data.posts.map((p) => p.publishedAt.toISOString())}
+                post={t.post}
+                posts={t.posts}
+              />
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
             <SyncNowButton
               accounts={scope.profiles.map((p) => ({ id: p.id, username: p.username, platform: p.platform }))}
               syncedAgo={data.syncedMinutesAgo == null ? null : formatAge(data.syncedMinutesAgo)}
+              stale={data.syncedMinutesAgo != null && data.syncedMinutesAgo > 24 * 60}
             />
             {insights?.items[0] && (
               <Link href="/insights" transitionTypes={['nav-forward']} className="text-sm font-semibold text-white/90 hover:text-white inline-flex items-center gap-1.5">

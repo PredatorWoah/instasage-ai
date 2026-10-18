@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { formatLabel } from '@/lib/platform';
 import { formatNumber, formatRelativeTime, getPerformanceColor, getPerformanceLabel, getPlatformColor, getPlatformLabel } from '@/utils/formatters';
 import { GrowthCurve, type Snapshot } from '@/components/charts/GrowthCurve';
+import { PostNav } from '@/components/content/PostNav';
 import type { PostAnalysis } from '@/services/ai';
 
 type PostData = {
@@ -122,9 +123,12 @@ export function PostAnalyzer({ id }: { id: string }) {
   const yt = post.platform === 'youtube';
   return (
     <div className="space-y-6 max-w-5xl">
-      <Link href="/content" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="w-3.5 h-3.5" /> Content Library
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/content" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-3.5 h-3.5" /> Content Library
+        </Link>
+        <PostNav id={post.id} />
+      </div>
 
       <div className={cn('grid grid-cols-1 gap-6', yt ? 'md:grid-cols-[360px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
         <div className="space-y-3">
