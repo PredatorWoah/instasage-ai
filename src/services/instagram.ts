@@ -87,6 +87,24 @@ async function fetchMediaPages(token: string, fields: string, limit: number) {
   return media.slice(0, limit);
 }
 
+// Ids of every post Instagram still shows (archived and deleted ones are left out by the API).
+// Ids only, so even a big account is a handful of cheap requests. Null if the list came back incomplete.
+export async function getInstagramMediaIds(token: string, cap = 5000): Promise<Set<string> | null> {
+  const ids = new Set<string>();
+  let after: string | undefined;
+  for (;;) {
+    const page = await igGet<{ data: { id: string }[]; paging?: { cursors?: { after?: string }; next?: string } }>(
+      '/me/media',
+      token,
+      { fields: 'id', limit: '100', ...(after ? { after } : {}) },
+    );
+    for (const m of page.data) ids.add(m.id);
+    after = page.paging?.cursors?.after;
+    if (!page.paging?.next || !after) return ids;
+    if (ids.size >= cap) return null;
+  }
+}
+
 const MEDIA_METRICS = ['views', 'reach', 'likes', 'comments', 'saved', 'shares'];
 
 type InsightRow = { name: string; values?: { value: number }[]; total_value?: { value: number } };
