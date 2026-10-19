@@ -2,6 +2,7 @@ import { bestThumb, getChannel, getRecentVideos, youtubeKey } from './youtube';
 import {
   getInstagramProfile,
   getInstagramMedia,
+  getInstagramMediaIds,
   getInstagramMediaInsights,
   getInstagramDailyInsights,
   getInstagramDemographics,
@@ -143,6 +144,30 @@ async function inBatches<T>(items: T[], size: number, fn: (item: T) => Promise<v
 
 const dayKey = (d: Date) => d.toISOString().slice(0, 10);
 
+// Posts archived or deleted on Instagram drop out of the API, so drop them here too; otherwise old
+// content (say, from before an account changed direction) keeps skewing averages and AI advice.
+// Only runs when Instagram returned the complete list, so a partial answer never deletes anything.
+async function pruneGonePosts(profileId: string, token: string, fetched: string[]) {
+  let live: Set<string> | null;
+  try {
+    live = await getInstagramMediaIds(token);
+  } catch (error) {
+    console.warn('Instagram media list unavailable, skipping cleanup:', (error as Error).message);
+    return 0;
+  }
+  if (!live || live.size === 0) return 0;
+  for (const id of fetched) live.add(id);
+  const stored = await prisma.post.findMany({ where: { socialProfileId: profileId }, select: { id: true } });
+  const gone = stored.map((p) => p.id).filter((id) => !live!.has(id));
+  if (!gone.length) return 0;
+  await prisma.post.deleteMany({ where: { id: { in: gone }, socialProfileId: profileId } });
+  // Cached AI answers were built on those posts
+  const owner = await prisma.socialProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
+  if (owner) await prisma.aiResult.deleteMany({ where: { userId: owner.userId, NOT: { kind: { startsWith: 'report:' } } } });
+  console.log(`Removed ${gone.length} posts no longer on Instagram (archived or deleted)`);
+  return gone.length;
+}
+
 async function syncInstagramProfile(profile: SocialProfile & { accessToken: string | null }) {
   const token = await freshInstagramToken({ ...profile, accessToken: profile.accessToken! });
   const ig = await getInstagramProfile(token);
@@ -169,6 +194,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   });
 
   const media = await getInstagramMedia(token);
+  await pruneGonePosts(profile.id, token, media.map((m) => m.id));
   const failedMetrics = new Set<string>();
 
   // Account-level numbers don't depend on the posts, so ask for them while the posts are fetched
