@@ -398,6 +398,8 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
   });
 
   let lastError: AiError | null = null;
+  // An empty answer is still billed, so its tokens and cost are added to the answer that follows
+  const spent = { input: 0, output: 0, cost: 0, priced: true };
   for (const wait of [0, 2000]) {
     if (wait) await sleep(wait);
     const res = await netFetch(config.provider, `${base}/chat/completions`, {
@@ -413,10 +415,14 @@ async function openAiCompatible(base: string, config: LlmConfig, prompt: string,
     const body = await res.json().catch(() => ({}));
     if (res.ok) {
       const text: string = body?.choices?.[0]?.message?.content ?? '';
+      const u = body.usage ?? {};
+      spent.input += u.prompt_tokens ?? 0;
+      spent.output += u.completion_tokens ?? 0;
+      if (typeof u.cost === 'number') spent.cost += u.cost;
+      else spent.priced = false;
       if (text) {
-        const u = body.usage ?? {};
         // OpenRouter reports the exact charge; OpenAI prices vary by model, so only tokens are kept
-        return { text, model: body.model || config.model, usage: { input: u.prompt_tokens ?? 0, output: u.completion_tokens ?? 0, cost: typeof u.cost === 'number' ? u.cost : null } };
+        return { text, model: body.model || config.model, usage: { input: spent.input, output: spent.output, cost: spent.priced ? spent.cost : null } };
       }
       lastError = new AiError('api', `${PROVIDERS[config.provider].label} returned an empty answer. Try again.`, true);
       continue;
@@ -516,4 +522,26 @@ export async function setModel(userId: string, provider: ProviderId, model: stri
     update: { model },
     create: { userId, provider, apiKey: cred.apiKey, model, models: cred.models },
   });
+}
+
+// OpenRouter's own numbers for a key: spend today, this week, this month and in total, and its limit.
+// The exact source of truth, including calls made before InstaSage started logging them.
+export async function openRouterKeyUsage(apiKey: string) {
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
+    if (!res.ok) return null;
+    const d = ((await res.json()) as { data?: Record<string, unknown> }).data ?? {};
+    const num = (v: unknown) => (typeof v === 'number' ? v : null);
+    return {
+      total: num(d.usage),
+      daily: num(d.usage_daily),
+      weekly: num(d.usage_weekly),
+      monthly: num(d.usage_monthly),
+      limit: num(d.limit),
+      remaining: num(d.limit_remaining),
+      freeTier: d.is_free_tier === true,
+    };
+  } catch {
+    return null;
+  }
 }

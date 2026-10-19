@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUserId, unauthorized } from '@/lib/api';
+import { listCredentials, openRouterKeyUsage } from '@/services/llm';
 
 // AI answers over the last 30 days, totalled by feature and by model
 export async function GET() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
   const since = new Date(Date.now() - 30 * 86_400_000);
-  const rows = await prisma.aiUsage.findMany({ where: { userId, createdAt: { gte: since } }, select: { feature: true, provider: true, model: true, inputTokens: true, outputTokens: true, cost: true } });
+  const { creds } = await listCredentials(userId);
+  const orKey = creds.get('openrouter')?.apiKey;
+  const [openrouter, rows] = await Promise.all([orKey ? openRouterKeyUsage(orKey) : Promise.resolve(null), prisma.aiUsage.findMany({ where: { userId, createdAt: { gte: since } }, select: { feature: true, provider: true, model: true, inputTokens: true, outputTokens: true, cost: true } })]);
 
   type Total = { key: string; requests: number; input: number; output: number; cost: number; unpriced: number };
   const add = (map: Map<string, Total>, key: string, r: (typeof rows)[number]) => {
@@ -28,5 +31,5 @@ export async function GET() {
     add(all, 'all', r);
   }
   const sort = (m: Map<string, Total>) => [...m.values()].sort((a, b) => b.requests - a.requests);
-  return NextResponse.json({ total: all.get('all') ?? { key: 'all', requests: 0, input: 0, output: 0, cost: 0, unpriced: 0 }, byFeature: sort(byFeature), byModel: sort(byModel) });
+  return NextResponse.json({ total: all.get('all') ?? { key: 'all', requests: 0, input: 0, output: 0, cost: 0, unpriced: 0 }, byFeature: sort(byFeature), byModel: sort(byModel), openrouter });
 }
