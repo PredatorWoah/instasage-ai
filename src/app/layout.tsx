@@ -6,7 +6,10 @@ const display = Bricolage_Grotesque({ subsets: ['latin'], variable: '--font-bric
 const sans = DM_Sans({ subsets: ['latin'], variable: '--font-dmsans' });
 
 export const metadata: Metadata = {
-  title: 'InstaSage',
+  title: {
+    template: '%s · InstaSage',
+    default: 'InstaSage',
+  },
   description: 'Production-grade social media analytics dashboard for creators. Track performance, get AI insights, and grow faster.',
   appleWebApp: { capable: true, title: 'InstaSage', statusBarStyle: 'black' },
   icons: { apple: '/icons/apple-touch-icon.png' },

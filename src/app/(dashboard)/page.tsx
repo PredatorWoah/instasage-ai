@@ -20,7 +20,7 @@ import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
 import { prisma } from '@/lib/prisma';
 import { Guard } from '@/components/ui/Guard';
 
-export const metadata = { title: 'Overview · InstaSage' };
+export const metadata = { title: 'Overview' };
 
 // "Sun 21 Sep, 7:30 pm" in the creator's timezone
 const formatPosted = (d: Date, timeZone: string) =>

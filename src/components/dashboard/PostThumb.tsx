@@ -7,14 +7,26 @@ import { formatLabel } from '@/lib/platform';
 
 // Instagram's image links expire after a few days. When one has, show a tidy placeholder
 // instead of a broken image (the next sync brings back a fresh link).
-export function PostThumb({ src, type, sizes, zoom = true }: { src?: string | null; type: string; sizes: string; zoom?: boolean }) {
+export function PostThumb({
+  src,
+  type,
+  sizes,
+  zoom = true,
+  compact = false,
+}: {
+  src?: string | null;
+  type: string;
+  sizes: string;
+  zoom?: boolean;
+  compact?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
     const Icon = ['reel', 'video', 'short'].includes(type) ? Play : ImageIcon;
     return (
-      <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white/90">
-        <Icon className="w-5 h-5" />
-        <span className="text-[11px] font-bold">{formatLabel(type)}</span>
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 text-white/90">
+        <Icon className={compact ? 'w-3.5 h-3.5 text-muted-foreground' : 'w-5 h-5'} />
+        {!compact && <span className="text-[11px] font-bold">{formatLabel(type)}</span>}
       </span>
     );
   }

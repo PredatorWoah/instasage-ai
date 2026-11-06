@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { CommentsView } from '@/components/comments/CommentsView';
 
-export const metadata = { title: 'Comments · InstaSage' };
+export const metadata = { title: 'Comments' };
 
 export default function CommentsPage() {
   return (
