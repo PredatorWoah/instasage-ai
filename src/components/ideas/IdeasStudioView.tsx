@@ -1,0 +1,72 @@
+'use client';
+
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { CalendarDays, Compass, KanbanSquare, MessagesSquare, Zap } from 'lucide-react';
+import { ExportAnalysis } from '@/components/export/ExportAnalysis';
+import { GamePlanView } from '@/components/ideas/GamePlanView';
+import { Brainstorm } from '@/components/ideas/Brainstorm';
+import { IdeaBoard } from '@/components/ideas/IdeaBoard';
+import { ContentCalendar } from '@/components/ideas/ContentCalendar';
+import { QuickWins } from '@/components/ideas/QuickWins';
+import { cn } from '@/lib/utils';
+
+const TABS = [
+  { id: 'plan', label: 'Game plan', short: 'Plan', icon: Compass, blurb: 'Do\'s, don\'ts and the next 30 days, worked out from your numbers' },
+  { id: 'brainstorm', label: 'Brainstorm', short: 'Chat', icon: MessagesSquare, blurb: 'Think out loud with Sage. Every conversation is saved' },
+  { id: 'board', label: 'Idea board', short: 'Board', icon: KanbanSquare, blurb: 'Everything you kept, from idea to posted' },
+  { id: 'calendar', label: 'Calendar', short: 'Cal', icon: CalendarDays, blurb: 'What went out, what is planned, and the open slots in your game plan' },
+  { id: 'quick', label: 'Quick wins', short: 'Wins', icon: Zap, blurb: 'Small moves you can make this week' },
+] as const;
+
+export function IdeasStudioView() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const tab = TABS.find((t) => t.id === params.get('tab')) ?? TABS[0];
+
+  const select = (id: string) => router.replace(id === 'plan' ? pathname : `${pathname}?tab=${id}`, { scroll: false });
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col 2xl:flex-row 2xl:items-end 2xl:justify-between gap-4">
+        <div>
+          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Ideas Studio</h1>
+          <p className="text-[15px] text-muted-foreground mt-3">{tab.blurb}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 2xl:justify-end">
+          <ExportAnalysis />
+          <div role="tablist" aria-label="Ideas Studio" className="grid grid-cols-5 lg:flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06] self-start w-full lg:w-auto">
+            {TABS.map((t) => {
+              const Icon = t.icon;
+              const active = t.id === tab.id;
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => select(t.id)}
+                  className={cn(
+                    'flex items-center justify-center gap-1 sm:gap-1.5 h-10 px-1.5 sm:px-4 rounded-full text-[12px] sm:text-[13px] font-bold transition-all whitespace-nowrap',
+                    active ? 'bg-ink text-background shadow-[0_6px_24px_rgba(255,255,255,0.15)]' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">{t.label}</span>
+                  <span className="sm:hidden">{t.short}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div key={tab.id} className="animate-rise">
+        {tab.id === 'plan' && <GamePlanView />}
+        {tab.id === 'brainstorm' && <Brainstorm />}
+        {tab.id === 'board' && <IdeaBoard />}
+        {tab.id === 'calendar' && <ContentCalendar />}
+        {tab.id === 'quick' && <QuickWins />}
+      </div>
+    </div>
+  );
+}

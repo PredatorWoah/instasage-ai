@@ -1,6 +1,6 @@
 import { InsightsView } from '@/components/ai-assistant/InsightsView';
 
-export const metadata = { title: 'AI Insights · InstaSage' };
+export const metadata = { title: 'AI Insights' };
 
 export default function InsightsPage() {
   return <InsightsView />;

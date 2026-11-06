@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { CompetitorsView } from '@/components/competitors/CompetitorsView';
 
-export const metadata = { title: 'Competitors · InstaSage' };
+export const metadata = { title: 'Competitors' };
 
 export default function CompetitorsPage() {
   return (

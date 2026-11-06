@@ -9,7 +9,7 @@ import { AiUsageCard } from '@/components/settings/AiUsageCard';
 import { ThemePicker } from '@/components/settings/ThemePicker';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 
-export const metadata = { title: 'Settings · InstaSage' };
+export const metadata = { title: 'Settings' };
 
 // Most used first; the chips at the top jump straight to a section
 const SECTIONS = [
