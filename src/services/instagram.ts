@@ -151,6 +151,17 @@ export async function getInstagramReelMetrics(token: string, mediaId: string) {
   return { avgWatchMs: avgWatchMs != null ? Math.round(avgWatchMs) : null, skipRate };
 }
 
+// Plays on Facebook for a post shared or recommended there. Instagram answers with an error when the
+// post was never on Facebook, which simply means none.
+export async function getInstagramFacebookViews(token: string, mediaId: string) {
+  try {
+    const res = await igGet<{ data: InsightRow[] }>(`/${mediaId}/insights`, token, { metric: 'facebook_views' });
+    return res.data[0] ? readValue(res.data[0]) : null;
+  } catch {
+    return null;
+  }
+}
+
 export type Funnel = { profileViews: number | null; linkTaps: number | null; follows: number | null; unfollows: number | null; accountsEngaged: number | null };
 
 // The last 30 days as totals: how many people visited the profile, tapped the link, followed or left

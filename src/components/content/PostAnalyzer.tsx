@@ -35,6 +35,7 @@ type PostData = {
     username: string;
     avgWatchMs: number | null;
     skipRate: number | null;
+    facebookViews?: number | null;
   };
   snapshots: Snapshot[];
   benchmarks: Record<'views' | 'reach' | 'likes' | 'comments' | 'saves' | 'shares' | 'engagement', number> & {
@@ -169,6 +170,13 @@ export function PostAnalyzer({ id }: { id: string }) {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
             <StatTile label="Views" value={post.views} average={b.views} />
+            {post.facebookViews != null && post.facebookViews > 0 && (
+              <div className="p-3 rounded-lg border border-border bg-secondary/15">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On Facebook</p>
+                <p className="text-lg font-bold tabular-nums mt-0.5">{formatNumber(post.facebookViews)}</p>
+                <p className="text-[10px] text-muted-foreground">{post.type === 'reel' ? 'included in views' : 'part of views'} · {Math.round((post.facebookViews / Math.max(1, post.views)) * 100)}% of the total</p>
+              </div>
+            )}
             {post.reach != null && <StatTile label="Reach" value={post.reach} average={b.reach} />}
             <StatTile label="Likes" value={post.likes} average={b.likes} />
             <StatTile label="Comments" value={post.comments} average={b.comments} />

@@ -86,6 +86,7 @@ model Post {
   type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story'
   avgWatchMs       Int?     // reels: average watch time per play
   skipRate         Float?   // reels: % of plays skipped in the first seconds, when Instagram reports it
+  facebookViews    Int?     // plays on Facebook (cross-posted or recommended there); added into views for Reels
   ideas            SavedIdea[]
   snapshots        PostSnapshot[]
 
