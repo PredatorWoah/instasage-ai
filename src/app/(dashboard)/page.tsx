@@ -8,7 +8,7 @@ import { getTimeZone } from '@/lib/api';
 import { formatLabel, terms } from '@/lib/platform';
 import { PostThumb } from '@/components/dashboard/PostThumb';
 import { getDashboardData } from '@/services/dashboard';
-import { getCachedResult, type AiRecommendation, type Insight } from '@/services/ai';
+import { getCachedResult, postVerdicts, type AiRecommendation, type Insight } from '@/services/ai';
 import { EngagementChart, FollowersChart } from '@/components/charts/LazyCharts';
 import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
 import { formatAge, formatNumber, getPerformanceLabel } from '@/utils/formatters';
@@ -19,6 +19,7 @@ import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
 import { prisma } from '@/lib/prisma';
 import { Guard } from '@/components/ui/Guard';
+import { AutoReview } from '@/components/dashboard/AutoReview';
 
 export const metadata = { title: 'Overview' };
 
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
         : 'Connect Instagram or YouTube to start your story.');
   const idea = ideas?.items[0];
   const latest = data.latestPosts;
+  const verdicts = await postVerdicts(session.user.id, latest.map((p) => p.id)).catch(() => ({} as Awaited<ReturnType<typeof postVerdicts>>));
 
   return (
     <div className="flex flex-col gap-4">
@@ -210,6 +212,7 @@ export default async function DashboardPage() {
       </section>
 
       {/* Latest posts */}
+      <AutoReview pending={hasData} />
       {latest.length > 0 && (
         <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -256,7 +259,14 @@ export default async function DashboardPage() {
                         </span>
                       ) : null}
                       {post.isBoosted && <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[11px] font-bold">Boosted</span>}
+                      {verdicts[post.id]?.bestFor && <span className="px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-[11px] font-bold">Good for {verdicts[post.id].bestFor.toLowerCase().slice(0, 28)}</span>}
                     </span>
+                    {verdicts[post.id]?.verdict && (
+                      <span className="flex gap-1.5 text-[11.5px] leading-snug text-muted-foreground" title={verdicts[post.id].verdict}>
+                        <Sparkles className="w-3 h-3 mt-0.5 shrink-0 text-violet-400" />
+                        <span className="line-clamp-2">{verdicts[post.id].verdict}</span>
+                      </span>
+                    )}
                   </span>
                 </Link>
               );
