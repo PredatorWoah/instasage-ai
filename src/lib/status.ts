@@ -18,6 +18,7 @@ export type AppStatus = {
   facebook: { igUsername: string; expiresAt: string | null; expired: boolean } | null;
   setup: { dismissed: boolean; steps: Record<'account' | 'synced' | 'ai' | 'timezone' | 'profile' | 'goal', boolean> };
   jobs: { id: string; username: string; platform: string; status: string; error: string | null; at: string; seconds: number | null }[];
+  facebookViews: { username: string; reported: number; missing: number; lastError: string | null; at: string }[];
   version: string | null;
 };
 

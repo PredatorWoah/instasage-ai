@@ -151,15 +151,21 @@ export async function getInstagramReelMetrics(token: string, mediaId: string) {
   return { avgWatchMs: avgWatchMs != null ? Math.round(avgWatchMs) : null, skipRate };
 }
 
-// Plays on Facebook for a post shared or recommended there. Instagram answers with an error when the
-// post was never on Facebook, which simply means none.
-export async function getInstagramFacebookViews(token: string, mediaId: string) {
-  try {
-    const res = await igGet<{ data: InsightRow[] }>(`/${mediaId}/insights`, token, { metric: 'facebook_views' });
-    return res.data[0] ? readValue(res.data[0]) : null;
-  } catch {
-    return null;
+// Plays on Facebook for a post shared or recommended there. The metric is recent, so ask a current API
+// version first (an unversioned call uses the app's default version, which can predate it). Instagram
+// answers with an error when the post was never on Facebook; the message is passed on for diagnostics.
+const FB_VIEWS_VERSIONS = ['/v26.0', ''];
+export async function getInstagramFacebookViews(token: string, mediaId: string): Promise<{ value: number | null; error: string | null }> {
+  let error: string | null = null;
+  for (const v of FB_VIEWS_VERSIONS) {
+    try {
+      const res = await igGet<{ data: InsightRow[] }>(`${v}/${mediaId}/insights`, token, { metric: 'facebook_views' });
+      return { value: res.data[0] ? readValue(res.data[0]) : null, error: null };
+    } catch (e) {
+      error = (e as Error).message;
+    }
   }
+  return { value: null, error };
 }
 
 export type Funnel = { profileViews: number | null; linkTaps: number | null; follows: number | null; unfollows: number | null; accountsEngaged: number | null };

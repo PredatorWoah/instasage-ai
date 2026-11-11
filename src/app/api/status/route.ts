@@ -72,6 +72,10 @@ export async function GET() {
       at: j.startedAt,
       seconds: j.completedAt ? Math.max(0, Math.round((j.completedAt.getTime() - j.startedAt.getTime()) / 1000)) : null,
     })),
+    facebookViews: (await prisma.appConfig.findMany({ where: { key: { in: profiles.map((p) => `diag:fbviews:${p.id}`) } } })).map((row) => {
+      const p = profiles.find((x) => row.key.endsWith(x.id));
+      return { username: p?.username ?? '', ...(JSON.parse(row.value) as { reported: number; missing: number; lastError: string | null; at: string }) };
+    }),
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
   });
 }

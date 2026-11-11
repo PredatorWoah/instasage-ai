@@ -211,13 +211,21 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   // Watch time and skip rate barely move once a reel is a month old, so older reels are asked once
   const watched = new Set((await prisma.post.findMany({ where: { socialProfileId: profile.id, avgWatchMs: { not: null } }, select: { id: true } })).map((p) => p.id));
 
+  // How Instagram answered the Facebook-views question for reels, shown on the Status page
+  const fbDiag = { reported: 0, missing: 0, lastError: null as string | null };
+
   await inBatches(media, 5, async (m) => {
     const askReel = m.media_product_type === 'REELS' && (Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000 || !watched.has(m.id));
-    const [{ values, failed }, reel, facebookViews] = await Promise.all([
+    const [{ values, failed }, reel, fb] = await Promise.all([
       getInstagramMediaInsights(token, m.id),
       askReel ? getInstagramReelMetrics(token, m.id) : Promise.resolve(null),
       getInstagramFacebookViews(token, m.id),
     ]);
+    const facebookViews = fb.value;
+    if (m.media_product_type === 'REELS') {
+      if (fb.value != null) fbDiag.reported++;
+      else { fbDiag.missing++; fbDiag.lastError = fb.error; }
+    }
     failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
     if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
 
@@ -264,6 +272,11 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
     });
     await snapshotPost(m.id, new Date(m.timestamp), { views, reach, likes, comments, saves, shares });
   });
+  if (fbDiag.reported + fbDiag.missing > 0) {
+    if (fbDiag.missing) console.warn(`Facebook views missing on ${fbDiag.missing} reels:`, fbDiag.lastError);
+    const value = JSON.stringify({ ...fbDiag, at: new Date().toISOString() });
+    await prisma.appConfig.upsert({ where: { key: `diag:fbviews:${profile.id}` }, create: { key: `diag:fbviews:${profile.id}`, value }, update: { value } }).catch(() => {});
+  }
   if (failedMetrics.size) console.warn('Instagram metrics unavailable on some posts:', [...failedMetrics].join(', '));
 
   const [daily, reach30, funnel, { audience, warnings }] = await accountLevel;
