@@ -25,14 +25,14 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
       where: { socialProfileId: { in: profileIds }, publishedAt: { gte: since } },
       select: { publishedAt: true, performanceScore: true, views: true, platform: true, reach: true, likes: true, comments: true, saves: true, shares: true, isBoosted: true },
     }),
-    prisma.post.aggregate({ where: { socialProfileId: { in: profileIds } }, _sum: { views: true } }),
+    prisma.post.aggregate({ where: { socialProfileId: { in: profileIds }, publishedAt: { gte: since } }, _sum: { views: true } }),
     prisma.post.aggregate({ where: { socialProfileId: { in: profileIds }, isBoosted: false }, _avg: { views: true } }),
     prisma.metric.findMany({
       where: { socialProfileId: { in: profileIds }, date: { gte: since } },
       orderBy: { date: 'asc' },
     }),
     prisma.post.findMany({
-      where: { socialProfileId: { in: profileIds } },
+      where: { socialProfileId: { in: profileIds }, publishedAt: { gte: since } },
       orderBy: { performanceScore: 'desc' },
       take: 5,
     }),
@@ -117,6 +117,9 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
   // Unique accounts reached in the last 30 days, straight from Instagram (null until the next sync)
   const instagram = profiles.filter((p) => p.platform === 'instagram');
   const reach30 = instagram.length && instagram.every((p) => p.reach30 != null) ? instagram.reduce((a, p) => a + (p.reach30 ?? 0), 0) : null;
+  // Other windows: Instagram only gives a unique count for 28/30 days, so daily reach is added up
+  const dailyReach = timeSeries.some((p) => p.reach !== undefined) ? timeSeries.reduce((a, p) => a + (p.reach ?? 0), 0) : null;
+  const reach = days === 30 ? { value: reach30 ?? dailyReach, unique: reach30 != null } : { value: dailyReach, unique: false };
 
   const now = Date.now();
   const latestPosts = posts.slice(0, 4).map((p) => ({ ...p, ageDays: (now - p.publishedAt.getTime()) / 86_400_000 }));
@@ -141,6 +144,7 @@ export async function getDashboardData(scope: AccountScope, days = 30, timeZone 
       engagementPosts: counted,
       avgViews: Math.round(organicAvg._avg.views ?? 0),
       reach30,
+      reach,
       channelViews: timeSeries.some((p) => p.channelViews !== undefined) ? timeSeries.reduce((a, p) => a + (p.channelViews ?? 0), 0) : null,
     },
   };

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { NAV_TABS, MENU_LINKS, activeTabIndex } from '@/constants/navigation';
 import { AccountSwitcher } from './AccountSwitcher';
+import { PeriodPicker } from './PeriodPicker';
 import { AlertsBell } from './AlertsBell';
 import { OPEN_PALETTE } from './CommandPalette';
 import { MobileNav } from './MobileNav';
@@ -22,7 +23,7 @@ import { clearJsonCache, prefetchJson } from '@/lib/useCachedJson';
 
 // Data each tab needs, fetched as soon as a finger or pointer lands on the tab
 const TAB_DATA: Record<string, string[]> = {
-  analytics: ['/api/analytics?days=30'],
+  analytics: ['/api/analytics'],
   content: ['/api/posts'],
   insights: ['/api/ai/insights'],
   recommendations: ['/api/ai/plan', '/api/ideas/threads'],
@@ -140,6 +141,7 @@ export function SiteHeader() {
             <Search className="w-[18px] h-[18px]" />
           </button>
           <Guard name="AlertsBell"><AlertsBell /></Guard>
+          <Guard name="PeriodPicker"><PeriodPicker /></Guard>
           <Guard name="AccountSwitcher"><AccountSwitcher /></Guard>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

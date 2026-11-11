@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import Link from 'next/link';
@@ -11,21 +10,26 @@ import { EngagementChart, FollowersChart, PostingFrequencyChart, ReachChart, Vie
 import type { PeriodTotals } from '@/services/dashboard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { setPeriod, usePeriod } from '@/lib/usePeriod';
 
 export function AnalyticsView() {
-  const [days, setDays] = useState<number>(30);
-  const { data } = useCachedJson<{ days: number; hasData: boolean; timeSeries: TimeSeriesPoint[]; funnel: FunnelData | null; compare?: { current: PeriodTotals; previous: PeriodTotals } } | null>(`/api/analytics?days=${days}`);
+  const period = usePeriod();
+  const { data } = useCachedJson<{ days: number; allTime?: boolean; hasData: boolean; timeSeries: TimeSeriesPoint[]; funnel: FunnelData | null; compare?: { current: PeriodTotals; previous: PeriodTotals } } | null>('/api/analytics');
+  const days = data?.days ?? period.days ?? 30;
 
   const { t } = usePlatform();
   const series = data?.timeSeries ?? [];
   const loading = data === undefined;
 
-  const timeFilters = [
+  // Shortcuts for the top bar's time window (the picker there also takes any number of days)
+  const timeFilters: { label: string; value: number | null }[] = [
     { label: '7 Days', value: 7 },
     { label: '30 Days', value: 30 },
     { label: '90 Days', value: 90 },
     { label: '1 Year', value: 365 },
+    { label: 'All', value: null },
   ];
+  const span = period.days == null ? 'all time' : `last ${days} days`;
 
   const charts = [
     t.yt
@@ -41,7 +45,7 @@ export function AnalyticsView() {
         },
     {
       title: 'Total Views',
-      subtitle: `Views on the ${t.posts} published each day, last ${days} days`,
+      subtitle: `Views on the ${t.posts} published each day, ${span}`,
       component: <ViewsChart data={series} />,
     },
     {
@@ -56,7 +60,7 @@ export function AnalyticsView() {
     },
     {
       title: 'Posting Frequency',
-      subtitle: `${t.Posts} published per day, last ${days} days`,
+      subtitle: `${t.Posts} published per day, ${span}`,
       component: <PostingFrequencyChart data={series} label={t.Posts} />,
       fullWidth: true,
     },
@@ -73,10 +77,10 @@ export function AnalyticsView() {
         <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-lg border border-border self-start shrink-0">
           {timeFilters.map((filter) => (
             <Button
-              key={filter.value}
-              variant={days === filter.value ? 'default' : 'ghost'}
+              key={filter.label}
+              variant={period.days === filter.value ? 'default' : 'ghost'}
               size="sm"
-              onClick={() => setDays(filter.value)}
+              onClick={() => period.days !== filter.value && setPeriod(filter.value)}
               className="text-xs h-7 px-3"
             >
               {filter.label}
@@ -117,7 +121,7 @@ export function AnalyticsView() {
             </p>
           )}
 
-          {data?.hasData && data.compare && (
+          {data?.hasData && data.compare && !data.allTime && (
             <PeriodCompare current={data.compare.current} previous={data.compare.previous} days={data.days} labels={{ posts: t.posts, followers: t.followers, yt: t.yt }} />
           )}
 

@@ -10,7 +10,7 @@ export class AiError extends Error {
   }
 }
 
-export type ProviderId = 'gemini' | 'anthropic' | 'openai' | 'openrouter';
+export type ProviderId = 'gemini' | 'anthropic' | 'openai' | 'openrouter' | 'deepseek';
 export type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
 export const PROVIDERS: Record<ProviderId, {
@@ -53,6 +53,15 @@ export const PROVIDERS: Record<ProviderId, {
     keyUrl: 'https://openrouter.ai/settings/keys',
     defaultModel: 'deepseek/deepseek-chat',
     suggested: ['deepseek/deepseek-chat', 'meta-llama/llama-3.3-70b-instruct', 'mistralai/mistral-large', 'x-ai/grok-4', 'qwen/qwen3-235b-a22b'],
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    company: 'DeepSeek',
+    keyPrefix: 'sk-',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+    // The real list comes from the key itself when it is saved (DeepSeek renames models often)
+    defaultModel: 'deepseek-v4-flash',
+    suggested: ['deepseek-v4-flash', 'deepseek-v4-pro'],
   },
 };
 
@@ -183,6 +192,7 @@ function generateWith(config: LlmConfig, prompt: string, options: Options): Prom
     case 'anthropic': return claude(config, prompt, options);
     case 'openai': return openAiCompatible('https://api.openai.com/v1', config, prompt, options);
     case 'openrouter': return openAiCompatible('https://openrouter.ai/api/v1', config, prompt, options);
+    case 'deepseek': return openAiCompatible(DEEPSEEK, config, prompt, options);
   }
 }
 
@@ -366,7 +376,9 @@ async function claude(config: LlmConfig, prompt: string, options: Options) {
   }
 }
 
-// ---------- OpenAI and OpenRouter (same chat completions shape) ----------
+// ---------- OpenAI, OpenRouter and DeepSeek (same chat completions shape) ----------
+
+const DEEPSEEK = 'https://api.deepseek.com';
 
 function explainOpenAiError(provider: ProviderId, status: number, body: { error?: { message?: string } }) {
   const name = PROVIDERS[provider].label;
@@ -448,6 +460,30 @@ async function openAiModels(apiKey: string) {
   return { model, models: ids.slice(0, 40) };
 }
 
+async function deepSeekModels(apiKey: string) {
+  const res = await netFetch('deepseek', `${DEEPSEEK}/models`, { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw explainOpenAiError('deepseek', res.status, body);
+  const ids = ((body.data ?? []) as { id: string }[]).map((m) => m.id);
+  // The cheap, fast model first: it is plenty for InstaSage and costs a fraction of the big one
+  const model = ids.find((id) => /flash/.test(id)) ?? PROVIDERS.deepseek.suggested.find((id) => ids.includes(id)) ?? ids[0] ?? PROVIDERS.deepseek.defaultModel;
+  return { model, models: ids.length ? ids : PROVIDERS.deepseek.suggested };
+}
+
+// DeepSeek's own account balance. Its API does not return a price per call, so this is the real spend signal
+export async function deepSeekBalance(apiKey: string) {
+  try {
+    const res = await fetch(`${DEEPSEEK}/user/balance`, { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { is_available?: boolean; balance_infos?: { currency: string; total_balance: string; granted_balance: string; topped_up_balance: string }[] };
+    const info = d.balance_infos?.find((b) => b.currency === 'USD') ?? d.balance_infos?.[0];
+    if (!info) return null;
+    return { currency: info.currency, total: Number(info.total_balance), granted: Number(info.granted_balance), toppedUp: Number(info.topped_up_balance), available: d.is_available !== false };
+  } catch {
+    return null;
+  }
+}
+
 async function openRouterModels(apiKey: string) {
   const check = await netFetch('openrouter', 'https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${apiKey}` }, cache: 'no-store' });
   if (!check.ok) throw explainOpenAiError('openrouter', check.status, await check.json().catch(() => ({})));
@@ -471,6 +507,7 @@ export async function saveCredential(userId: string, provider: ProviderId, rawKe
   if (provider === 'gemini') found = await geminiModels(apiKey);
   else if (provider === 'openai') found = await openAiModels(apiKey);
   else if (provider === 'openrouter') found = await openRouterModels(apiKey);
+  else if (provider === 'deepseek') found = await deepSeekModels(apiKey);
   else found = { model: PROVIDERS.anthropic.defaultModel, models: PROVIDERS.anthropic.suggested };
 
   const model = wantedModel?.trim() || found.model;
@@ -498,6 +535,7 @@ export async function refreshModels(userId: string, provider: ProviderId) {
   if (provider === 'gemini') found = await geminiModels(cred.apiKey);
   else if (provider === 'openai') found = await openAiModels(cred.apiKey);
   else if (provider === 'openrouter') found = await openRouterModels(cred.apiKey);
+  else if (provider === 'deepseek') found = await deepSeekModels(cred.apiKey);
   else found = { model: cred.model, models: PROVIDERS.anthropic.suggested };
 
   const model = provider === 'anthropic' || found.models.includes(cred.model) ? cred.model : found.model;

@@ -19,6 +19,7 @@ import { SetupChecklist } from '@/components/dashboard/SetupChecklist';
 import { followersPerDay, goalForecast, type Goal } from '@/lib/goal';
 import { prisma } from '@/lib/prisma';
 import { Guard } from '@/components/ui/Guard';
+import { periodLabel, periodPhrase } from '@/lib/period';
 import { AutoReview } from '@/components/dashboard/AutoReview';
 
 export const metadata = { title: 'Overview' };
@@ -33,9 +34,9 @@ export default async function DashboardPage() {
 
   const [scope, timeZone] = await Promise.all([getAccountScope(session.user.id), getTimeZone(session.user.id)]);
   const [data, insights, ideas, owner] = await Promise.all([
-    getDashboardData(scope, 30, timeZone),
-    getCachedResult<Insight>(session.user.id, 'insights', scope.key),
-    getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.key),
+    getDashboardData(scope, scope.span, timeZone),
+    getCachedResult<Insight>(session.user.id, 'insights', scope.aiKey),
+    getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.aiKey),
     prisma.user.findUnique({ where: { id: session.user.id }, select: { goal: true } }),
   ]);
 
@@ -52,15 +53,18 @@ export default async function DashboardPage() {
   } catch (error) {
     console.error('Goal forecast failed:', error, owner?.goal);
   }
+  const label = periodLabel(scope.days);
+  const phrase = periodPhrase(scope.days);
+  const short = scope.days == null ? 'all time' : `${scope.days} days`;
   const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
   // The banner tells the month's story: the latest AI insight, or a line built from the numbers
   const story =
     insights?.items[0]?.title ??
     (kpis.followersChange > 0
-      ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} in the last 30 days.`
+      ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} ${scope.days == null ? "since InstaSage started tracking" : `in ${phrase}`}.`
       : hasData
-        ? `${formatNumber(kpis.views)} views across your ${t.posts} so far.`
+        ? `${formatNumber(kpis.views)} views ${scope.days == null ? `across all your ${t.posts}` : `on your ${t.posts} from ${phrase}`}.`
         : 'Connect Instagram or YouTube to start your story.');
   const idea = ideas?.items[0];
   const latest = data.latestPosts;
@@ -73,7 +77,7 @@ export default async function DashboardPage() {
         <div aria-hidden className="absolute right-[18%] -top-36 w-[420px] h-[420px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.55),transparent)]" />
         <div className="relative flex flex-col justify-between gap-6 max-w-[720px]">
           <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
-            <Sparkles className="w-3.5 h-3.5" /> Your last 30 days · {who}
+            <Sparkles className="w-3.5 h-3.5" /> {scope.days == null ? 'All time' : `Your ${phrase.replace(/^the /, '')}`} · {who}
           </span>
           <div className="space-y-2">
             <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
@@ -122,13 +126,13 @@ export default async function DashboardPage() {
           <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
         </div>
         <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-ink/30 text-[13px] font-bold">{t.yt ? 'Channel views · 30 days' : 'Reached · 30 days'}</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-ink/30 text-[13px] font-bold" title={t.yt ? undefined : kpis.reach.unique ? 'Unique accounts reached in the last 30 days, from Instagram' : 'Daily reach added up over the window (Instagram only gives a unique count for 30 days)'}>{t.yt ? `Channel views · ${short}` : `Reached · ${short}`}</span>
           <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
-            {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : kpis.reach30 != null ? formatNumber(kpis.reach30) : '—'}
+            {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : kpis.reach.value != null ? formatNumber(kpis.reach.value) : '—'}
           </span>
         </div>
         <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
-          <span className="self-start px-3 py-1.5 rounded-full bg-ink/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from the last 30 days`}>Engagement</span>
+          <span className="self-start px-3 py-1.5 rounded-full bg-ink/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from ${phrase}`}>Engagement</span>
           <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
             <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
             {hasData && <span className="text-[13px] font-bold pb-1">{getPerformanceLabel(kpis.engagement)}</span>}
@@ -164,11 +168,11 @@ export default async function DashboardPage() {
       <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Top {t.posts}</h2>
+            <h2 className="text-xl font-bold">Top {t.posts} <span className="text-sm font-medium text-muted-foreground">· {label.toLowerCase()}</span></h2>
             <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
           </div>
           {data.topPosts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8">Nothing synced yet. Connect an account and press Sync on the Accounts page.</p>
+            <p className="text-sm text-muted-foreground py-8">{hasData ? `No ${t.posts} in ${phrase}. Pick a longer time window at the top.` : 'Nothing synced yet. Connect an account and press Sync on the Accounts page.'}</p>
           ) : (
             <div className={t.yt ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' : 'grid grid-cols-3 sm:grid-cols-5 gap-3'}>
               {data.topPosts.map((post, i) => (
@@ -278,7 +282,7 @@ export default async function DashboardPage() {
       {/* Trends */}
       <section className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-3">
-          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">{t.followers}</h2><span className="text-xs text-muted-foreground">30 days</span></div>
+          <div className="flex items-baseline justify-between"><h2 className="text-lg font-bold">{t.followers}</h2><span className="text-xs text-muted-foreground">{label}</span></div>
           <FollowersChart data={timeSeries} label={t.followers} />
         </div>
         <div className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-3">
