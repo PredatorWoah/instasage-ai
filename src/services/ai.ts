@@ -45,18 +45,87 @@ async function ideaResults(userId: string, profileIds: string[]) {
   return rows.length ? `\n## Ideas from their board that they posted, and how they did\nLean into what worked here and learn from what did not.\n${rows.join('\n')}` : '';
 }
 
+const short = (n: number) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1)}K` : String(Math.round(n)));
+const snippet = (caption: string, max: number) => caption.replace(/\s+/g, ' ').trim().slice(0, max) || '(no caption)';
+
+// The account's standout posts of the last 90 days, so ideas build on proven winners instead of averages
+export async function recentWinners(profileIds: string[], timeZone: string) {
+  const since = new Date(Date.now() - 90 * 86_400_000);
+  let posts = await prisma.post.findMany({
+    where: { socialProfileId: { in: profileIds }, isBoosted: false, publishedAt: { gte: since } },
+    select: { id: true, type: true, caption: true, publishedAt: true, views: true, saves: true, shares: true, performanceScore: true },
+  });
+  if (posts.length < 4) {
+    posts = await prisma.post.findMany({
+      where: { socialProfileId: { in: profileIds }, isBoosted: false },
+      orderBy: { publishedAt: 'desc' },
+      take: 30,
+      select: { id: true, type: true, caption: true, publishedAt: true, views: true, saves: true, shares: true, performanceScore: true },
+    });
+  }
+  if (posts.length < 3) return '';
+  const mid = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    return s[Math.floor(s.length / 2)] || 1;
+  };
+  const midViews = mid(posts.map((p) => p.views));
+  const midSaves = mid(posts.map((p) => p.saves + p.shares));
+  // Posts under two days old are still climbing, so they can't be judged yet
+  const settled = posts.filter((p) => Date.now() - p.publishedAt.getTime() > 2 * 86_400_000);
+  const byViews = settled.filter((p) => p.views > midViews).sort((a, b) => b.views - a.views).slice(0, 4);
+  const byValue = settled.filter((p) => !byViews.includes(p) && p.saves + p.shares > midSaves).sort((a, b) => b.saves + b.shares - (a.saves + a.shares)).slice(0, 2);
+  if (!byViews.length && !byValue.length) return '';
+  const rows = [...byViews, ...byValue].map((p) => {
+    const lift = Math.round(((p.views - midViews) / midViews) * 100);
+    const value = p.saves + p.shares;
+    return `- [${p.type}, ${localTime(p.publishedAt, timeZone)}] "${snippet(p.caption, 120)}": ${short(p.views)} views (${lift >= 0 ? '+' : ''}${lift}% vs their typical post), ${p.saves} saves, ${p.shares} shares${value > midSaves * 2 ? ' (saved and shared far more than usual)' : ''}, ${p.performanceScore.toFixed(1)}% engagement`;
+  });
+  return `\n## Their recent winners\nThe posts that beat their typical numbers most. Build new ideas on the topic, hook, format or timing that made these work, and say which one an idea builds on.\n${rows.join('\n')}\n`;
+}
+
+// A compact row per post so Sage can answer specific questions with real numbers and link the posts
+export async function postTable(profileIds: string[], timeZone: string, limit = 120) {
+  const posts = await prisma.post.findMany({
+    where: { socialProfileId: { in: profileIds } },
+    orderBy: { publishedAt: 'desc' },
+    take: limit,
+    select: {
+      id: true, type: true, caption: true, publishedAt: true, views: true, reach: true, likes: true, comments: true,
+      saves: true, shares: true, performanceScore: true, avgWatchMs: true, isBoosted: true, socialProfile: { select: { username: true } },
+    },
+  });
+  if (!posts.length) return '';
+  const many = new Set(posts.map((p) => p.socialProfile.username)).size > 1;
+  const date = new Intl.DateTimeFormat('en-GB', { timeZone, day: 'numeric', month: 'short', year: '2-digit', weekday: 'short', hour: 'numeric', hour12: true });
+  const rows = posts.map((p) =>
+    [
+      p.id,
+      date.format(p.publishedAt),
+      ...(many ? [`@${p.socialProfile.username}`] : []),
+      p.type + (p.isBoosted ? ' (boosted)' : ''),
+      p.views, p.reach ?? '-', p.likes, p.comments, p.saves, p.shares,
+      `${p.performanceScore.toFixed(1)}%`,
+      p.avgWatchMs != null ? `${(p.avgWatchMs / 1000).toFixed(1)}s` : '-',
+      snippet(p.caption, 80).replace(/\|/g, '/'),
+    ].join(' | '),
+  );
+  const head = ['id', 'posted (local)', ...(many ? ['account'] : []), 'type', 'views', 'reach', 'likes', 'comments', 'saves', 'shares', 'eng', 'avg watch', 'caption start'].join(' | ');
+  return `\n## Every recent post (newest first, ${posts.length} posts)\n${head}\n${rows.join('\n')}\n`;
+}
+
 // Bio, creator profile and numbers, plus competitors and past idea results for the strategy features
 async function context(userId: string, profileIds: string[], timeZone: string, withRivals = false) {
-  const [analysis, rivals, user, results] = await Promise.all([
+  const [analysis, rivals, user, results, winners] = await Promise.all([
     buildAnalysis(profileIds, timeZone),
     withRivals ? competitorsToPrompt(userId) : Promise.resolve(''),
     prisma.user.findUnique({ where: { id: userId }, select: { bio: true, creatorProfile: true } }),
     withRivals ? ideaResults(userId, profileIds) : Promise.resolve(''),
+    withRivals ? recentWinners(profileIds, timeZone) : Promise.resolve(''),
   ]);
   if (analysis.totals.posts === 0) {
     throw new AiError('no_data', 'Connect an account and press Sync first, so there are posts to analyze.');
   }
-  return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) + analysisToPrompt(analysis) + rivals + results;
+  return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) + analysisToPrompt(analysis) + winners + rivals + results;
 }
 
 // JSON answers come back as an object; lists sit under "items"
@@ -120,10 +189,10 @@ export async function generateInsights(userId: string, scope: Scope) {
 
 export async function generateRecommendations(userId: string, scope: Scope) {
   const config = await getAiConfig(userId, 'recommendations');
-  const data = await context(userId, scope.profileIds, config.timeZone);
+  const data = await context(userId, scope.profileIds, config.timeZone, true);
   const { text, model } = await generate(
     config,
-    `${data}\n\nGive 6 quick wins: specific actions this creator can take this week, each following from a pattern in the numbers above.\nReturn a JSON object: {"items": [{"title": an action, max 8 words, "description": 2 or 3 sentences (what to do and which number justifies it), "priority": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth", "impact": short expected result, "effort": "low" | "medium" | "high", "estimatedGrowth": short, e.g. "+10% reach"}]}`,
+    `${data}\n\nGive 6 quick wins: specific actions this creator can take this week, each following from a pattern in the numbers above. At least two should repeat what made one of their recent winners work.\nReturn a JSON object: {"items": [{"title": an action, max 8 words, "description": 2 or 3 sentences (what to do and which number justifies it), "priority": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth", "impact": short expected result, "effort": "low" | "medium" | "high", "estimatedGrowth": short, e.g. "+10% reach"}]}`,
     { json: true, system: ANALYST, feature: 'recommendations' },
   );
   const list = items<Omit<AiRecommendation, 'id'>>(text).slice(0, 8).map((r, i) => ({ ...r, id: `rec-${i}` }));
@@ -139,7 +208,7 @@ export type GamePlan = {
   stop: { title: string; why: string }[];
   pillars: { name: string; description: string; share: number; formats: string }[];
   schedule: { day: string; time: string; format: string; why: string }[];
-  weeks: { week: number; theme: string; goal: string; posts: { day: string; format: string; idea: string; hook: string }[] }[];
+  weeks: { week: number; theme: string; goal: string; posts: { day: string; format: string; idea: string; hook: string; basedOn?: string }[] }[];
   experiments: { title: string; hypothesis: string; how: string; measure: string }[];
   targets: { metric: string; now: string; target: string }[];
 };
@@ -165,7 +234,7 @@ Return a JSON object with exactly these keys:
 "stop": 3 to 5 things to stop or avoid, the don'ts [{"title", "why"}],
 "pillars": 3 or 4 content pillars built from the best performing topics [{"name", "description", "share": percent of posts as a number, "formats": e.g. "Reels, carousels"}],
 "schedule": the weekly posting slots to use, 3 to 6 of them [{"day": "Mon".."Sun", "time": e.g. "7 PM", "format", "why"}],
-"weeks": 4 weeks [{"week": 1..4, "theme", "goal", "posts": 3 to 5 posts [{"day", "format", "idea": one concrete post idea, "hook": the first line or on-screen hook}]}],
+"weeks": 4 weeks [{"week": 1..4, "theme", "goal", "posts": 3 to 5 posts [{"day", "format", "idea": one concrete post idea, "hook": the first line or on-screen hook, "basedOn": which recent winner or rival post this builds on, in a few words, e.g. "your 12 Oct gym reel (+180% views)", or "" for a fresh test}]}],
 "experiments": 2 or 3 tests to run [{"title", "hypothesis", "how", "measure": which number decides it}],
 "targets": 3 or 4 targets for the 30 days [{"metric", "now": current value, "target"}]`,
     { json: true, system: ANALYST, long: true, feature: 'plan' },
@@ -303,10 +372,15 @@ export async function chatWithAssistant(userId: string, scope: Scope, history: C
     if (error instanceof AiError && error.code === 'no_data') data = 'No posts have been synced yet.';
     else throw error;
   }
+  const table = await postTable(scope.profileIds, config.timeZone);
   const { text } = await generate(config, message, {
     history: history.slice(-10),
     feature: 'chat',
-    system: `${ANALYST}\nYou are Sage, chatting inside the creator's analytics dashboard. Keep answers short and practical (under 150 words), plain text, and refer to their real numbers.\n\n${data}`,
+    system: `${ANALYST}
+You are Sage, chatting inside the creator's analytics dashboard. Answer with their real numbers: look posts up in the table below, compare, rank, add up and work out averages when asked. Keep answers practical and short (under 200 words unless they ask for more), plain text with simple "- " bullets when listing. Never invent a post or a number that is not in the data; if something is not there, say so.
+When you mention a specific post, link it exactly like [[post:ID|short label]], using the id from the table, e.g. [[post:abc123|12 Oct gym reel]]. Link only ids from the table.
+
+${data}${table}`,
   });
   return text;
 }
@@ -485,4 +559,56 @@ Return JSON: { "<comment id>": ["reply 1", "reply 2", "reply 3"], ... }`,
     if (ids.has(id) && Array.isArray(replies)) out[id] = replies.filter((r): r is string => typeof r === 'string').map((r) => r.trim().slice(0, 300)).slice(0, 3);
   }
   return out;
+}
+
+// ---------- Automatic post reviews ----------
+
+const AUTO_MIN_AGE = 24 * 3_600_000;
+const AUTO_MAX_AGE = 10 * 86_400_000;
+const failKey = (postId: string) => `autoreview:fail:${postId}`;
+
+// Reviews the newest post that is 1 to 10 days old and has no review yet: one post per call keeps the cost tiny
+export async function autoReviewNext(userId: string) {
+  const now = Date.now();
+  const candidates = await prisma.post.findMany({
+    where: { socialProfile: { userId }, publishedAt: { gte: new Date(now - AUTO_MAX_AGE), lte: new Date(now - AUTO_MIN_AGE) } },
+    orderBy: { publishedAt: 'desc' },
+    take: 20,
+    select: { id: true },
+  });
+  if (!candidates.length) return { reviewed: null, remaining: 0 };
+  const ids = candidates.map((c) => c.id);
+  const [done, failed] = await Promise.all([
+    prisma.aiResult.findMany({ where: { userId, kind: { in: ids.map((id) => `post:${id}`) } }, select: { kind: true } }),
+    prisma.appConfig.findMany({ where: { key: { in: ids.map(failKey) } }, select: { key: true } }),
+  ]);
+  const skip = new Set([...done.map((d) => d.kind.slice(5)), ...failed.map((f) => f.key.slice(failKey('').length))]);
+  const todo = ids.filter((id) => !skip.has(id));
+  if (!todo.length) return { reviewed: null, remaining: 0 };
+
+  try {
+    await analyzePost(userId, todo[0]);
+  } catch (error) {
+    // No key: nothing to do. Anything else gets three tries over later visits, then the post is skipped
+    if (error instanceof AiError && error.code === 'no_key') throw error;
+    const triesKey = `autoreview:tries:${todo[0]}`;
+    const tries = Number((await prisma.appConfig.findUnique({ where: { key: triesKey } }))?.value ?? 0) + 1;
+    await prisma.appConfig.upsert({ where: { key: triesKey }, create: { key: triesKey, value: String(tries) }, update: { value: String(tries) } }).catch(() => {});
+    if (tries >= 3) {
+      const reason = String(error instanceof Error ? error.message : error).slice(0, 300);
+      await prisma.appConfig.upsert({ where: { key: failKey(todo[0]) }, create: { key: failKey(todo[0]), value: reason }, update: { value: reason } }).catch(() => {});
+    }
+    throw error;
+  }
+  return { reviewed: todo[0], remaining: todo.length - 1 };
+}
+
+// Verdicts for a handful of posts, for cards that show a one-line AI take
+export async function postVerdicts(userId: string, postIds: string[]) {
+  if (!postIds.length) return {};
+  const rows = await prisma.aiResult.findMany({ where: { userId, kind: { in: postIds.map((id) => `post:${id}`) } }, select: { kind: true, content: true } });
+  return Object.fromEntries(rows.map((r) => {
+    const a = r.content as Partial<PostAnalysis>;
+    return [r.kind.slice(5), { verdict: String(a.verdict ?? ''), bestFor: String(a.bestFor ?? '') }];
+  })) as Record<string, { verdict: string; bestFor: string }>;
 }

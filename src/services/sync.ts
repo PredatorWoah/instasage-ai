@@ -162,9 +162,13 @@ async function pruneGonePosts(profileId: string, token: string, fetched: string[
   const gone = stored.map((p) => p.id).filter((id) => !live!.has(id));
   if (!gone.length) return 0;
   await prisma.post.deleteMany({ where: { id: { in: gone }, socialProfileId: profileId } });
-  // Cached AI answers were built on those posts
   const owner = await prisma.socialProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
-  if (owner) await prisma.aiResult.deleteMany({ where: { userId: owner.userId, NOT: { kind: { startsWith: 'report:' } } } });
+  // Cached AI answers were built on those posts. Reviews of posts that are still live stay
+  if (owner) {
+    await prisma.aiResult.deleteMany({
+      where: { userId: owner.userId, OR: [{ kind: { in: gone.map((id) => `post:${id}`) } }, { NOT: [{ kind: { startsWith: 'report:' } }, { kind: { startsWith: 'post:' } }] }] },
+    });
+  }
   console.log(`Removed ${gone.length} posts no longer on Instagram (archived or deleted)`);
   return gone.length;
 }

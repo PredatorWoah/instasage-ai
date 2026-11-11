@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
+import Link from 'next/link';
 import { Send } from 'lucide-react';
 import { SageOrb } from './SageOrb';
 import { Button } from '@/components/ui/button';
@@ -10,10 +11,29 @@ import { cn } from '@/lib/utils';
 import { useCachedJson } from '@/lib/useCachedJson';
 
 const SUGGESTED_PROMPTS = [
-  'What performed best this month?',
+  'Which 3 posts got the most saves, and why?',
+  'Compare my reels and carousels this month',
+  'Why did my last post do better or worse?',
   'When should I post next?',
-  'How can I grow my engagement?',
 ];
+
+// Sage writes [[post:ID|label]] for posts it mentions; those become links to the post's page
+function withPostLinks(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  const re = /\[\[post:([^|\]]+)\|([^\]]+)\]\]/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    parts.push(text.slice(last, m.index));
+    parts.push(
+      <Link key={m.index} href={`/content/${encodeURIComponent(m[1].trim())}`} className="font-semibold text-indigo-400 underline underline-offset-2 hover:text-indigo-300">
+        {m[2].trim()}
+      </Link>,
+    );
+    last = m.index + m[0].length;
+  }
+  parts.push(text.slice(last));
+  return parts;
+}
 
 let nextId = 1;
 const newId = () => String(nextId++);
@@ -109,7 +129,7 @@ export function AIChat() {
                         : 'bg-secondary/60 text-foreground rounded-bl-sm'
                     )}
                   >
-                    {msg.content}
+                    {msg.role === 'assistant' ? withPostLinks(msg.content) : msg.content}
                   </div>
                 </div>
               ))}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BookmarkPlus, CalendarDays, Check, FlaskConical, Layers, Rocket, Target, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { BookmarkPlus, CalendarDays, Check, FlaskConical, Layers, Rocket, Target, ThumbsDown, ThumbsUp, TrendingUp } from 'lucide-react';
 import type { GamePlan } from '@/services/ai';
 import { primeJson, useCachedJson } from '@/lib/useCachedJson';
 import { AiNotice } from '@/components/ai-assistant/AiNotice';
@@ -175,7 +175,7 @@ export function GamePlanView() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[11px] font-bold text-muted-foreground">{p.day} · <span className="capitalize">{p.format}</span></span>
                         <button
-                          onClick={() => keep(key, { title: p.idea, notes: `Hook: ${p.hook}\nWeek ${w.week}: ${w.theme}`, format: p.format })}
+                          onClick={() => keep(key, { title: p.idea, notes: `Hook: ${p.hook}\nWeek ${w.week}: ${w.theme}${p.basedOn ? `\nBuilds on: ${p.basedOn}` : ''}`, format: p.format })}
                           className={cn('p-1 rounded-full transition-colors', saved[key] ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground hover:bg-ink/[0.08]')}
                           aria-label={saved[key] ? 'Saved to board' : 'Save to idea board'}
                           title={saved[key] ? 'Saved to board' : 'Save to idea board'}
@@ -185,6 +185,11 @@ export function GamePlanView() {
                       </div>
                       <p className="text-[13px] font-semibold leading-snug mt-1">{p.idea}</p>
                       <p className="text-[12px] text-muted-foreground mt-1 italic leading-snug">&ldquo;{p.hook}&rdquo;</p>
+                      {p.basedOn?.trim() && (
+                        <p className="mt-1.5 inline-flex items-start gap-1 text-[11px] font-semibold text-emerald-400 leading-snug">
+                          <TrendingUp className="w-3 h-3 mt-0.5 shrink-0" /> Builds on {p.basedOn.trim()}
+                        </p>
+                      )}
                     </div>
                   );
                 })}
