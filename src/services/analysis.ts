@@ -113,15 +113,29 @@ export function postSummary(p: PostRow, timeZone: string) {
 
 export type Analysis = Awaited<ReturnType<typeof buildAnalysis>>;
 
-export async function buildAnalysis(profileIds: string[], timeZone: string) {
-  const [profiles, allPosts, metrics] = await Promise.all([
+// days: only posts published in the last `days` days count (null = all time). The account's
+// all-time numbers still come along as a baseline, so the window can be compared against normal
+export async function buildAnalysis(profileIds: string[], timeZone: string, days: number | null = null) {
+  const metricDays = Math.max(days ?? 90, 31);
+  const [profiles, everyPost, metrics] = await Promise.all([
     prisma.socialProfile.findMany({ where: { id: { in: profileIds } } }),
-    prisma.post.findMany({ where: { socialProfileId: { in: profileIds } }, orderBy: { publishedAt: 'desc' }, take: 300 }),
+    prisma.post.findMany({ where: { socialProfileId: { in: profileIds } }, orderBy: { publishedAt: 'desc' }, take: 500 }),
     prisma.metric.findMany({
-      where: { socialProfileId: { in: profileIds }, date: { gte: new Date(Date.now() - 45 * 86400_000) } },
+      where: { socialProfileId: { in: profileIds }, date: { gte: new Date(Date.now() - (metricDays + 1) * 86400_000) } },
       orderBy: { date: 'asc' },
     }),
   ]);
+
+  const windowStart = days == null ? null : Date.now() - days * 86400_000;
+  const allPosts = windowStart == null ? everyPost.slice(0, 300) : everyPost.filter((p) => p.publishedAt.getTime() >= windowStart);
+  const organicEver = everyPost.filter((p) => !p.isBoosted);
+  const allTime = {
+    posts: everyPost.length,
+    avgViews: round(mean(organicEver.map((p) => p.views))),
+    avgEngagement: round(mean(organicEver.map((p) => p.performanceScore)), 2),
+    avgSaves: round(mean(organicEver.map((p) => p.saves)), 1),
+    avgShares: round(mean(organicEver.map((p) => p.shares)), 1),
+  };
 
   // Boosted posts only report organic numbers, which would drag every pattern down
   const posts = allPosts.filter((p) => !p.isBoosted);
@@ -169,17 +183,19 @@ export async function buildAnalysis(profileIds: string[], timeZone: string) {
 
   // Cadence over the last 8 weeks
   const now = Date.now();
-  const weeks = Array.from({ length: 8 }, (_, i) => allPosts.filter((p) => {
+  // Cadence always looks at the last 8 weeks of every post, whatever the window
+  const weeks = Array.from({ length: 8 }, (_, i) => everyPost.filter((p) => {
     const age = (now - p.publishedAt.getTime()) / 86400_000;
     return age >= i * 7 && age < (i + 1) * 7;
   }).length).reverse();
-  const gaps = allPosts.slice(0, 30).slice(1).map((p, i) => (allPosts[i].publishedAt.getTime() - p.publishedAt.getTime()) / 86400_000);
-  const daysSinceLast = allPosts[0] ? round((now - allPosts[0].publishedAt.getTime()) / 86400_000, 1) : null;
+  const gaps = everyPost.slice(0, 30).slice(1).map((p, i) => (everyPost[i].publishedAt.getTime() - p.publishedAt.getTime()) / 86400_000);
+  const daysSinceLast = everyPost[0] ? round((now - everyPost[0].publishedAt.getTime()) / 86400_000, 1) : null;
 
-  // Followers over the last 30 days, from the daily snapshots
+  // Followers over the window (30 days for all time), from the daily snapshots
+  const followerDays = days ?? 30;
   const latestByProfile = new Map<string, { first: number | null; last: number | null }>();
   for (const m of metrics) {
-    if (m.followers == null || now - m.date.getTime() > 31 * 86400_000) continue;
+    if (m.followers == null || now - m.date.getTime() > (followerDays + 1) * 86400_000) continue;
     const row = latestByProfile.get(m.socialProfileId) ?? { first: m.followers, last: m.followers };
     row.last = m.followers;
     latestByProfile.set(m.socialProfileId, row);
@@ -187,13 +203,15 @@ export async function buildAnalysis(profileIds: string[], timeZone: string) {
   const followersNow = profiles.reduce((a, p) => a + p.followerCount, 0);
   // First vs last snapshot inside the window, so both ends come from the same source
   const snapshotChange = [...latestByProfile.values()].reduce((a, r) => a + ((r.last ?? 0) - (r.first ?? 0)), 0);
-  const reach30 = metrics.filter((m) => now - m.date.getTime() <= 30 * 86400_000).reduce((a, m) => a + (m.reach ?? 0), 0);
+  const reachSum = metrics.filter((m) => now - m.date.getTime() <= followerDays * 86400_000).reduce((a, m) => a + (m.reach ?? 0), 0);
 
   const byViews = [...posts].sort((a, b) => b.views - a.views);
   const audience = profiles.map((p) => p.audience as { age?: { label: string; value: number }[]; gender?: { label: string; value: number }[]; country?: { label: string; value: number }[]; city?: { label: string; value: number }[] } | null).find(Boolean) ?? null;
 
   return {
     timeZone,
+    window: { days, from: windowStart == null ? null : new Date(windowStart).toISOString() },
+    allTime,
     accounts: profiles.map((p) => ({ platform: p.platform, username: p.username, followers: p.followerCount })),
     totals: {
       posts: allPosts.length,
@@ -208,8 +226,9 @@ export async function buildAnalysis(profileIds: string[], timeZone: string) {
     },
     followers: {
       now: followersNow,
-      change30: latestByProfile.size ? snapshotChange : null,
-      reach30: reach30 || null,
+      days: followerDays,
+      change: latestByProfile.size ? snapshotChange : null,
+      reach: reachSum || null,
     },
     byFormat, byWeekday, bySlot, byHour, byCaption, byHashtags, byHook, byCta, hashtags,
     momentum,
@@ -239,6 +258,21 @@ const PLATFORM_NOTES = {
   instagram: 'Platform: Instagram. Formats are reel, carousel, post (single photo) and video.',
 };
 
+// Tells the AI which window the creator is looking at and what kind of advice fits it
+function windowNote(a: Analysis, unit: string) {
+  const d = a.window.days;
+  const n = a.totals.posts;
+  if (d == null) return `## Time window\nThe creator is looking at ALL TIME (${n} ${unit}). Give big-picture, strategic advice: lasting patterns, content pillars, formats and schedule.\n`;
+  const focus = d <= 10
+    ? 'This is a short, recent window: be tactical and immediate. Say what is working right now, what to post in the next few days, and what to fix on the very next post. Patterns from a handful of posts are hints, not proof: say so.'
+    : d <= 21
+      ? 'This is a two-week window: focus on short-term momentum, the last couple of weeks against their normal, and what to change for the next two weeks.'
+      : d <= 45
+        ? 'This is a monthly window: balance quick fixes with the patterns of the month, and compare against their all-time baseline.'
+        : 'This is a long window: focus on durable patterns, trends over time, content pillars, formats and schedule, not one-off posts.';
+  return `## Time window\nThe creator chose to look at the last ${d} days (${n} ${unit} published since ${a.window.from?.slice(0, 10)}). Every number below covers only this window unless it says all-time. ${focus}${n < 3 ? ` Only ${n} ${unit} fall in this window, so lean on the all-time baseline and say the sample is small.` : ''}\n`;
+}
+
 export function analysisToPrompt(a: Analysis) {
   const platforms = new Set(a.accounts.map((x) => x.platform));
   const yt = platforms.size === 1 && platforms.has('youtube');
@@ -252,15 +286,19 @@ export function analysisToPrompt(a: Analysis) {
   const section = (title: string, rows: string[]) => (rows.length ? `\n## ${title}\n${rows.join('\n')}` : '');
   const t = a.totals;
   return [
+    windowNote(a, unit),
     `Creator's timezone: ${a.timeZone}. Every time below is already local. Talk about times in 12-hour format like "7 PM" and never mention UTC.`,
     note,
     section('Accounts', a.accounts.map((x) => `${x.platform} @${x.username}: ${x.followers} ${x.platform === 'youtube' ? 'subscribers' : 'followers'}`)),
-    section('Overall (organic posts)', [
+    section(a.window.days == null ? 'Overall (organic posts)' : `In this window (organic ${unit})`, [
       `${t.organicPosts} organic posts analyzed${t.boostedPosts ? ` (${t.boostedPosts} boosted posts left out of the patterns: their stats are organic only)` : ''}`,
       `Average views ${t.avgViews}, median ${t.medianViews}. Average engagement ${t.avgEngagement}%.${yt ? '' : ` Avg saves ${t.avgSaves}, avg shares ${t.avgShares}.`}`,
-      a.followers.change30 != null ? `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now} now, ${a.followers.change30 >= 0 ? '+' : ''}${a.followers.change30} over the last 30 days.` : `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now}.`,
-      a.followers.reach30 ? `Accounts reached, last 30 days (sum of daily reach): ${a.followers.reach30}.` : '',
+      a.followers.change != null ? `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now} now, ${a.followers.change >= 0 ? '+' : ''}${a.followers.change} over the last ${a.followers.days} days.` : `${yt ? 'Subscribers' : 'Followers'}: ${a.followers.now}.`,
+      a.followers.reach ? `Accounts reached, last ${a.followers.days} days (sum of daily reach): ${a.followers.reach}.` : '',
     ].filter(Boolean)),
+    section(`All-time baseline, to compare the window against`, a.window.days == null ? [] : [
+      `${a.allTime.posts} ${unit} ever synced. Average views ${a.allTime.avgViews}, average engagement ${a.allTime.avgEngagement}%.${yt ? '' : ` Avg saves ${a.allTime.avgSaves}, avg shares ${a.allTime.avgShares}.`}`,
+    ]),
     section('By format', a.byFormat.map(fmtGroup)),
     section('By weekday posted', a.byWeekday.map(fmtGroup)),
     section('By time of day posted', a.bySlot.map(fmtGroup)),

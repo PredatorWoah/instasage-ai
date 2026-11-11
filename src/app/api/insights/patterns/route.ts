@@ -9,7 +9,7 @@ export async function GET() {
   if (!userId) return unauthorized();
   const scope = await getAccountScope(userId);
   if (!scope.profileIds.length) return NextResponse.json(null);
-  const a = await buildAnalysis(scope.profileIds, await getTimeZone(userId));
+  const a = await buildAnalysis(scope.profileIds, await getTimeZone(userId), scope.days);
   return NextResponse.json({
     totals: a.totals,
     momentum: a.momentum,

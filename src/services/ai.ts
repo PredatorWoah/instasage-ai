@@ -5,7 +5,9 @@ import { competitorsToPrompt } from '@/services/competitors';
 
 export { AiError, type ChatTurn };
 
-type Scope = { key: string; profileIds: string[] };
+// aiKey and days come from the top bar's time window; without them the key is the account and the window is all time
+type Scope = { key: string; profileIds: string[]; aiKey?: string; days?: number | null };
+const cacheKey = (scope: Scope) => scope.aiKey ?? scope.key;
 
 const ANALYST = `You are a sharp, honest social media strategist for a solo creator. Base every point on the numbers given, cite them, and never invent metrics that are not in the data. When a sample is small (under 3 posts), say so instead of overclaiming. Engagement rate is (likes + comments + saves + shares) / reach for Instagram and (likes + comments) / views for YouTube. Saves and shares signal content people value; comments signal conversation.`;
 
@@ -49,8 +51,9 @@ const short = (n: number) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ?
 const snippet = (caption: string, max: number) => caption.replace(/\s+/g, ' ').trim().slice(0, max) || '(no caption)';
 
 // The account's standout posts of the last 90 days, so ideas build on proven winners instead of averages
-export async function recentWinners(profileIds: string[], timeZone: string) {
-  const since = new Date(Date.now() - 90 * 86_400_000);
+export async function recentWinners(profileIds: string[], timeZone: string, days: number | null = null) {
+  // The chosen window, but never under two weeks: a 7-day window has too few settled posts to call winners
+  const since = new Date(Date.now() - Math.max(days ?? 90, 14) * 86_400_000);
   let posts = await prisma.post.findMany({
     where: { socialProfileId: { in: profileIds }, isBoosted: false, publishedAt: { gte: since } },
     select: { id: true, type: true, caption: true, publishedAt: true, views: true, saves: true, shares: true, performanceScore: true },
@@ -114,15 +117,15 @@ export async function postTable(profileIds: string[], timeZone: string, limit = 
 }
 
 // Bio, creator profile and numbers, plus competitors and past idea results for the strategy features
-async function context(userId: string, profileIds: string[], timeZone: string, withRivals = false) {
+async function context(userId: string, profileIds: string[], timeZone: string, withRivals = false, days: number | null = null) {
   const [analysis, rivals, user, results, winners] = await Promise.all([
-    buildAnalysis(profileIds, timeZone),
+    buildAnalysis(profileIds, timeZone, days),
     withRivals ? competitorsToPrompt(userId) : Promise.resolve(''),
     prisma.user.findUnique({ where: { id: userId }, select: { bio: true, creatorProfile: true } }),
     withRivals ? ideaResults(userId, profileIds) : Promise.resolve(''),
-    withRivals ? recentWinners(profileIds, timeZone) : Promise.resolve(''),
+    withRivals ? recentWinners(profileIds, timeZone, days) : Promise.resolve(''),
   ]);
-  if (analysis.totals.posts === 0) {
+  if (analysis.allTime.posts === 0) {
     throw new AiError('no_data', 'Connect an account and press Sync first, so there are posts to analyze.');
   }
   return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) + analysisToPrompt(analysis) + winners + rivals + results;
@@ -147,8 +150,12 @@ async function write(userId: string, kind: string, content: unknown, model: stri
 
 type ListKind = 'insights' | 'recommendations';
 
+// Answers saved before time windows existed covered all time, so they still answer "All time"
+const legacyKey = (scopeKey: string) => (scopeKey.endsWith('@all') ? scopeKey.slice(0, -4) : null);
+
 export async function getCachedResult<T>(userId: string, kind: ListKind, scopeKey: string) {
-  const row = await read(userId, `${kind}:${scopeKey}`);
+  const legacy = legacyKey(scopeKey);
+  const row = (await read(userId, `${kind}:${scopeKey}`)) ?? (legacy ? await read(userId, `${kind}:${legacy}`) : null);
   return row ? { items: row.content as T[], model: row.model, createdAt: row.createdAt } : null;
 }
 
@@ -178,25 +185,25 @@ export type AiRecommendation = {
 
 export async function generateInsights(userId: string, scope: Scope) {
   const config = await getAiConfig(userId, 'insights');
-  const data = await context(userId, scope.profileIds, config.timeZone);
+  const data = await context(userId, scope.profileIds, config.timeZone, false, scope.days ?? null);
   const { text, model } = await generate(
     config,
     `${data}\n\nFind the 5 most useful insights in these numbers: what is working, what is not, and why. Prefer the biggest differences between groups (format, weekday, time of day, caption style, hashtags, calls to action) and any momentum change. Every insight must quote the numbers behind it.\nReturn a JSON object: {"items": [{"title": max 8 words, "description": 2 or 3 sentences with specific numbers, "impact": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth"}]}`,
     { json: true, system: ANALYST, feature: 'insights' },
   );
-  return saveList(userId, 'insights', scope.key, items<Insight>(text).slice(0, 6), model);
+  return saveList(userId, 'insights', cacheKey(scope), items<Insight>(text).slice(0, 6), model);
 }
 
 export async function generateRecommendations(userId: string, scope: Scope) {
   const config = await getAiConfig(userId, 'recommendations');
-  const data = await context(userId, scope.profileIds, config.timeZone, true);
+  const data = await context(userId, scope.profileIds, config.timeZone, true, scope.days ?? null);
   const { text, model } = await generate(
     config,
     `${data}\n\nGive 6 quick wins: specific actions this creator can take this week, each following from a pattern in the numbers above. At least two should repeat what made one of their recent winners work.\nReturn a JSON object: {"items": [{"title": an action, max 8 words, "description": 2 or 3 sentences (what to do and which number justifies it), "priority": "high" | "medium" | "low", "category": "timing" | "content" | "engagement" | "growth", "impact": short expected result, "effort": "low" | "medium" | "high", "estimatedGrowth": short, e.g. "+10% reach"}]}`,
     { json: true, system: ANALYST, feature: 'recommendations' },
   );
   const list = items<Omit<AiRecommendation, 'id'>>(text).slice(0, 8).map((r, i) => ({ ...r, id: `rec-${i}` }));
-  return saveList(userId, 'recommendations', scope.key, list, model);
+  return saveList(userId, 'recommendations', cacheKey(scope), list, model);
 }
 
 // ---------- Game plan ----------
@@ -214,13 +221,14 @@ export type GamePlan = {
 };
 
 export async function getCachedPlan(userId: string, scopeKey: string) {
-  const row = await read(userId, `plan:${scopeKey}`);
+  const legacy = legacyKey(scopeKey);
+  const row = (await read(userId, `plan:${scopeKey}`)) ?? (legacy ? await read(userId, `plan:${legacy}`) : null);
   return row ? { plan: row.content as GamePlan, model: row.model, createdAt: row.createdAt } : null;
 }
 
 export async function generateGamePlan(userId: string, scope: Scope) {
   const config = await getAiConfig(userId, 'plan');
-  const data = await context(userId, scope.profileIds, config.timeZone, true);
+  const data = await context(userId, scope.profileIds, config.timeZone, true, scope.days ?? null);
   const { text, model } = await generate(
     config,
     `${data}
@@ -241,7 +249,7 @@ Return a JSON object with exactly these keys:
   );
   const plan = parseJson<GamePlan>(text);
   if (!plan.headline || !Array.isArray(plan.weeks)) throw new AiError('api', 'The game plan came back incomplete. Try again.', true);
-  const row = await write(userId, `plan:${scope.key}`, plan, model);
+  const row = await write(userId, `plan:${cacheKey(scope)}`, plan, model);
   return { plan, model, createdAt: row.createdAt };
 }
 
@@ -264,7 +272,7 @@ export async function generateCompetitorTakeaways(userId: string, scope: Scope) 
   const config = await getAiConfig(userId, 'competitors');
   const rivals = await competitorsToPrompt(userId);
   if (!rivals) throw new AiError('no_data', 'Add at least one competitor first.');
-  const data = await context(userId, scope.profileIds, config.timeZone).catch((error) => {
+  const data = await context(userId, scope.profileIds, config.timeZone, false, scope.days ?? null).catch((error) => {
     if (error instanceof AiError && error.code === 'no_data') return 'The creator has no synced posts yet.';
     throw error;
   });
@@ -305,7 +313,7 @@ Give me, in this order:
 export async function buildExportText(userId: string, scope: Scope, goal: ExportGoal) {
   const config = await getAiConfig(userId).catch(() => null);
   const timeZone = config?.timeZone ?? (await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } }))?.timezone ?? 'UTC';
-  const data = await context(userId, scope.profileIds, timeZone, true);
+  const data = await context(userId, scope.profileIds, timeZone, true, scope.days ?? null);
   const stamp = new Intl.DateTimeFormat('en-GB', { timeZone, dateStyle: 'long' }).format(new Date());
 
   return [
@@ -341,7 +349,7 @@ export async function writeForIdea(userId: string, scope: Scope & { mode?: strin
   const idea = await prisma.savedIdea.findFirst({ where: { id: ideaId, userId } });
   if (!idea) throw new AiError('no_data', 'That idea no longer exists.');
   const config = await getAiConfig(userId, 'writer');
-  const data = await context(userId, scope.profileIds, config.timeZone).catch(async (error) => {
+  const data = await context(userId, scope.profileIds, config.timeZone, false, scope.days ?? null).catch(async (error) => {
     if (!(error instanceof AiError && error.code === 'no_data')) throw error;
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { bio: true, creatorProfile: true } });
     return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) || 'No synced posts yet.';
@@ -367,7 +375,7 @@ export async function chatWithAssistant(userId: string, scope: Scope, history: C
   const config = await getAiConfig(userId, 'chat');
   let data: string;
   try {
-    data = await context(userId, scope.profileIds, config.timeZone);
+    data = await context(userId, scope.profileIds, config.timeZone, false, scope.days ?? null);
   } catch (error) {
     if (error instanceof AiError && error.code === 'no_data') data = 'No posts have been synced yet.';
     else throw error;
@@ -390,11 +398,11 @@ ${data}${table}`,
 export async function brainstormReply(userId: string, scope: Scope, history: ChatTurn[], message: string) {
   const config = await getAiConfig(userId, 'brainstorm');
   const [data, plan, saved] = await Promise.all([
-    context(userId, scope.profileIds, config.timeZone, true).catch((error) => {
+    context(userId, scope.profileIds, config.timeZone, true, scope.days ?? null).catch((error) => {
       if (error instanceof AiError && error.code === 'no_data') return 'No posts have been synced yet, so ideas cannot lean on past results.';
       throw error;
     }),
-    getCachedPlan(userId, scope.key),
+    getCachedPlan(userId, cacheKey(scope)),
     prisma.savedIdea.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 15, select: { title: true, status: true } }),
   ]);
 

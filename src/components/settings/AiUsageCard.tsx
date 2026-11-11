@@ -4,7 +4,8 @@ import { useCachedJson } from '@/lib/useCachedJson';
 
 type Total = { key: string; requests: number; input: number; output: number; cost: number; unpriced: number };
 type KeyUsage = { total: number | null; daily: number | null; weekly: number | null; monthly: number | null; limit: number | null; remaining: number | null };
-type Usage = { total: Total; byFeature: Total[]; byModel: Total[]; openrouter: KeyUsage | null };
+type Balance = { currency: string; total: number; granted: number; toppedUp: number; available: boolean };
+type Usage = { total: Total; byFeature: Total[]; byModel: Total[]; openrouter: KeyUsage | null; deepseek?: Balance | null };
 
 const FEATURE_LABELS: Record<string, string> = {
   insights: 'AI Insights', recommendations: 'Quick wins', plan: 'Game plan', brainstorm: 'Brainstorm', chat: 'Sage chat',
@@ -42,6 +43,22 @@ function OpenRouterBilling({ u }: { u: KeyUsage }) {
   );
 }
 
+// DeepSeek doesn't price each answer, so its balance is the honest spend signal
+function DeepSeekBalance({ b }: { b: Balance }) {
+  const cur = (n: number) => (b.currency === 'USD' ? usd(n) : `${n.toFixed(2)} ${b.currency}`);
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">DeepSeek balance (from DeepSeek)</p>
+      <div className="rounded-xl border border-border p-3 space-y-1">
+        <p className="font-bold tabular-nums">{cur(b.total)} left</p>
+        <p className="text-[11px] text-muted-foreground">
+          {cur(b.toppedUp)} topped up{b.granted > 0 ? `, ${cur(b.granted)} free credit` : ''}.{!b.available && ' Balance too low for new answers: top up on platform.deepseek.com.'} DeepSeek answers show as &quot;not priced&quot; below; this balance is what they cost.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const money = (t: Total) => (t.requests === t.unpriced ? 'not priced' : `$${t.cost < 0.01 ? t.cost.toFixed(4) : t.cost.toFixed(2)}${t.unpriced ? '+' : ''}`);
 
 function Table({ title, rows, label }: { title: string; rows: Total[]; label: (k: string) => string }) {
@@ -64,7 +81,7 @@ function Table({ title, rows, label }: { title: string; rows: Total[]; label: (k
 export function AiUsageCard() {
   const { data } = useCachedJson<Usage>('/api/settings/usage');
   if (data === undefined) return <div className="h-28 rounded-xl bg-secondary/10 animate-pulse" />;
-  if (!data || (data.total.requests === 0 && !data.openrouter)) return <p className="text-xs text-muted-foreground">No AI answers recorded yet. Usage shows up here as you use Insights, the Ideas Studio and Sage.</p>;
+  if (!data || (data.total.requests === 0 && !data.openrouter && !data.deepseek)) return <p className="text-xs text-muted-foreground">No AI answers recorded yet. Usage shows up here as you use Insights, the Ideas Studio and Sage.</p>;
 
   return (
     <div className="space-y-4">
@@ -81,6 +98,7 @@ export function AiUsageCard() {
         ))}
       </div>
       {data.openrouter && <OpenRouterBilling u={data.openrouter} />}
+      {data.deepseek && <DeepSeekBalance b={data.deepseek} />}
       <Table title="By feature" rows={data.byFeature} label={(k) => FEATURE_LABELS[k] ?? k} />
       <Table title="By model" rows={data.byModel} label={(k) => k} />
       <p className="text-[11px] text-muted-foreground">Per-answer costs are exact for OpenRouter and estimated from list prices for Claude. OpenRouter&apos;s own totals above can be a little higher: they also count key checks and anything used before InstaSage started logging. Gemini and ChatGPT show tokens only, since their prices vary by model and plan; &quot;+&quot; means some answers had no price. Free tiers cost nothing whatever this says.</p>

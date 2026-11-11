@@ -7,6 +7,7 @@ import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, E
 import { toast } from 'sonner';
 import { useLocalJson } from '@/lib/useLocalJson';
 import Link from 'next/link';
+import { usePeriod } from '@/lib/usePeriod';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatLabel } from '@/lib/platform';
@@ -63,7 +64,11 @@ export function ContentLibraryView() {
   const [search, setSearch] = useState(searchParams.get('q') || '');
   const platform = searchParams.get('platform') || 'all';
   const postType = searchParams.get('type') || 'all';
-  const range = searchParams.get('range') || 'all';
+  // No range in the URL means the top bar's time window
+  const period = usePeriod();
+  const defaultRange = period.days == null ? 'all' : String(period.days);
+  const range = searchParams.get('range') || defaultRange;
+  const ranges = RANGES.some((r) => r.value === defaultRange) ? RANGES : [...RANGES, { value: defaultRange, label: `Last ${defaultRange} days` }];
   const view = searchParams.get('view') === 'grid' ? 'grid' : 'table';
   const sort: SortConfig = {
     key: (SORT_KEYS.includes(searchParams.get('sort') as keyof Post) ? searchParams.get('sort') : 'publishedAt') as keyof Post,
@@ -73,7 +78,7 @@ export function ContentLibraryView() {
   const setParam = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     for (const [k, v] of Object.entries(updates)) {
-      if (v == null || v === '' || v === 'all' || (k === 'view' && v === 'table')) params.delete(k);
+      if (v == null || v === '' || (v === 'all' && k !== 'range') || (k === 'range' && v === defaultRange) || (k === 'view' && v === 'table')) params.delete(k);
       else params.set(k, v);
     }
     const qs = params.toString();
@@ -160,10 +165,10 @@ export function ContentLibraryView() {
 
   const current = searchParams.toString();
   const activeView = saved.find((v) => v.query === current);
-  const filtered = !!(searchParams.get('q') || platform !== 'all' || postType !== 'all' || range !== 'all');
+  const filtered = !!(searchParams.get('q') || platform !== 'all' || postType !== 'all' || range !== defaultRange);
 
   const saveView = () => {
-    const name = window.prompt('Name this view', [RANGES.find((r) => r.value === range)?.label, postType !== 'all' ? formatLabel(postType) : '', searchParams.get('q') ?? ''].filter((x) => x && x !== 'All time').join(' · ') || 'My view');
+    const name = window.prompt('Name this view', [ranges.find((r) => r.value === range)?.label, postType !== 'all' ? formatLabel(postType) : '', searchParams.get('q') ?? ''].filter((x) => x && x !== 'All time').join(' · ') || 'My view');
     if (!name?.trim()) return;
     setSaved([...saved.filter((v) => v.name !== name.trim()), { name: name.trim().slice(0, 40), query: current }].slice(-12));
     toast.success(`Saved "${name.trim()}"`);
@@ -240,7 +245,7 @@ export function ContentLibraryView() {
               <SelectValue placeholder="Any time" />
             </SelectTrigger>
             <SelectContent>
-              {RANGES.map((r) => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
+              {ranges.map((r) => <SelectItem key={r.value} value={r.value} className="text-xs">{r.label}</SelectItem>)}
             </SelectContent>
           </Select>
 

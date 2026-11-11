@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { clearJsonCache } from '@/lib/useCachedJson';
 import { cn } from '@/lib/utils';
 
-type ProviderId = 'gemini' | 'anthropic' | 'openai' | 'openrouter';
+type ProviderId = 'gemini' | 'anthropic' | 'openai' | 'openrouter' | 'deepseek';
 type Provider = {
   id: ProviderId;
   label: string;
@@ -30,6 +30,7 @@ const LOOK: Record<ProviderId, { mark: string; tile: string }> = {
   anthropic: { mark: 'C', tile: 'bg-[linear-gradient(135deg,#E38B5C,#C2603B)]' },
   openai: { mark: 'AI', tile: 'bg-[linear-gradient(135deg,#1FB58F,#0E7C63)]' },
   openrouter: { mark: 'OR', tile: 'bg-[linear-gradient(135deg,#8C7BFF,#FF6F91)]' },
+  deepseek: { mark: 'DS', tile: 'bg-[linear-gradient(135deg,#4D6BFE,#2A3FBF)]' },
 };
 
 const link = (href: string, text: string) => (
@@ -76,6 +77,16 @@ const STEPS: Record<ProviderId, { title: string; steps: React.ReactNode[]; note:
       <>Paste the key below, optionally with the model you want.</>,
     ],
     note: <>Model ids look like <code>deepseek/deepseek-chat</code> or <code>meta-llama/llama-3.3-70b-instruct</code>. Browse them at {link('https://openrouter.ai/models', 'openrouter.ai/models')}.</>,
+  },
+  deepseek: {
+    title: 'How to get a DeepSeek API key',
+    steps: [
+      <>Open {link('https://platform.deepseek.com/api_keys', 'platform.deepseek.com')} and sign in. The DeepSeek chat app does not include API use.</>,
+      <>Top up a few dollars under <b>Top up</b>. The API is pay as you go, and very cheap.</>,
+      <>Under <b>API keys</b>, click <b>Create new API key</b>, name it &quot;InstaSage&quot; and copy it (starts with <code>sk-</code>).</>,
+      <>Paste it below. InstaSage reads which models your key can use and picks the fast Flash model.</>,
+    ],
+    note: <>Going direct skips OpenRouter&apos;s fee. DeepSeek does not report a price per answer, so Settings shows your DeepSeek balance instead.</>,
   },
 };
 
