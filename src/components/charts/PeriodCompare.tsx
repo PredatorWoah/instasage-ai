@@ -16,7 +16,7 @@ export function PeriodCompare({ current, previous, days, labels }: {
   const tiles: Tile[] = [
     // Compared as a plain difference: a percent change of "gained" breaks when one period was negative
     { label: `${labels.followers} gained`, now: current.followersGained, before: previous.followersGained, fmt: signed, absolute: true },
-    ...(labels.yt ? [] : [{ label: 'Reach', now: current.reach, before: previous.reach, fmt: formatNumber }]),
+    ...(labels.yt ? [] : [{ label: 'Reach (daily, added up)', now: current.reach, before: previous.reach, fmt: formatNumber }]),
     { label: `Views on new ${labels.posts}`, now: current.views, before: previous.views, fmt: formatNumber },
     { label: 'Avg engagement', now: current.engagement, before: previous.engagement, fmt: (n) => `${n.toFixed(1)}%`, points: true },
     { label: `${labels.posts[0].toUpperCase()}${labels.posts.slice(1)} published`, now: current.posts, before: previous.posts, fmt: (n) => String(n) },

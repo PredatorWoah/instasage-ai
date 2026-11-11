@@ -8,6 +8,7 @@ import {
   getInstagramDemographics,
   getInstagramReachTotal,
   getInstagramReelMetrics,
+  getInstagramFacebookViews,
   getInstagramFunnel,
   refreshInstagramToken,
   isBoosted,
@@ -212,9 +213,10 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
 
   await inBatches(media, 5, async (m) => {
     const askReel = m.media_product_type === 'REELS' && (Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000 || !watched.has(m.id));
-    const [{ values, failed }, reel] = await Promise.all([
+    const [{ values, failed }, reel, facebookViews] = await Promise.all([
       getInstagramMediaInsights(token, m.id),
       askReel ? getInstagramReelMetrics(token, m.id) : Promise.resolve(null),
+      getInstagramFacebookViews(token, m.id),
     ]);
     failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
     if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
@@ -225,7 +227,10 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
     const saves = values.saved ?? 0;
     const shares = values.shares ?? 0;
     const reach = values.reach ?? null;
-    const views = values.views ?? 0;
+    // Reels views count Instagram plays only, so Facebook plays of a cross-posted reel are added.
+    // Feed posts' views can already include Facebook, so there it is only kept for the breakdown.
+    const isReel = m.media_product_type === 'REELS';
+    const views = (values.views ?? 0) + (isReel && facebookViews ? facebookViews : 0);
 
     // Engagement rate by reach, the usual Instagram definition
     const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
@@ -242,6 +247,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
       thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
       caption: m.caption || '',
       ...(reel ? { avgWatchMs: reel.avgWatchMs, skipRate: reel.skipRate } : {}),
+      facebookViews,
     };
 
     await prisma.post.upsert({
