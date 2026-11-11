@@ -119,6 +119,16 @@ export function StatusView() {
         {hasYouTube && (
           <Row tone={data.youtubeKey ? 'ok' : 'bad'} title={data.youtubeKey ? 'YouTube API key saved' : 'No YouTube API key'} action={<Link href="/accounts" className={pill}>Manage</Link>} />
         )}
+        {(data.facebookViews ?? []).map((f) => (
+          <Row
+            key={f.username}
+            tone={f.reported ? 'ok' : 'warn'}
+            title={`Facebook views of @${f.username}'s reels`}
+            detail={f.reported
+              ? `Reported for ${f.reported} of ${f.reported + f.missing} reels (the rest were never on Facebook). Checked ${formatRelativeTime(f.at).toLowerCase()}.`
+              : `Instagram did not report Facebook plays for any reel at the last sync${f.lastError ? `: ${f.lastError}` : '.'}`}
+          />
+        ))}
         <Row tone={data.timezone ? 'ok' : 'warn'} title={`Timezone: ${data.timezone ?? 'not set yet'}`} detail="Used by charts, reports, the AI and the daily sync" action={<Link href="/settings#timezone" className={pill}>Change</Link>} />
       </section>
 
