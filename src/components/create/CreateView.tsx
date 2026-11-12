@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import { useCachedJson } from '@/lib/useCachedJson';
@@ -35,8 +35,10 @@ export function CreateView() {
   const account = selected !== 'all' ? selected : profiles.find((p) => p.id === picked)?.id ?? linked ?? profiles[0]?.id ?? null;
   const current = profiles.find((p) => p.id === account);
 
-  const { data: kit, refresh: reloadKit } = useCachedJson<Kit>(account ? `/api/brand-kit?account=${account}` : null);
-  const { data: drafts, refresh: reloadDrafts } = useCachedJson<{ drafts: Draft[] }>(account ? `/api/creative?account=${account}` : null);
+  const id = account ? encodeURIComponent(account) : null;
+  const { data: kit, error: kitError, reload: reloadKit } = useLoad<Kit>(id ? `/api/brand-kit?account=${id}` : null);
+  const { data: drafts, error: draftsError, reload: reloadDrafts } = useLoad<{ drafts: Draft[] }>(id ? `/api/creative?account=${id}` : null);
+  const loadError = kitError ?? draftsError;
   const posts = (allPosts ?? []).filter((p) => !current || p.username === current.username);
   const initialPost = posts.some((p) => p.id === fromPost) ? fromPost : '';
 
@@ -69,8 +71,14 @@ export function CreateView() {
             {kit && !kit.saved && <span className="text-[12.5px] font-semibold text-amber-400">No brand kit yet for this account. Set one up in the Brand kit tab.</span>}
           </div>
 
-          {!kit || !drafts ? (
-            <div className="h-72 rounded-[30px] glass-panel animate-pulse" />
+          {loadError ? (
+            <div role="alert" className="glass-panel rounded-[30px] p-6 flex flex-col gap-3 items-start">
+              <p className="font-display font-extrabold text-[22px] tracking-[-0.03em]">This did not load.</p>
+              <p className="text-[14px] text-muted-foreground break-words">{loadError}</p>
+              <button type="button" onClick={() => { reloadKit(); reloadDrafts(); }} className="h-11 px-5 rounded-full bg-foreground text-background text-[13px] font-bold">Try again</button>
+            </div>
+          ) : !kit || !drafts ? (
+            <div className="h-72 rounded-[30px] glass-panel animate-pulse" aria-label="Loading" />
           ) : tab === 'caption' ? (
             <CaptionLab key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}:${initialPost}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} initialPost={initialPost} />
           ) : tab === 'briefs' ? (
@@ -82,4 +90,31 @@ export function CreateView() {
       )}
     </div>
   );
+}
+
+// Loads JSON and keeps the reason when it fails, so the page can say what went wrong
+function useLoad<T>(url: string | null) {
+  const [state, setState] = useState<{ url: string | null; data: T | null; error: string | null }>({ url, data: null, error: null });
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    const timer = setTimeout(() => !cancelled && setState((s) => (s.url === url && s.data ? s : { url, data: null, error: 'This is taking too long. Check your connection and try again.' })), 20_000);
+    fetch(url)
+      .then(async (res) => {
+        const body = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (res.ok && body) setState({ url, data: body as T, error: null });
+        else setState({ url, data: null, error: body?.error || (res.status === 401 ? 'You are signed out. Sign in again.' : `The server answered ${res.status}.`) });
+      })
+      .catch(() => !cancelled && setState({ url, data: null, error: 'Could not reach the server. Check your connection.' }))
+      .finally(() => clearTimeout(timer));
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [url, tick]);
+  const reload = useCallback(() => setTick((n) => n + 1), []);
+  const current = state.url === url ? state : { data: null, error: null };
+  return { data: current.data, error: current.error, reload };
 }
