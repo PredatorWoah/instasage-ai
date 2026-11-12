@@ -1,5 +1,5 @@
 import {
-  Activity, BarChart3, FileText, Grid2X2, LayoutDashboard, Lightbulb, MessageCircle, Settings, Sparkles, Swords, UserCheck, UserRound, Users,
+  Activity, BarChart3, FileText, Grid2X2, LayoutDashboard, Lightbulb, MessageCircle, PenLine, Settings, Sparkles, Swords, UserCheck, UserRound, Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -13,6 +13,7 @@ export const NAV_TABS: NavItem[] = [
   { id: 'content', label: 'Content', href: '/content', icon: Grid2X2 },
   { id: 'insights', label: 'AI Insights', href: '/insights', icon: Sparkles },
   { id: 'recommendations', label: 'Ideas', href: '/recommendations', icon: Lightbulb },
+  { id: 'create', label: 'Create', href: '/create', icon: PenLine },
   { id: 'audience', label: 'Audience', href: '/audience', icon: Users },
 ];
 

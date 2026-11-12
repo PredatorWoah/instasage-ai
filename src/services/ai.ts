@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AiError, generate, getAiConfig, parseJson, type ChatTurn } from '@/services/llm';
 import { analysisToPrompt, buildAnalysis, localTime } from '@/services/analysis';
 import { competitorsToPrompt } from '@/services/competitors';
+import { composeCaption, checkCaption, failing, type BrandKit, type BriefKind, type Check } from '@/lib/brandKit';
 import { ACTIONS_PROMPT, applyAction, correctionsText, memoryText, splitActions, type ActionResult } from '@/services/sageActions';
 
 export { AiError, type ChatTurn };
@@ -716,4 +717,82 @@ Return a JSON object: {"headline": one sentence, max 16 words, the main takeaway
   note.points = (Array.isArray(note.points) ? note.points : []).map(String).slice(0, 3);
   const row = await write(userId, `note:${page}:${cacheKey(scope)}`, note, model);
   return { note, model, createdAt: row.createdAt, stale: false };
+}
+
+// ---------- Create: captions and briefs written to the account's brand kit ----------
+
+export type CreateInput = {
+  kind: 'caption' | 'brief';
+  kit: BrandKit;
+  productId?: string;
+  cta?: string;
+  topic?: string;
+  briefKind?: BriefKind;
+  fromPostId?: string;
+};
+
+function kitText(kit: BrandKit, input: CreateInput) {
+  const product = kit.products.find((p) => p.id === input.productId);
+  const sets = kit.hashtagSets.map((h) => `${h.name}: ${h.tags}`).join('\n');
+  return [
+    kit.brandName && `Brand: ${kit.brandName}`,
+    kit.voice && `Voice: ${kit.voice}`,
+    product && `Product: ${product.name}${product.notes ? `. ${product.notes}` : ''}`,
+    kit.flagged.length && `Never use these claims or words, even loosely: ${kit.flagged.join(', ')}.`,
+    kit.claimNote && `Claim guidance: ${kit.claimNote}`,
+    sets && `Hashtag sets to pick from:\n${sets}`,
+  ].filter(Boolean).join('\n');
+}
+
+export async function draftWithSage(userId: string, accountId: string, input: CreateInput) {
+  const config = await getAiConfig(userId, 'writer');
+  const kit = input.kit;
+  const [data, source] = await Promise.all([
+    context(userId, [accountId], config.timeZone, false, null).catch((error) => {
+      if (error instanceof AiError && error.code === 'no_data') return '';
+      throw error;
+    }),
+    input.fromPostId
+      ? prisma.post.findFirst({ where: { id: input.fromPostId, socialProfile: { userId, id: accountId } }, select: { caption: true, type: true, views: true, saves: true, shares: true } })
+      : Promise.resolve(null),
+  ]);
+  const winner = source ? `\nBuild on this post that worked (same angle, new wording, never copy it): [${source.type}, ${source.views} views, ${source.saves} saves, ${source.shares} shares] "${source.caption.slice(0, 500)}"\n` : '';
+
+  if (input.kind === 'caption') {
+    const r = kit.rules;
+    const base = `${data}\n\n## Brand kit\n${kitText(kit, input)}\n${winner}
+Write one Instagram caption body${input.topic ? ` about: ${input.topic}` : ''}.
+Rules: the whole caption (body, then the CTA, then hashtags) must be ${r.minChars} to ${r.maxChars} characters. ${r.noEmDashes ? 'Never use em dashes or en dashes. ' : ''}${r.oneCta ? 'Do not put any call to action in the body: the CTA is added separately. ' : ''}${r.maxTags ? `Give ${Math.max(r.minTags, 1)} to ${r.maxTags} unique hashtags. ` : ''}The CTA that will follow the body is: "${input.cta || 'none'}", so the body should lead naturally into it. Write in the creator's language and voice.
+Return a JSON object: {"body": the caption body only, "hashtags": ["#tag", ...]}`;
+
+    let prompt = base;
+    let result = { body: '', hashtags: [] as string[] };
+    let checks: Check[] = [];
+    let model = '';
+    // Up to three tries: whatever fails the checks is told back to Sage to fix
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const out = await generate(config, prompt, { json: true, system: ANALYST, feature: 'writer' });
+      model = out.model;
+      const parsed = parseJson<{ body?: string; hashtags?: string[] }>(out.text);
+      result = { body: String(parsed.body ?? '').trim(), hashtags: (Array.isArray(parsed.hashtags) ? parsed.hashtags : []).map(String) };
+      checks = checkCaption(kit, { body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') });
+      const bad = failing(checks);
+      if (!bad.length) break;
+      prompt = `${base}\n\nYour last attempt was:\n${composeCaption({ body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') })}\n\nIt failed these checks, so fix them and keep everything else: ${bad.map((c) => `${c.label} (${c.detail})`).join('; ')}`;
+    }
+    return { kind: 'caption' as const, ...result, checks, model };
+  }
+
+  const kind = input.briefKind ?? 'carousel';
+  const out = await generate(
+    config,
+    `${data}\n\n## Brand kit\n${kitText(kit, input)}\n${winner}
+Write a ${kind === 'feed' ? 'feed ad' : kind} brief${input.topic ? ` about: ${input.topic}` : ''} for the creator's designer. Format spec: ${kit.briefs.specs[kind]}.
+Start from this structure and make it specific to the product and topic, keeping the same number of lines or fewer:
+${kit.briefs.templates[kind]}
+Return a JSON object: {"title": a short working title, "lines": ["one line per ${kind === 'carousel' ? 'slide' : kind === 'reel' ? 'shot' : 'layout note'}", ...]}`,
+    { json: true, system: ANALYST, feature: 'writer' },
+  );
+  const parsed = parseJson<{ title?: string; lines?: string[] }>(out.text);
+  return { kind: 'brief' as const, title: String(parsed.title ?? '').trim(), lines: (Array.isArray(parsed.lines) ? parsed.lines : []).map(String), model: out.model };
 }
