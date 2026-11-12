@@ -211,6 +211,40 @@ html.light .acrylic-panel {
   -webkit-backdrop-filter: blur(14px);
 }
 
+/* Every card inside a page is glass: the old solid cards become frosted without touching each page.
+   Menus and dialogs render outside <main>, so they stay solid and readable. */
+main .bg-card {
+  background: linear-gradient(180deg, hsl(var(--ink) / 0.085), hsl(var(--ink) / 0.04));
+  border-color: hsl(var(--ink) / 0.14);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow: inset 0 1px 0 hsl(var(--ink) / 0.12);
+}
+html.light main .bg-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  border-color: rgba(20, 20, 40, 0.1);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 12px 40px -24px rgba(20, 20, 60, 0.25);
+}
+html.light .glass-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.58));
+  border-color: rgba(20, 20, 40, 0.1);
+}
+/* Tinted glass for the big Overview blocks */
+@utility glass-tint {
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  box-shadow: inset 0 1px 0 hsl(var(--ink) / 0.16);
+}
+/* A card that turns over in 3D */
+.flip-scene { perspective: 1400px; }
+.flip-card { position: relative; transform-style: preserve-3d; transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1); }
+.flip-card[data-flipped='true'] { transform: rotateY(180deg); }
+.flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flip-back { transform: rotateY(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .flip-card { transition: none; }
+}
+
 /* Slow colour blobs behind the glass. Still when the device asks for less motion. */
 @keyframes glass-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,40px,0) scale(1.08); } }
 @keyframes glass-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-50px,60px,0) scale(1.1); } }

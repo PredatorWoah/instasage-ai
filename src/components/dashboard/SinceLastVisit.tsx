@@ -35,7 +35,7 @@ export function SinceLastVisit({ scopeKey, followers, unit, postTimes, post, pos
     fresh ? `${fresh} new ${fresh === 1 ? post : posts}` : null,
   ].filter(Boolean);
   return (
-    <p className="text-[13px] font-semibold text-white/90">
+    <p className="text-[13px] font-semibold text-muted-foreground">
       Since your last visit {ageOf(prev.at)}: {parts.join(' · ')}
     </p>
   );

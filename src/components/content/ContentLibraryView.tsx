@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, Eye, Heart, Sparkles } from 'lucide-react';
+import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocalJson } from '@/lib/useLocalJson';
 import Link from 'next/link';
 import { usePeriod } from '@/lib/usePeriod';
 import { SageNote } from '@/components/ai-assistant/SageNote';
+import { FlipCard } from './FlipCard';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatLabel } from '@/lib/platform';
@@ -69,7 +70,10 @@ export function ContentLibraryView() {
   const defaultRange = period.days == null ? 'all' : String(period.days);
   const range = searchParams.get('range') || defaultRange;
   const ranges = RANGES.some((r) => r.value === defaultRange) ? RANGES : [...RANGES, { value: defaultRange, label: `Last ${defaultRange} days` }];
-  const view = searchParams.get('view') === 'grid' ? 'grid' : 'table';
+  // Flip cards are the default; the table is one tap away
+  const view = searchParams.get('view') === 'table' ? 'table' : 'grid';
+  const [shown, setShown] = useState(24);
+  const [now] = useState(() => daysAgo(0));
   const sort: SortConfig = {
     key: (SORT_KEYS.includes(searchParams.get('sort') as keyof Post) ? searchParams.get('sort') : 'publishedAt') as keyof Post,
     direction: searchParams.get('dir') === 'asc' ? 'asc' : 'desc',
@@ -80,7 +84,7 @@ export function ContentLibraryView() {
   const setParam = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     for (const [k, v] of Object.entries(updates)) {
-      if (v == null || v === '' || (v === 'all' && k !== 'range') || (k === 'range' && v === defaultRange) || (k === 'view' && v === 'table')) params.delete(k);
+      if (v == null || v === '' || (v === 'all' && k !== 'range') || (k === 'range' && v === defaultRange) || (k === 'view' && v === 'grid')) params.delete(k);
       else params.set(k, v);
     }
     const qs = params.toString();
@@ -91,6 +95,12 @@ export function ContentLibraryView() {
   const { data: postsData } = useCachedJson<Post[]>('/api/posts');
   const { t, mode } = usePlatform();
   const posts = useMemo(() => (postsData === undefined ? null : postsData ?? []), [postsData]);
+  // What "average" means on the back of a card: the account's organic posts
+  const averages = useMemo(() => {
+    const organic = (postsData ?? []).filter((p) => !p.isBoosted);
+    const mean = (pick: (p: Post) => number) => (organic.length ? organic.reduce((t, p) => t + pick(p), 0) / organic.length : 0);
+    return { views: mean((p) => p.views), engagement: mean((p) => p.performanceScore) };
+  }, [postsData]);
 
   // Sorting helper
   const handleSort = (key: keyof Post) => {
@@ -296,27 +306,16 @@ export function ContentLibraryView() {
       </div>
 
       {view === 'grid' && posts && processedPosts.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {processedPosts.map((post) => (
-            <Link key={post.id} href={`/content/${encodeURIComponent(post.id)}`} className="group rounded-2xl overflow-hidden bg-card border border-ink/[0.05] hover:border-ink/[0.15] transition-colors">
-              <div className={cn('relative bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]', post.platform === 'youtube' && post.type !== 'short' ? 'aspect-video' : 'aspect-[4/5]')}>
-                <PostThumb src={post.thumbnail} type={post.type} sizes="(max-width: 640px) 50vw, 240px" />
-                <span className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/60 text-white">{formatLabel(post.type)}</span>
-                {post.isBoosted && <span className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/80 text-black">Boosted</span>}
-                <span className="on-color absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 to-transparent text-[11px] font-bold text-white flex items-center gap-2.5 tabular-nums">
-                  <span className="inline-flex items-center gap-1"><Eye className="w-3 h-3" />{formatNumber(post.views)}</span>
-                  <span className="inline-flex items-center gap-1"><Heart className="w-3 h-3" />{formatNumber(post.likes)}</span>
-                  <span className={cn('ml-auto inline-flex items-center gap-0.5', getPerformanceColor(post.performanceScore))}><Flame className="w-3 h-3" />{post.performanceScore.toFixed(1)}%</span>
-                </span>
-              </div>
-              <div className="p-2.5">
-                <p className="text-[12px] line-clamp-2 leading-snug min-h-[2.5em]">{post.caption || (post.platform === 'youtube' ? 'Untitled video' : 'Untitled post')}</p>
-                <p className="text-[10px] text-muted-foreground mt-1">{new Date(post.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' })}</p>
-                {post.aiBestFor && <span title={post.aiVerdict ?? undefined} className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-[10px] font-bold"><Sparkles className="w-2.5 h-2.5" />Good for {post.aiBestFor.toLowerCase().slice(0, 22)}</span>}
-              </div>
-            </Link>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-4">
+          {processedPosts.slice(0, shown).map((post) => (
+            <FlipCard key={post.id} post={post} avgViews={averages.views} avgEngagement={averages.engagement} now={now} />
           ))}
         </div>
+      )}
+      {view === 'grid' && posts && processedPosts.length > shown && (
+        <button type="button" onClick={() => setShown((n) => n + 24)} className="self-center mx-auto block h-12 px-6 rounded-full glass-field text-[13px] font-bold hover:bg-ink/[0.12]">
+          Show more ({processedPosts.length - shown} left)
+        </button>
       )}
 
       {/* Phones: a compact list instead of the wide table */}

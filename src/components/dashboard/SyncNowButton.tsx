@@ -30,13 +30,13 @@ export function SyncNowButton({ accounts, syncedAgo, stale }: { accounts: Accoun
         type="button"
         onClick={run}
         disabled={step !== null}
-        className="inline-flex items-center gap-2 h-10 px-4 rounded-full bg-white text-[#0A0A0F] text-[13px] font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-80"
+        className="inline-flex items-center gap-2 h-11 px-4 rounded-full glass-field text-foreground text-[13px] font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-80"
       >
         <RefreshCw className={cn('w-4 h-4', step && 'animate-spin')} />
         {step ? `Syncing @${step.username}${accounts.length > 1 ? ` (${step.index + 1}/${accounts.length})` : ''}...` : 'Sync now'}
       </button>
       {syncedAgo && (
-        <span className={cn('text-[12px]', stale ? 'font-bold text-[#FFE08A]' : 'text-white/80')} title={stale ? 'Over a day old. Sync now, or check Status if it keeps failing.' : undefined}>
+        <span className={cn('text-[12px]', stale ? 'font-bold text-amber-400' : 'text-muted-foreground')} title={stale ? 'Over a day old. Sync now, or check Status if it keeps failing.' : undefined}>
           {stale ? '⚠ ' : ''}Last synced {syncedAgo}
         </span>
       )}
