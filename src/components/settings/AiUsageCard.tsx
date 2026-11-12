@@ -9,7 +9,7 @@ type Usage = { total: Total; byFeature: Total[]; byModel: Total[]; openrouter: K
 
 const FEATURE_LABELS: Record<string, string> = {
   insights: 'AI Insights', recommendations: 'Quick wins', plan: 'Game plan', brainstorm: 'Brainstorm', chat: 'Sage chat',
-  post: 'Post analysis', report: 'Report reviews', competitors: 'Competitor takeaways', writer: 'Scripts and captions', replies: 'Comment replies',
+  post: 'Post analysis', report: 'Report reviews', competitors: 'Competitor takeaways', writer: 'Scripts and captions', replies: 'Comment replies', briefing: 'Daily briefing and page notes',
 };
 
 const tokens = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));

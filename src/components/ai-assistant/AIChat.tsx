@@ -1,52 +1,40 @@
 'use client';
 
-import { useState, useRef, useEffect, type ReactNode } from 'react';
-import Link from 'next/link';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { withPostLinks } from './SageText';
+import { ASK_SAGE } from '@/lib/askSage';
 import { Send } from 'lucide-react';
 import { SageOrb } from './SageOrb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
-import { useCachedJson } from '@/lib/useCachedJson';
+import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
+import { useRouter } from 'next/navigation';
+import { Check, Undo2, X } from 'lucide-react';
 
 const SUGGESTED_PROMPTS = [
   'Which 3 posts got the most saves, and why?',
   'Compare my reels and carousels this month',
   'Why did my last post do better or worse?',
-  'When should I post next?',
+  'A number looks wrong',
 ];
-
-// Sage writes [[post:ID|label]] for posts it mentions; those become links to the post's page
-function withPostLinks(text: string): ReactNode[] {
-  const parts: ReactNode[] = [];
-  const re = /\[\[post:([^|\]]+)\|([^\]]+)\]\]/g;
-  let last = 0;
-  for (const m of text.matchAll(re)) {
-    parts.push(text.slice(last, m.index));
-    parts.push(
-      <Link key={m.index} href={`/content/${encodeURIComponent(m[1].trim())}`} className="font-semibold text-indigo-400 underline underline-offset-2 hover:text-indigo-300">
-        {m[2].trim()}
-      </Link>,
-    );
-    last = m.index + m[0].length;
-  }
-  parts.push(text.slice(last));
-  return parts;
-}
 
 let nextId = 1;
 const newId = () => String(nextId++);
+
+type ActionResult = { id: string | null; ok: boolean; summary: string; undone?: boolean };
+type Message = ChatMessage & { actions?: ActionResult[] };
 
 export function AIChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: '0',
       role: 'assistant',
-      content: "Hey, I'm Sage! I've read your synced posts. Ask me what's working, what to post next, or how to grow.",
+      content: "Hey, I'm Sage! I've read your synced posts. Ask me what's working or what to post next. If a number looks wrong, tell me the right one and I'll fix it.",
       timestamp: new Date(),
     },
   ]);
@@ -61,7 +49,9 @@ export function AIChat() {
     }
   }, [messages, thinking]);
 
-  const sendMessage = async (text: string) => {
+  const router = useRouter();
+
+  const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || thinking) return;
 
     const history = messages.slice(1).map((m) => ({ role: m.role, content: m.content }));
@@ -70,6 +60,7 @@ export function AIChat() {
     setThinking(true);
 
     let reply: string;
+    let actions: ActionResult[] = [];
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -78,12 +69,45 @@ export function AIChat() {
       });
       const data = await res.json().catch(() => ({}));
       reply = res.ok ? data.reply : data.error || 'Something went wrong. Try again.';
+      if (res.ok && Array.isArray(data.actions)) actions = data.actions;
     } catch {
       reply = 'Could not reach the server. Check your connection and try again.';
     }
     setThinking(false);
-    setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: reply, timestamp: new Date() }]);
+    setMessages((prev) => [...prev, { id: newId(), role: 'assistant', content: reply, timestamp: new Date(), actions }]);
+    // Sage changed something: every page and chart should show it right away
+    if (actions.some((a) => a.ok)) {
+      clearJsonCache();
+      router.refresh();
+    }
+  }, [messages, thinking, router]);
+
+  const undo = async (msgId: string, actionId: string) => {
+    const res = await fetch(`/api/sage/actions/${actionId}/undo`, { method: 'POST' });
+    if (!res.ok) return;
+    setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, actions: m.actions?.map((a) => (a.id === actionId ? { ...a, undone: true } : a)) } : m)));
+    clearJsonCache();
+    router.refresh();
   };
+
+  // "Ask Sage" buttons on any page open the chat, and ask their question when they carry one
+  const pending = useRef<string | null>(null);
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const question = (e as CustomEvent<string>).detail;
+      setOpen(true);
+      if (question) pending.current = question;
+    };
+    window.addEventListener(ASK_SAGE, onAsk);
+    return () => window.removeEventListener(ASK_SAGE, onAsk);
+  }, []);
+  useEffect(() => {
+    if (open && pending.current && !thinking) {
+      const question = pending.current;
+      pending.current = null;
+      void sendMessage(question);
+    }
+  });
 
   return (
     <>
@@ -130,6 +154,21 @@ export function AIChat() {
                     )}
                   >
                     {msg.role === 'assistant' ? withPostLinks(msg.content) : msg.content}
+                    {msg.actions && msg.actions.length > 0 && (
+                      <div className="mt-2 flex flex-col gap-1.5 whitespace-normal">
+                        {msg.actions.map((a, i) => (
+                          <div key={a.id ?? i} className={cn('flex items-start gap-1.5 rounded-lg px-2 py-1.5 text-[11px] leading-snug border', !a.ok ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : a.undone ? 'border-border bg-background/40 text-muted-foreground line-through' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200')}>
+                            {a.ok ? <Check className="w-3 h-3 mt-0.5 shrink-0" /> : <X className="w-3 h-3 mt-0.5 shrink-0" />}
+                            <span className="flex-1">{a.summary}</span>
+                            {a.ok && a.id && !a.undone && (
+                              <button type="button" onClick={() => undo(msg.id, a.id!)} className="shrink-0 inline-flex items-center gap-1 font-bold text-foreground hover:underline no-underline">
+                                <Undo2 className="w-3 h-3" /> Undo
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

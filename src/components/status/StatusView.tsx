@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, CircleAlert, CircleX, RefreshCw } from 'lucide-react';
-import { useCachedJson } from '@/lib/useCachedJson';
+import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
 import { syncAccount } from '@/lib/syncClient';
 import { STATUS_CHANGED, STATUS_URL, type AccountHealth, type AppStatus } from '@/lib/status';
 import { formatRelativeTime } from '@/utils/formatters';
@@ -153,7 +153,53 @@ export function StatusView() {
         )}
       </section>
 
+      <SageChanges />
+
       {data.version && <p className="text-[11px] text-muted-foreground">Version {data.version}</p>}
     </div>
+  );
+}
+
+type SageLog = { actions: { id: string; kind: string; summary: string; active: boolean; createdAt: string; undoneAt: string | null }[]; memory: { id: string; fact: string; at: string }[] };
+
+// Everything Sage changed when asked in chat, with Undo, and the facts it keeps in mind
+function SageChanges() {
+  const { data, refresh } = useCachedJson<SageLog>('/api/sage/actions');
+  const [busy, setBusy] = useState<string | null>(null);
+  if (!data || (data.actions.length === 0 && data.memory.length === 0)) return null;
+
+  const undo = async (id: string) => {
+    setBusy(id);
+    await fetch(`/api/sage/actions/${id}/undo`, { method: 'POST' });
+    setBusy(null);
+    clearJsonCache();
+    refresh();
+  };
+
+  return (
+    <section className="rounded-[30px] bg-card border border-ink/[0.05] p-5 sm:p-6">
+      <h2 className="text-lg font-bold mb-1">Sage&apos;s changes</h2>
+      <p className="text-[13px] text-muted-foreground mb-3">Numbers you corrected and things you asked Sage to change. Corrections stay in place after every sync until you undo them.</p>
+      <ul className="space-y-1.5">
+        {data.actions.map((a) => (
+          <li key={a.id} className="flex items-start gap-2.5 text-[13px]">
+            <span className={cn('mt-1.5 w-2 h-2 rounded-full shrink-0', a.undoneAt ? 'bg-ink/20' : 'bg-violet-400')} />
+            <span className={cn('flex-1 min-w-0 break-words', a.undoneAt && 'line-through text-muted-foreground')}>{a.summary}</span>
+            <span className="text-[12px] text-muted-foreground shrink-0">{formatRelativeTime(a.createdAt)}</span>
+            {!a.undoneAt && (
+              <button type="button" onClick={() => undo(a.id)} disabled={busy === a.id} className="shrink-0 text-[12px] font-bold text-violet-400 hover:underline disabled:opacity-50">Undo</button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {data.memory.length > 0 && (
+        <>
+          <h3 className="text-sm font-bold mt-4 mb-1.5">Sage remembers</h3>
+          <ul className="space-y-1 text-[13px] text-muted-foreground list-disc pl-5">
+            {data.memory.map((m) => <li key={m.id}>{m.fact}</li>)}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }

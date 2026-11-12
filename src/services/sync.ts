@@ -15,6 +15,7 @@ import {
   type InstagramMedia,
 } from './instagram';
 import { prisma } from '@/lib/prisma';
+import { reapplyCorrections } from '@/services/sageActions';
 import type { SocialProfile } from '@prisma/client';
 
 export async function syncSocialProfile(profileId: string) {
@@ -27,6 +28,8 @@ export async function syncSocialProfile(profileId: string) {
 
   try {
     const result = profile.platform === 'youtube' ? await syncYouTubeProfile(profile) : await syncInstagramProfile(profile);
+    // Numbers the creator corrected through Sage win over what the platform just reported
+    await reapplyCorrections(profile.id).catch((error) => console.error('Reapplying corrections failed:', error));
 
     await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'completed', completedAt: new Date() } });
     await prisma.socialProfile.update({ where: { id: profile.id }, data: { lastSyncedAt: new Date(), isConnected: true } });
@@ -353,6 +356,7 @@ export async function refreshProfileLight(profileId: string) {
   }
 
   await prisma.socialProfile.update({ where: { id: profile.id }, data: { followerCount, ...identity } });
+  await reapplyCorrections(profile.id).catch(() => {});
   const key = dayKey(new Date());
   const snapshot = { followers: followerCount, ...(views != null ? { views } : {}) };
   await prisma.metric.upsert({

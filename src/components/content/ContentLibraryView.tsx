@@ -3,11 +3,12 @@
 import { Suspense, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, Eye, Heart } from 'lucide-react';
+import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, Eye, Heart, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLocalJson } from '@/lib/useLocalJson';
 import Link from 'next/link';
 import { usePeriod } from '@/lib/usePeriod';
+import { SageNote } from '@/components/ai-assistant/SageNote';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatLabel } from '@/lib/platform';
@@ -210,9 +211,11 @@ export function ContentLibraryView() {
       <div>
         <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Content Library</h1>
         <p className="text-[15px] text-muted-foreground mt-3">
-          {t.yt ? 'Every video and Short, sortable by views, likes and engagement' : 'Sort, search and open any post for an AI breakdown'}
+          {t.yt ? 'Every video and Short, sortable by views, likes and engagement.' : 'Sort, search and open any post for an AI breakdown.'} A number wrong? Tell Sage and it corrects it.
         </p>
       </div>
+
+      <SageNote page="content" enabled={!!posts && posts.length > 0} />
 
       {/* Filters toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-secondary/10 p-3 rounded-lg border border-border">
@@ -307,6 +310,7 @@ export function ContentLibraryView() {
               <div className="p-2.5">
                 <p className="text-[12px] line-clamp-2 leading-snug min-h-[2.5em]">{post.caption || (post.platform === 'youtube' ? 'Untitled video' : 'Untitled post')}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">{new Date(post.publishedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: '2-digit' })}</p>
+                {post.aiBestFor && <span title={post.aiVerdict ?? undefined} className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 text-[10px] font-bold"><Sparkles className="w-2.5 h-2.5" />Good for {post.aiBestFor.toLowerCase().slice(0, 22)}</span>}
               </div>
             </Link>
           ))}
@@ -332,6 +336,7 @@ export function ContentLibraryView() {
                     <span><b>{formatNumber(post.likes)}</b> <span className="text-muted-foreground">likes</span></span>
                     <span className={cn('ml-auto inline-flex items-center gap-0.5 font-bold', getPerformanceColor(post.performanceScore))}><Flame className="w-3 h-3" />{post.performanceScore.toFixed(1)}%</span>
                   </span>
+                  {post.aiVerdict && <span className="flex gap-1 mt-1 text-[11px] leading-snug text-muted-foreground"><Sparkles className="w-3 h-3 mt-px shrink-0 text-violet-400" /><span className="line-clamp-2">{post.aiVerdict}</span></span>}
                 </span>
               </Link>
             </li>
@@ -428,6 +433,11 @@ export function ContentLibraryView() {
                       {post.isBoosted && (
                         <Badge className="text-[9px] px-1.5 py-0 border bg-amber-500/10 text-amber-400 border-amber-500/20" title="Promoted post: stats are organic only">
                           Boosted
+                        </Badge>
+                      )}
+                      {post.aiBestFor && (
+                        <Badge className="text-[9px] px-1.5 py-0 border bg-violet-500/10 text-violet-400 border-violet-500/20" title={post.aiVerdict ?? undefined}>
+                          Good for {post.aiBestFor.toLowerCase().slice(0, 18)}
                         </Badge>
                       )}
                     </div>

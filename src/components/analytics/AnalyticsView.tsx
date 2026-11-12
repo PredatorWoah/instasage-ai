@@ -8,7 +8,9 @@ import { FunnelCard, type FunnelData } from '@/components/charts/FunnelCard';
 import { PeriodCompare } from '@/components/charts/PeriodCompare';
 import { EngagementChart, FollowersChart, PostingFrequencyChart, ReachChart, ViewsChart } from '@/components/charts/LazyCharts';
 import type { PeriodTotals } from '@/services/dashboard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MessageCircle } from 'lucide-react';
+import { SageNote } from '@/components/ai-assistant/SageNote';
+import { askSage } from '@/lib/askSage';
 import { Button } from '@/components/ui/button';
 import { setPeriod, usePeriod } from '@/lib/usePeriod';
 
@@ -74,7 +76,7 @@ export function AnalyticsView() {
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Analytics</h1>
           <p className="text-[15px] text-muted-foreground mt-3">{t.yt ? 'How your channel is growing, day by day' : 'Deep-dive performance graphs across all platforms'}</p>
         </div>
-        <div className="flex items-center gap-1.5 bg-secondary/40 p-1 rounded-lg border border-border self-start shrink-0">
+        <div className="flex flex-wrap items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border self-start max-w-full">
           {timeFilters.map((filter) => (
             <Button
               key={filter.label}
@@ -121,41 +123,52 @@ export function AnalyticsView() {
             </p>
           )}
 
+          {data?.hasData && <SageNote page="analytics" />}
+
           {data?.hasData && data.compare && !data.allTime && (
             <PeriodCompare current={data.compare.current} previous={data.compare.previous} days={data.days} labels={{ posts: t.posts, followers: t.followers, yt: t.yt }} />
           )}
 
           {!t.yt && data?.funnel && (
-            <Card className="bg-card border-border">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">From seeing you to following you</CardTitle>
-                <p className="text-[11px] text-muted-foreground">Last 30 days on Instagram. The biggest drop is where to focus: hooks for reach to engagement, profile and bio for visits to follows.</p>
-              </CardHeader>
-              <CardContent className="px-4 pb-4"><FunnelCard funnel={data.funnel} /></CardContent>
-            </Card>
+            <ChartCard title="From seeing you to following you" subtitle="Last 30 days on Instagram. The biggest drop is where to focus: hooks for reach to engagement, profile and bio for visits to follows." ask={`Look at my funnel from reach to follows. Where is the biggest drop, and what should I change?`}>
+              <FunnelCard funnel={data.funnel} />
+            </ChartCard>
           )}
 
           {/* Grid */}
           <div className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
             {charts.map((chart) => (
-              <Card
+              <ChartCard
                 key={chart.title}
-                className={`bg-card border-border ${
-                  chart.fullWidth ? 'md:col-span-2' : ''
-                }`}
+                title={chart.title}
+                subtitle={chart.subtitle}
+                wide={chart.fullWidth}
+                ask={`Explain my "${chart.title}" chart for ${period.label.toLowerCase()}: what is the trend, what is behind it, and what should I do?`}
               >
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-sm font-semibold">{chart.title}</CardTitle>
-                  <p className="text-[11px] text-muted-foreground">{chart.subtitle}</p>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  {chart.component}
-                </CardContent>
-              </Card>
+                {chart.component}
+              </ChartCard>
             ))}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+// One chart in the overhauled grid, with Sage a tap away
+function ChartCard({ title, subtitle, ask, wide, children }: { title: string; subtitle: string; ask: string; wide?: boolean; children: React.ReactNode }) {
+  return (
+    <section className={`rounded-[30px] bg-card border border-ink/[0.05] p-4 sm:p-5 flex flex-col gap-3 min-w-0 ${wide ? 'md:col-span-2' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-bold">{title}</h2>
+          <p className="text-[11.5px] text-muted-foreground leading-snug mt-0.5">{subtitle}</p>
+        </div>
+        <button type="button" onClick={() => askSage(ask)} aria-label={`Ask Sage about ${title}`} title="Ask Sage about this chart" className="shrink-0 w-10 h-10 rounded-full bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 flex items-center justify-center transition-colors">
+          <MessageCircle className="w-4 h-4" />
+        </button>
+      </div>
+      {children}
+    </section>
   );
 }

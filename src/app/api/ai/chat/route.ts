@@ -22,8 +22,8 @@ export async function POST(req: Request) {
     : [];
 
   try {
-    const reply = await chatWithAssistant(userId, await getAccountScope(userId), turns, message.slice(0, 4000));
-    return NextResponse.json({ reply });
+    const { reply, actions } = await chatWithAssistant(userId, await getAccountScope(userId), turns, message.slice(0, 4000));
+    return NextResponse.json({ reply, actions });
   } catch (error) {
     return aiErrorResponse(error);
   }

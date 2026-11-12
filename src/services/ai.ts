@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AiError, generate, getAiConfig, parseJson, type ChatTurn } from '@/services/llm';
 import { analysisToPrompt, buildAnalysis, localTime } from '@/services/analysis';
 import { competitorsToPrompt } from '@/services/competitors';
+import { ACTIONS_PROMPT, applyAction, correctionsText, memoryText, splitActions, type ActionResult } from '@/services/sageActions';
 
 export { AiError, type ChatTurn };
 
@@ -118,17 +119,19 @@ export async function postTable(profileIds: string[], timeZone: string, limit = 
 
 // Bio, creator profile and numbers, plus competitors and past idea results for the strategy features
 async function context(userId: string, profileIds: string[], timeZone: string, withRivals = false, days: number | null = null) {
-  const [analysis, rivals, user, results, winners] = await Promise.all([
+  const [analysis, rivals, user, results, winners, memory, corrections] = await Promise.all([
     buildAnalysis(profileIds, timeZone, days),
     withRivals ? competitorsToPrompt(userId) : Promise.resolve(''),
     prisma.user.findUnique({ where: { id: userId }, select: { bio: true, creatorProfile: true } }),
     withRivals ? ideaResults(userId, profileIds) : Promise.resolve(''),
     withRivals ? recentWinners(profileIds, timeZone, days) : Promise.resolve(''),
+    memoryText(userId),
+    correctionsText(userId),
   ]);
   if (analysis.allTime.posts === 0) {
     throw new AiError('no_data', 'Connect an account and press Sync first, so there are posts to analyze.');
   }
-  return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) + analysisToPrompt(analysis) + winners + rivals + results;
+  return creatorProfileText(user?.bio, user?.creatorProfile as CreatorProfile | null) + memory + corrections + analysisToPrompt(analysis) + winners + rivals + results;
 }
 
 // JSON answers come back as an object; lists sit under "items"
@@ -371,7 +374,7 @@ Match the creator's voice and what already works for this account (cite nothing,
 
 // ---------- Chat widget ----------
 
-export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string) {
+export async function chatWithAssistant(userId: string, scope: Scope, history: ChatTurn[], message: string): Promise<{ reply: string; actions: ActionResult[] }> {
   const config = await getAiConfig(userId, 'chat');
   let data: string;
   try {
@@ -380,17 +383,29 @@ export async function chatWithAssistant(userId: string, scope: Scope, history: C
     if (error instanceof AiError && error.code === 'no_data') data = 'No posts have been synced yet.';
     else throw error;
   }
-  const table = await postTable(scope.profileIds, config.timeZone);
+  const [table, accounts] = await Promise.all([
+    postTable(scope.profileIds, config.timeZone),
+    prisma.socialProfile.findMany({ where: { userId }, select: { username: true, platform: true, followerCount: true, reach30: true } }),
+  ]);
+  const accountLines = accounts.map((a) => `@${a.username} (${a.platform}): ${a.followerCount} ${a.platform === 'youtube' ? 'subscribers' : 'followers'}${a.reach30 != null ? `, ${a.reach30} accounts reached in the last 30 days` : ''}`).join('\n');
   const { text } = await generate(config, message, {
     history: history.slice(-10),
     feature: 'chat',
     system: `${ANALYST}
 You are Sage, chatting inside the creator's analytics dashboard. Answer with their real numbers: look posts up in the table below, compare, rank, add up and work out averages when asked. Keep answers practical and short (under 200 words unless they ask for more), plain text with simple "- " bullets when listing. Never invent a post or a number that is not in the data; if something is not there, say so.
 When you mention a specific post, link it exactly like [[post:ID|short label]], using the id from the table, e.g. [[post:abc123|12 Oct gym reel]]. Link only ids from the table.
+${ACTIONS_PROMPT}
+## Connected accounts
+${accountLines || 'none'}
 
 ${data}${table}`,
   });
-  return text;
+  const { text: reply, actions } = splitActions(text);
+  const results: ActionResult[] = [];
+  for (const action of actions) {
+    results.push(await applyAction(userId, action).catch(() => ({ id: null, ok: false, summary: 'That change failed. Try again.' })));
+  }
+  return { reply: reply || (results.length ? 'Done.' : text), actions: results };
 }
 
 // ---------- Brainstorm (Ideas Studio) ----------
@@ -619,4 +634,86 @@ export async function postVerdicts(userId: string, postIds: string[]) {
     const a = r.content as Partial<PostAnalysis>;
     return [r.kind.slice(5), { verdict: String(a.verdict ?? ''), bestFor: String(a.bestFor ?? '') }];
   })) as Record<string, { verdict: string; bestFor: string }>;
+}
+
+// ---------- Daily briefing and page notes ----------
+
+export type Briefing = {
+  headline: string;
+  win: string;
+  watch: string;
+  move: { format: string; when: string; idea: string; hook: string; basedOn: string };
+};
+export type PageNote = { headline: string; points: string[] };
+export type NotePage = 'analytics' | 'content' | 'audience';
+
+// A cached AI read is out of date once a sync or a Sage correction happened after it, or after a day
+export async function aiReadIsStale(userId: string, scope: Scope, createdAt: Date) {
+  const [profiles, lastAction] = await Promise.all([
+    prisma.socialProfile.findMany({ where: { id: { in: scope.profileIds } }, select: { lastSyncedAt: true } }),
+    prisma.sageAction.findFirst({ where: { userId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } }),
+  ]);
+  const synced = Math.max(0, ...profiles.map((p) => p.lastSyncedAt.getTime()));
+  return synced > createdAt.getTime() || (lastAction?.createdAt.getTime() ?? 0) > createdAt.getTime() || Date.now() - createdAt.getTime() > 24 * 3_600_000;
+}
+
+export async function getCachedBriefing(userId: string, scope: Scope) {
+  const row = await read(userId, `briefing:${cacheKey(scope)}`);
+  if (!row) return null;
+  return { briefing: row.content as Briefing, model: row.model, createdAt: row.createdAt, stale: await aiReadIsStale(userId, scope, row.createdAt) };
+}
+
+export async function generateBriefing(userId: string, scope: Scope) {
+  const config = await getAiConfig(userId, 'briefing');
+  const data = await context(userId, scope.profileIds, config.timeZone, true, scope.days ?? null);
+  const now = localTime(new Date(), config.timeZone);
+  const { text, model } = await generate(
+    config,
+    `${data}
+
+It is now ${now} in the creator's timezone. Write today's short briefing for their dashboard: what matters in the numbers right now and the single best next move. Plain words, real numbers, no hype.
+Return a JSON object:
+"headline": one sentence, max 14 words, the most important thing in the window, with a number,
+"win": one sentence: the best thing that happened, citing the post or number,
+"watch": one sentence: the thing to keep an eye on or fix, citing the number (if nothing is wrong, the biggest missed opportunity),
+"move": the next post to make {"format": e.g. "Reel", "when": a day and local time, e.g. "Tonight, 7:30 PM" or "Thu, 6 PM", based on their best times, "idea": one concrete sentence, "hook": the first line or on-screen hook, "basedOn": which winner or pattern this builds on, a few words}`,
+    { json: true, system: ANALYST, feature: 'briefing' },
+  );
+  const briefing = parseJson<Briefing>(text);
+  if (!briefing.headline || !briefing.move) throw new AiError('api', 'The briefing came back incomplete. Try again.', true);
+  const row = await write(userId, `briefing:${cacheKey(scope)}`, briefing, model);
+  return { briefing, model, createdAt: row.createdAt, stale: false };
+}
+
+const NOTE_TASKS: Record<NotePage, string> = {
+  analytics: 'They are looking at their Analytics page: growth over time, reach, views per day, engagement and posting frequency. Explain the trend in this window against the previous one and their all-time baseline, and what is driving it.',
+  content: 'They are looking at their Content library, the list of all their posts. Say which posts and formats stand out, which underperformers hold a lesson, and which post is worth repurposing or following up, linking posts like [[post:ID|label]].',
+  audience: 'They are looking at their Audience page: who follows them and when they are active. Say who the audience is, when to post for them, and one way to serve them better, from the numbers.',
+};
+
+export async function getCachedPageNote(userId: string, scope: Scope, page: NotePage) {
+  const row = await read(userId, `note:${page}:${cacheKey(scope)}`);
+  if (!row) return null;
+  return { note: row.content as PageNote, model: row.model, createdAt: row.createdAt, stale: await aiReadIsStale(userId, scope, row.createdAt) };
+}
+
+export async function generatePageNote(userId: string, scope: Scope, page: NotePage) {
+  const config = await getAiConfig(userId, 'briefing');
+  const [data, table] = await Promise.all([
+    context(userId, scope.profileIds, config.timeZone, false, scope.days ?? null),
+    page === 'content' ? postTable(scope.profileIds, config.timeZone, 60) : Promise.resolve(''),
+  ]);
+  const { text, model } = await generate(
+    config,
+    `${data}${table}
+
+${NOTE_TASKS[page]}
+Return a JSON object: {"headline": one sentence, max 16 words, the main takeaway with a number, "points": 2 or 3 short sentences, each with a specific number and what to do about it}`,
+    { json: true, system: ANALYST, feature: 'briefing' },
+  );
+  const note = parseJson<PageNote>(text);
+  if (!note.headline) throw new AiError('api', 'The note came back empty. Try again.', true);
+  note.points = (Array.isArray(note.points) ? note.points : []).map(String).slice(0, 3);
+  const row = await write(userId, `note:${page}:${cacheKey(scope)}`, note, model);
+  return { note, model, createdAt: row.createdAt, stale: false };
 }

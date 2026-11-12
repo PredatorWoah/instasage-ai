@@ -1,14 +1,17 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getServerSession } from 'next-auth';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { authOptions } from '@/lib/auth';
 import { getAccountScope } from '@/lib/scope';
 import { getTimeZone } from '@/lib/api';
 import { formatLabel, terms } from '@/lib/platform';
 import { PostThumb } from '@/components/dashboard/PostThumb';
 import { getDashboardData } from '@/services/dashboard';
-import { getCachedResult, postVerdicts, type AiRecommendation, type Insight } from '@/services/ai';
+import { postVerdicts } from '@/services/ai';
+import { sageFeed, type FeedItem } from '@/services/feed';
+import { SageBriefing } from '@/components/dashboard/SageBriefing';
+import { SageFeed } from '@/components/dashboard/SageFeed';
 import { EngagementChart, FollowersChart } from '@/components/charts/LazyCharts';
 import { BestTimeTile } from '@/components/dashboard/BestTimeTile';
 import { formatAge, formatNumber, getPerformanceLabel } from '@/utils/formatters';
@@ -33,11 +36,13 @@ export default async function DashboardPage() {
   if (!session || !session.user) redirect('/login');
 
   const [scope, timeZone] = await Promise.all([getAccountScope(session.user.id), getTimeZone(session.user.id)]);
-  const [data, insights, ideas, owner] = await Promise.all([
+  const [data, owner, feed] = await Promise.all([
     getDashboardData(scope, scope.span, timeZone),
-    getCachedResult<Insight>(session.user.id, 'insights', scope.aiKey),
-    getCachedResult<AiRecommendation>(session.user.id, 'recommendations', scope.aiKey),
     prisma.user.findUnique({ where: { id: session.user.id }, select: { goal: true } }),
+    sageFeed(session.user.id, scope).catch((error) => {
+      console.error('Sage feed failed:', error);
+      return [] as FeedItem[];
+    }),
   ]);
 
   const { kpis, timeSeries } = data;
@@ -58,83 +63,87 @@ export default async function DashboardPage() {
   const short = scope.days == null ? 'all time' : `${scope.days} days`;
   const who = scope.key === 'all' ? 'all accounts' : `@${scope.profiles[0]?.username}`;
 
-  // The banner tells the month's story: the latest AI insight, or a line built from the numbers
+  // Until Sage has written a briefing (or with no AI key), the hero tells the story from the numbers
   const story =
-    insights?.items[0]?.title ??
     (kpis.followersChange > 0
       ? `You gained ${formatNumber(kpis.followersChange)} ${t.followersLower} ${scope.days == null ? "since InstaSage started tracking" : `in ${phrase}`}.`
       : hasData
         ? `${formatNumber(kpis.views)} views ${scope.days == null ? `across all your ${t.posts}` : `on your ${t.posts} from ${phrase}`}.`
         : 'Connect Instagram or YouTube to start your story.');
-  const idea = ideas?.items[0];
   const latest = data.latestPosts;
   const verdicts = await postVerdicts(session.user.id, latest.map((p) => p.id)).catch(() => ({} as Awaited<ReturnType<typeof postVerdicts>>));
 
+  // Goal pace joins the feed, so the feed reads as one running story
+  const feedItems: FeedItem[] = [...feed];
+  if (forecast && hasData) {
+    const pace = forecast.reached
+      ? `Goal reached: ${formatNumber(forecast.current)} ${t.followersLower}, past your ${formatNumber(forecast.target)} target.`
+      : forecast.onTrack != null
+        ? `Goal pace: ${forecast.onTrack ? 'on track' : 'behind'} for ${formatNumber(forecast.target)} by ${forecast.deadlineLabel}. You're gaining ${forecast.perDay ?? 0} a day, ${forecast.neededPerDay} a day needed.`
+        : forecast.eta
+          ? `Goal: ${formatNumber(forecast.remaining)} ${t.followersLower} to go. At this pace you hit ${formatNumber(forecast.target)} around ${forecast.eta}.`
+          : null;
+    if (pace) feedItems.splice(Math.min(2, feedItems.length), 0, { id: 'goal', kind: 'goal', at: 0, ago: 'now', text: pace });
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Story banner */}
-      <section className="animate-rise relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-9 flex flex-col lg:flex-row lg:items-stretch justify-between gap-6 min-h-[250px]">
-        <div aria-hidden className="absolute right-[18%] -top-36 w-[420px] h-[420px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.55),transparent)]" />
-        <div className="relative flex flex-col justify-between gap-6 max-w-[720px]">
-          <span className="self-start inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">
-            <Sparkles className="w-3.5 h-3.5" /> {scope.days == null ? 'All time' : `Your ${phrase.replace(/^the /, '')}`} · {who}
-          </span>
-          <div className="space-y-2">
-            <h1 className="text-[40px] sm:text-[56px] leading-[0.98] tracking-[-0.045em] text-balance">{story}</h1>
-            {hasData && (
-              <Guard name="SinceLastVisit"><SinceLastVisit
-                scopeKey={scope.key}
-                followers={kpis.followers}
-                unit={t.followersLower}
-                postTimes={data.posts.map((p) => p.publishedAt.toISOString())}
-                post={t.post}
-                posts={t.posts}
-              /></Guard>
-            )}
+      {/* Sage's daily briefing: rewritten after each sync */}
+      <SageBriefing
+        hasData={hasData}
+        fallback={story}
+        chip={`${scope.days == null ? 'All time' : label} · ${who}`}
+        below={hasData ? (
+          <Guard name="SinceLastVisit"><SinceLastVisit
+            scopeKey={scope.key}
+            followers={kpis.followers}
+            unit={t.followersLower}
+            postTimes={data.posts.map((p) => p.publishedAt.toISOString())}
+            post={t.post}
+            posts={t.posts}
+          /></Guard>
+        ) : undefined}
+        actions={
+          <SyncNowButton
+            accounts={scope.profiles.map((p) => ({ id: p.id, username: p.username, platform: p.platform }))}
+            syncedAgo={data.syncedMinutesAgo == null ? null : formatAge(data.syncedMinutesAgo)}
+            stale={data.syncedMinutesAgo != null && data.syncedMinutesAgo > 24 * 60}
+          />
+        }
+        side={
+          <div className="flex gap-2.5">
+            <div className="flex-1 px-4 py-3 rounded-[20px] glass-chip flex justify-between items-center gap-3">
+              <span className="text-[13px] font-medium">New {t.followersLower}</span>
+              <span className="font-display font-extrabold text-[22px]">{kpis.followersChange >= 0 ? '+' : '−'}{formatNumber(Math.abs(kpis.followersChange))}</span>
+            </div>
+            <div className="flex-1 px-4 py-3 rounded-[20px] glass-chip flex justify-between items-center gap-3">
+              <span className="text-[13px] font-medium">{t.Posts}</span>
+              <span className="font-display font-extrabold text-[22px]">{postsThisMonth}</span>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <SyncNowButton
-              accounts={scope.profiles.map((p) => ({ id: p.id, username: p.username, platform: p.platform }))}
-              syncedAgo={data.syncedMinutesAgo == null ? null : formatAge(data.syncedMinutesAgo)}
-              stale={data.syncedMinutesAgo != null && data.syncedMinutesAgo > 24 * 60}
-            />
-            {insights?.items[0] && (
-              <Link href="/insights" transitionTypes={['nav-forward']} className="text-sm font-semibold text-white/90 hover:text-white inline-flex items-center gap-1.5">
-                Read the full analysis <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
-        </div>
-        <div className="relative flex flex-row lg:flex-col gap-2.5 justify-end lg:w-[280px]">
-          <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
-            <span className="text-sm font-medium">New {t.followersLower}</span>
-            <span className="font-display font-extrabold text-[26px]">{kpis.followersChange >= 0 ? '+' : '−'}{formatNumber(Math.abs(kpis.followersChange))}</span>
-          </div>
-          <div className="flex-1 lg:flex-none px-4 py-3.5 rounded-[20px] glass-chip flex justify-between items-center gap-3">
-            <span className="text-sm font-medium">{t.Posts} published</span>
-            <span className="font-display font-extrabold text-[26px]">{postsThisMonth}</span>
-          </div>
-        </div>
-      </section>
+        }
+      />
 
       <Guard name="SetupChecklist"><SetupChecklist /></Guard>
 
-      {/* Stat tiles */}
-      <section className="stagger grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Live feed + the numbers */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="lg:col-span-7 min-w-0"><SageFeed items={feedItems} /></div>
+      <div className="lg:col-span-5 stagger grid grid-cols-2 gap-4 content-start">
         <div className="prism-sunset rounded-[30px] p-5 flex flex-col justify-between min-h-[190px]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/25 text-[13px] font-bold">{t.followers}</span>
-          <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
+          <span className="font-display font-extrabold text-[34px] sm:text-[44px] tracking-[-0.05em] leading-[0.9]">{formatNumber(kpis.followers)}</span>
         </div>
         <div className="prism-ocean rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#04151E]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/30 text-[13px] font-bold" title={t.yt ? undefined : kpis.reach.unique ? 'Unique accounts reached in the last 30 days, from Instagram' : 'Daily reach added up over the window (Instagram only gives a unique count for 30 days)'}>{t.yt ? `Channel views · ${short}` : `Reached · ${short}`}</span>
-          <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">
+          <span className="font-display font-extrabold text-[34px] sm:text-[44px] tracking-[-0.05em] leading-[0.9]">
             {t.yt ? (kpis.channelViews != null ? formatNumber(kpis.channelViews) : '—') : kpis.reach.value != null ? formatNumber(kpis.reach.value) : '—'}
           </span>
         </div>
         <div className="prism-gold rounded-[30px] p-5 flex flex-col justify-between min-h-[190px] text-[#2A1A00]">
           <span className="self-start px-3 py-1.5 rounded-full bg-ink/35 text-[13px] font-bold" title={`Total interactions divided by total ${t.yt ? 'views' : 'reach'} across ${kpis.engagementPosts} ${t.posts} from ${phrase}`}>Engagement</span>
           <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
-            <span className="font-display font-extrabold text-[38px] sm:text-[52px] xl:text-[60px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
+            <span className="font-display font-extrabold text-[34px] sm:text-[44px] tracking-[-0.05em] leading-[0.9]">{kpis.engagement.toFixed(1)}%</span>
             {hasData && <span className="text-[13px] font-bold pb-1">{getPerformanceLabel(kpis.engagement)}</span>}
           </div>
         </div>
@@ -161,66 +170,14 @@ export default async function DashboardPage() {
             })}
           </div>
         </div>
-        <Guard name="BestTimeTile"><BestTimeTile /></Guard>
+      </div>
       </section>
-
-      {/* Top posts + AI */}
-      <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Top {t.posts} <span className="text-sm font-medium text-muted-foreground">· {label.toLowerCase()}</span></h2>
-            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
-          </div>
-          {data.topPosts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8">{hasData ? `No ${t.posts} in ${phrase}. Pick a longer time window at the top.` : 'Nothing synced yet. Connect an account and press Sync on the Accounts page.'}</p>
-          ) : (
-            <div className={t.yt ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' : 'grid grid-cols-3 sm:grid-cols-5 gap-3'}>
-              {data.topPosts.map((post, i) => (
-                <Link
-                  key={post.id}
-                  href={`/content/${encodeURIComponent(post.id)}`}
-                  transitionTypes={['page-fade']}
-                  aria-label={post.caption.slice(0, 80) || `Open ${t.post}`}
-                  className={`group relative ${post.platform === 'youtube' ? 'aspect-video' : 'aspect-[4/5]'} rounded-[20px] overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]`}
-                >
-                  <PostThumb src={post.thumbnail} type={post.type} sizes="200px" />
-                  <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white/90">#{i + 1}</span>
-                  <span className="absolute left-2 bottom-2 px-2.5 py-1 rounded-full bg-[rgba(10,10,15,0.8)] text-white text-[12px] font-bold">
-                    {post.performanceScore.toFixed(1)}%
-                  </span>
-                  {post.isBoosted && <span className="absolute right-2 top-2 px-2 py-0.5 rounded-full bg-amber-500/90 text-[10px] font-bold text-black">Boosted</span>}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-        <Guard name="GoalCard"><GoalCard forecast={forecast} current={kpis.followers} unit={t.followersLower} perDay={followersPerDay(timeSeries)} timeZone={timeZone} /></Guard>
-        <div className="flex-1 rounded-[30px] p-6 bg-white text-[#0A0A0F] flex flex-col gap-3">
-          <span className="text-[13px] font-bold prism-text">AI recommends</span>
-          <p className="font-display font-extrabold text-[26px] leading-[1.05] tracking-[-0.03em]">
-            {idea ? idea.title : 'Get a 30-day game plan built from your own numbers.'}
-          </p>
-          {idea?.description && <p className="text-sm text-[#4A4A5A] leading-relaxed line-clamp-3">{idea.description}</p>}
-          <Link
-            href="/recommendations"
-            transitionTypes={['nav-forward']}
-            className="mt-auto self-start inline-flex items-center gap-1.5 h-11 px-5 rounded-full bg-[#0A0A0F] text-white text-[13px] font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform"
-          >
-            {idea ? 'See all ideas' : 'Generate ideas'} <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
-        </div>
-      </section>
-
       {/* Latest posts */}
       <AutoReview pending={hasData} />
       {latest.length > 0 && (
         <section className="rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">Latest {t.posts}</h2>
+            <h2 className="text-xl font-bold">Latest {t.posts} <span className="text-sm font-medium text-muted-foreground">· reviewed by Sage</span></h2>
             <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
@@ -278,6 +235,44 @@ export default async function DashboardPage() {
           </div>
         </section>
       )}
+
+      {/* Top posts, goal and best time */}
+      <section className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 rounded-[30px] p-5 sm:p-6 bg-card border border-ink/[0.05] flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold">Top {t.posts} <span className="text-sm font-medium text-muted-foreground">· {label.toLowerCase()}</span></h2>
+            <Link href="/content" transitionTypes={['nav-forward']} className="text-[13px] font-bold text-amber-300 hover:text-amber-200">All content →</Link>
+          </div>
+          {data.topPosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8">{hasData ? `No ${t.posts} in ${phrase}. Pick a longer time window at the top.` : 'Nothing synced yet. Connect an account and press Sync on the Accounts page.'}</p>
+          ) : (
+            <div className={t.yt ? 'grid grid-cols-2 sm:grid-cols-3 gap-3' : 'grid grid-cols-3 sm:grid-cols-5 gap-3'}>
+              {data.topPosts.map((post, i) => (
+                <Link
+                  key={post.id}
+                  href={`/content/${encodeURIComponent(post.id)}`}
+                  transitionTypes={['page-fade']}
+                  aria-label={post.caption.slice(0, 80) || `Open ${t.post}`}
+                  className={`group relative ${post.platform === 'youtube' ? 'aspect-video' : 'aspect-[4/5]'} rounded-[20px] overflow-hidden on-color bg-[linear-gradient(160deg,#8C7BFF,#FF6F91)]`}
+                >
+                  <PostThumb src={post.thumbnail} type={post.type} sizes="200px" />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <span className="absolute left-2 top-2 font-display font-extrabold text-[13px] text-white/90">#{i + 1}</span>
+                  <span className="absolute left-2 bottom-2 px-2.5 py-1 rounded-full bg-[rgba(10,10,15,0.8)] text-white text-[12px] font-bold">
+                    {post.performanceScore.toFixed(1)}%
+                  </span>
+                  {post.isBoosted && <span className="absolute right-2 top-2 px-2 py-0.5 rounded-full bg-amber-500/90 text-[10px] font-bold text-black">Boosted</span>}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+        <Guard name="GoalCard"><GoalCard forecast={forecast} current={kpis.followers} unit={t.followersLower} perDay={followersPerDay(timeSeries)} timeZone={timeZone} /></Guard>
+        <Guard name="BestTimeTile"><BestTimeTile /></Guard>
+        </div>
+      </section>
 
       {/* Trends */}
       <section className="stagger grid grid-cols-1 md:grid-cols-2 gap-4">
