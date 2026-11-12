@@ -62,3 +62,11 @@ export async function getTimeZone(userId: string) {
   const tz = (await cookies()).get('tz')?.value;
   return validTimeZone(tz) ? tz : 'UTC';
 }
+
+// A storage failure answers with a short reason the page can show, never a bare 500
+export function failed(error: unknown, what: string) {
+  console.error(`${what} failed:`, error);
+  const code = (error as { code?: string })?.code;
+  const reason = code === 'P2021' || code === 'P2022' ? 'The database is missing a table for this. Redeploy so it is created.' : code ? `Database error ${code}.` : 'The server hit an error.';
+  return NextResponse.json({ error: `${what} could not load. ${reason}` }, { status: 500 });
+}
