@@ -113,8 +113,8 @@ function Setup({ data }: { data: Data }) {
   ];
 
   return (
-    <div className="grid lg:grid-cols-[1fr_1.1fr] gap-4">
-      <section className="relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-9 flex flex-col gap-5">
+    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-4">
+      <section className="relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-9 flex flex-col gap-5 min-w-0">
         <div aria-hidden className="absolute -right-24 -top-32 w-[380px] h-[380px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.5),transparent)]" />
         <span className="relative self-start px-3.5 py-1.5 rounded-full glass-chip text-[13px] font-bold">One time setup · about 10 minutes</span>
         <h2 className="relative text-[30px] sm:text-[42px] leading-[1] tracking-[-0.045em]">See what your rivals post, how often, and what lands.</h2>
@@ -129,8 +129,8 @@ function Setup({ data }: { data: Data }) {
               Connect with Facebook
             </a>
           ) : (
-            <span className="inline-flex items-center gap-2 h-12 px-5 rounded-full glass-chip text-sm font-bold">
-              <TriangleAlert className="w-4 h-4" /> Waiting for FACEBOOK_APP_ID and FACEBOOK_APP_SECRET
+            <span className="inline-flex items-center gap-2 min-h-12 py-2 px-5 rounded-[24px] glass-chip text-sm font-bold max-w-full min-w-0 break-words [overflow-wrap:anywhere]">
+              <TriangleAlert className="w-4 h-4 shrink-0" /> Waiting for FACEBOOK_APP_ID and FACEBOOK_APP_SECRET
             </span>
           )}
           {data.configured && <span className="text-[12px] text-white/80">{data.usesConfigId ? 'Using your login configuration' : 'Using standard permissions'}</span>}

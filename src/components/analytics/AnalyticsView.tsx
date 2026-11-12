@@ -31,6 +31,7 @@ export function AnalyticsView() {
     { label: '1 Year', value: 365 },
     { label: 'All', value: null },
   ];
+  const gained = data?.compare?.current.followersGained ?? null;
   const span = period.days == null ? 'all time' : `last ${days} days`;
 
   const charts = [
@@ -73,8 +74,11 @@ export function AnalyticsView() {
       {/* Header with time filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Analytics</h1>
-          <p className="text-[15px] text-muted-foreground mt-3">{t.yt ? 'How your channel is growing, day by day' : 'Deep-dive performance graphs across all platforms'}</p>
+          {gained != null && <p className="text-[14px] font-bold text-muted-foreground mb-1.5">Are you growing?</p>}
+          <h1 className="font-display font-extrabold text-[44px] sm:text-[72px] leading-[0.9] tracking-[-0.05em]">
+            {gained == null ? 'Analytics.' : gained > 0 ? <>Yes. <span className="text-emerald-400">+{gained.toLocaleString('en-US')}.</span></> : gained < 0 ? <>Not right now. <span className="text-rose-400">{gained.toLocaleString('en-US')}.</span></> : 'Holding steady.'}
+          </h1>
+          <p className="text-[15px] text-muted-foreground mt-3">{gained == null ? (t.yt ? 'How your channel is growing, day by day' : 'How your account is growing, day by day') : `${t.followers} gained over ${span}. The charts below show where it came from.`}</p>
         </div>
         <div className="flex flex-wrap items-center gap-1 bg-secondary/40 p-1 rounded-xl border border-border self-start max-w-full">
           {timeFilters.map((filter) => (
