@@ -2,52 +2,53 @@
 
 import { useMemo, useState } from 'react';
 import { Check, CircleAlert, Circle, Copy, Sparkles, Trash2 } from 'lucide-react';
-import { checkCaption, composeCaption, failing, type Check as CheckRow } from '@/lib/brandKit';
+import { checkCaption, composeCaption, failing, feedPreview, parseHashtags, type Check as CheckRow } from '@/lib/brandKit';
 import { formatNumber } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Field, Panel, area, btn, copyText, input, when, type Draft, type Kit, type PostRow } from './ui';
 
 const TONE: Record<CheckRow['status'], string> = {
-  ok: 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25',
-  warn: 'bg-amber-500/10 text-amber-300 border-amber-500/25',
-  fail: 'bg-rose-500/12 text-rose-300 border-rose-500/30',
+  ok: 'bg-emerald-500/12 text-emerald-400 border-emerald-500/25',
+  warn: 'bg-amber-500/10 text-amber-400 border-amber-500/25',
+  fail: 'bg-rose-500/12 text-rose-400 border-rose-500/30',
 };
 const ICON = { ok: Check, warn: Circle, fail: CircleAlert };
 
 // Write a caption against the account's own rules, with live checks. Sage can draft it and fixes what fails.
-export function CaptionLab({ account, kit, drafts, posts, reload }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void }) {
+export function CaptionLab({ account, kit, drafts, posts, reload, initialTopic = '', initialPost = '' }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; initialPost?: string }) {
   const [productId, setProductId] = useState(kit.products[0]?.id ?? '');
   const [cta, setCta] = useState(kit.ctas[0] ?? '');
   const [body, setBody] = useState('');
   const [hashtags, setHashtags] = useState('');
-  const [topic, setTopic] = useState('');
-  const [sourcePost, setSourcePost] = useState('');
-  const [busy, setBusy] = useState<'draft' | 'save' | null>(null);
+  const [topic, setTopic] = useState(initialTopic);
+  const [sourcePost, setSourcePost] = useState(initialPost);
+  const [busy, setBusy] = useState<'draft' | 'fix' | 'save' | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
 
   const checks = useMemo(() => checkCaption(kit, { body, cta, hashtags }), [kit, body, cta, hashtags]);
   const bad = failing(checks);
   const full = composeCaption({ body, cta, hashtags });
+  const preview = feedPreview(full);
   const captions = drafts.filter((d) => d.kind === 'caption');
 
-  const draft = async () => {
-    setBusy('draft');
+  const draft = async (fix = false) => {
+    setBusy(fix ? 'fix' : 'draft');
     setNote(null);
     try {
       const res = await fetch('/api/ai/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, kind: 'caption', productId, cta, topic, fromPostId: sourcePost || undefined }),
+        body: JSON.stringify({ account, kind: 'caption', productId, cta, topic, fromPostId: sourcePost || undefined, ...(fix ? { fixBody: body, fixHashtags: hashtags } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) setNote(data.error || 'Sage could not write that. Try again.');
       else {
         setBody(data.body ?? '');
         setHashtags((data.hashtags ?? []).join(' '));
-        setLoadedId(null);
+        if (!fix) setLoadedId(null);
         const left = failing(data.checks ?? []);
-        setNote(left.length ? `Sage's draft still fails: ${left.map((c: CheckRow) => c.label).join(', ')}. Edit it or draft again.` : 'Drafted, and it passes every check.');
+        setNote(left.length ? `Sage's draft still fails: ${left.map((c: CheckRow) => c.label).join(', ')}. Edit it or draft again.` : fix ? 'Fixed. It passes every check now.' : 'Drafted, and it passes every check.');
       }
     } catch {
       setNote('Could not reach the server. Try again.');
@@ -86,7 +87,8 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
   const clear = () => { setBody(''); setHashtags(''); setLoadedId(null); setNote(null); };
   const addSet = (name: string) => {
     const set = kit.hashtagSets.find((s) => s.name === name);
-    if (set) setHashtags((h) => `${h.trim()} ${set.tags}`.trim());
+    // Tags already in the caption are not added twice
+    if (set) setHashtags((h) => [...new Set([...parseHashtags(h), ...parseHashtags(set.tags)])].join(' '));
   };
   const link = async (id: string, postId: string) => {
     await fetch(`/api/creative/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: postId || null }) });
@@ -128,7 +130,7 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
                 {posts.slice(0, 20).map((p) => <option key={p.id} value={p.id}>{p.caption.replace(/\s+/g, ' ').slice(0, 50) || p.type}</option>)}
               </select>
             </Field>
-            <button type="button" onClick={draft} disabled={busy !== null} className={`${btn.primary} sm:col-span-2`}>
+            <button type="button" onClick={() => draft()} disabled={busy !== null} className={`${btn.primary} sm:col-span-2`}>
               <Sparkles className="w-4 h-4" /> {busy === 'draft' ? 'Sage is writing…' : body ? 'Draft again with Sage' : 'Draft with Sage'}
             </button>
           </div>
@@ -150,7 +152,7 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
             <button type="button" onClick={clear} className={btn.ghost}>New draft</button>
           </div>
           {kit.claimNote && <p className="text-[13px] text-muted-foreground leading-relaxed">{kit.claimNote}</p>}
-          {note && <p role="status" className="text-[13px] font-semibold text-violet-300">{note}</p>}
+          {note && <p role="status" className="text-[13px] font-semibold text-indigo-400">{note}</p>}
         </Panel>
 
         <Panel title="Caption preview">
@@ -160,7 +162,7 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
               return (
                 <li key={c.id} className={cn('flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13.5px] leading-snug', TONE[c.status])}>
                   <Icon className="w-4 h-4 mt-0.5 shrink-0" />
-                  <span><b className="font-semibold">{c.label}</b>{c.detail && <span className="opacity-80"> · {c.detail}</span>}</span>
+                  <span className="min-w-0 break-words"><b className="font-semibold">{c.label}</b>{c.detail && <span className="opacity-80"> · {c.detail}</span>}</span>
                 </li>
               );
             })}
@@ -168,9 +170,17 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
           <div className="rounded-2xl glass-field p-4 min-h-[92px] text-[14.5px] leading-relaxed whitespace-pre-wrap break-words">
             {full || <span className="text-muted-foreground">Your caption shows here exactly as it will be posted.</span>}
           </div>
+          {full && (
+            <p className="text-[12.5px] text-muted-foreground leading-snug break-words">
+              <b className="text-foreground">In the feed, before &ldquo;more&rdquo;:</b> {preview.text}{preview.cut ? '…' : ''}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={copy} disabled={!full} className={btn.primary}><Copy className="w-4 h-4" /> {bad.length ? 'Copy anyway' : 'Copy caption'}</button>
-            {bad.length > 0 && <span className="text-[12.5px] text-rose-300 font-semibold">{bad.length} check{bad.length > 1 ? 's' : ''} failing</span>}
+            {body.trim() && checks.some((c) => c.status !== 'ok') && (
+              <button type="button" onClick={() => draft(true)} disabled={busy !== null} className={btn.ghost}><Sparkles className="w-4 h-4" /> {busy === 'fix' ? 'Fixing…' : 'Fix with Sage'}</button>
+            )}
+            {bad.length > 0 && <span className="text-[12.5px] text-rose-400 font-semibold">{bad.length} check{bad.length > 1 ? 's' : ''} failing</span>}
           </div>
         </Panel>
       </div>
@@ -189,7 +199,7 @@ export function CaptionLab({ account, kit, drafts, posts, reload }: { account: s
                     <span className="text-[11.5px] text-muted-foreground shrink-0">{when(d.updatedAt)}</span>
                   </div>
                   {d.result && (
-                    <p className="text-[12.5px] font-semibold text-emerald-300">Posted: {formatNumber(d.result.views)} views · {d.result.saves} saves · {d.result.shares} shares · {d.result.performanceScore.toFixed(1)}% eng</p>
+                    <p className="text-[12.5px] font-semibold text-emerald-400 break-words">Posted: {formatNumber(d.result.views)} views · {d.result.saves} saves · {d.result.shares} shares · {d.result.performanceScore.toFixed(1)}% eng</p>
                   )}
                   <select aria-label="Which post did this become?" value={d.postId ?? ''} onChange={(e) => link(d.id, e.target.value)} className={`${input} h-10 text-[12.5px]`}>
                     <option value="">Not posted yet</option>

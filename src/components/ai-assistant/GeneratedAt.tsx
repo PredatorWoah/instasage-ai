@@ -9,7 +9,7 @@ export function GeneratedAt({ createdAt, model, generating, onRegenerate }: {
   onRegenerate: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 self-start shrink-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 self-start">
       {createdAt && (
         <span className="text-[11px] text-muted-foreground">
           Generated {formatRelativeTime(createdAt).toLowerCase()}{model ? ` · ${model}` : ''}

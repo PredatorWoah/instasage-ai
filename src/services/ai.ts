@@ -729,6 +729,7 @@ export type CreateInput = {
   topic?: string;
   briefKind?: BriefKind;
   fromPostId?: string;
+  fix?: { body: string; hashtags: string }; // an existing draft to repair instead of writing a new one
 };
 
 function kitText(kit: BrandKit, input: CreateInput) {
@@ -766,6 +767,10 @@ Rules: the whole caption (body, then the CTA, then hashtags) must be ${r.minChar
 Return a JSON object: {"body": the caption body only, "hashtags": ["#tag", ...]}`;
 
     let prompt = base;
+    if (input.fix) {
+      const now = checkCaption(kit, { body: input.fix.body, cta: input.cta ?? '', hashtags: input.fix.hashtags });
+      prompt = `${base}\n\nDo not write a new caption. Repair this draft, keeping its meaning, voice and as much of the wording as you can:\n${composeCaption({ body: input.fix.body, cta: input.cta ?? '', hashtags: input.fix.hashtags })}\n\nIt fails or misses these checks: ${now.filter((c) => c.status !== 'ok').map((c) => `${c.label} (${c.detail})`).join('; ') || 'none, just tighten it'}`;
+    }
     let result = { body: '', hashtags: [] as string[] };
     let checks: Check[] = [];
     let model = '';

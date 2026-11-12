@@ -98,7 +98,7 @@ export function BriefBuilder({ account, kit, drafts, posts, reload }: { account:
           {BRIEF_KINDS.map((k) => (
             <button key={k.id} type="button" onClick={() => pick(k.id)} aria-pressed={kind === k.id} className={cn('h-11 px-4 rounded-full text-[13px] font-bold transition-colors', kind === k.id ? 'bg-foreground text-background' : 'glass-field hover:bg-ink/[0.12]')}>{k.label}</button>
           ))}
-          <span className="px-3 py-1.5 rounded-full bg-violet-500/15 border border-violet-400/25 text-violet-200 text-[12px] font-bold">{kit.briefs.specs[kind]}</span>
+          <span className="px-3 py-1.5 rounded-full bg-violet-500/15 border border-violet-400/25 text-indigo-400 text-[12px] font-bold">{kit.briefs.specs[kind]}</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-2xl bg-violet-500/[0.08] border border-violet-400/20 p-3">
@@ -133,7 +133,7 @@ export function BriefBuilder({ account, kit, drafts, posts, reload }: { account:
           <button type="button" onClick={() => copy(title, data)} className={btn.ghost}><Copy className="w-4 h-4" /> Copy as text</button>
           <button type="button" onClick={reset} className={btn.ghost}>New brief</button>
         </div>
-        {note && <p role="status" className="text-[13px] font-semibold text-violet-300">{note}</p>}
+        {note && <p role="status" className="text-[13px] font-semibold text-indigo-400">{note}</p>}
       </Panel>
 
       <Panel title="Saved briefs">
@@ -147,7 +147,7 @@ export function BriefBuilder({ account, kit, drafts, posts, reload }: { account:
                 <li key={d.id} className="rounded-2xl glass-field p-4 flex flex-col gap-2.5 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/15 text-violet-200 text-[11px] font-bold mb-1.5">{BRIEF_KINDS.find((k) => k.id === d.kind)?.label ?? d.kind}</span>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full bg-violet-500/15 text-indigo-400 text-[11px] font-bold mb-1.5">{BRIEF_KINDS.find((k) => k.id === d.kind)?.label ?? d.kind}</span>
                       <p className="text-[14px] font-semibold leading-snug break-words">{d.title}</p>
                     </div>
                     <span className="text-[11.5px] text-muted-foreground shrink-0">{when(d.updatedAt)}</span>

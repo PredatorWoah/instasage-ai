@@ -91,13 +91,13 @@ export function SiteHeader() {
           <span className="font-display font-extrabold text-[22px] tracking-[-0.03em] hidden xl:inline">instasage</span>
         </Link>
 
-        {/* Phones: glass menu pill */}
-        <div className="md:hidden min-w-0 flex-1">
+        {/* Phones and tablets: glass menu pill (seven tabs do not fit under 1180px) */}
+        <div className="min-[1180px]:hidden min-w-0 flex-1">
           <Guard name="MobileNav"><MobileNav onWarm={warm} /></Guard>
         </div>
 
-        {/* Tablets and up: the pill tab bar */}
-        <nav aria-label="Main" className="hidden md:flex min-w-0 flex-1 justify-center">
+        {/* Wide screens: the pill tab bar */}
+        <nav aria-label="Main" className="hidden min-[1180px]:flex min-w-0 flex-1 justify-center">
           <div className="flex gap-1 p-1.5 rounded-full bg-card border border-ink/[0.04] overflow-x-auto no-scrollbar max-w-full">
             {NAV_TABS.map((tab, i) => {
               const active = i === current;
@@ -112,7 +112,7 @@ export function SiteHeader() {
                   onFocus={() => warm(tab.id)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'relative shrink-0 px-4 py-2 rounded-full text-sm transition-colors duration-300',
+                    'relative shrink-0 px-3 min-[1400px]:px-4 py-2 rounded-full text-sm transition-colors duration-300',
                     active ? 'text-background font-bold' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >

@@ -3,6 +3,9 @@ import { BRIEF_KINDS, normalizeKit, presetKit, type BrandKit } from '@/lib/brand
 
 const KINDS = ['caption', ...BRIEF_KINDS.map((k) => k.id)];
 
+// Draft contents are free-form but small: anything over 20 KB is refused
+const safeData = (v: unknown) => (v && typeof v === 'object' && JSON.stringify(v).length <= 20_000 ? v : null);
+
 // An account id is only usable if it belongs to the signed-in user
 export async function ownedAccount(userId: string, accountId: unknown) {
   if (typeof accountId !== 'string') return null;
@@ -33,7 +36,7 @@ export async function createDraft(userId: string, accountId: string, input: { ki
   const kind = typeof input.kind === 'string' && KINDS.includes(input.kind) ? input.kind : null;
   if (!kind) return null;
   const title = typeof input.title === 'string' && input.title.trim() ? input.title.trim().slice(0, 160) : kind === 'caption' ? 'Untitled caption' : 'Untitled brief';
-  const data = input.data && typeof input.data === 'object' ? input.data : {};
+  const data = safeData(input.data) ?? {};
   const postId = await ownedPostId(userId, accountId, input.postId);
   return prisma.creativeDraft.create({ data: { userId, socialProfileId: accountId, kind, title, data: data as object, postId } });
 }
@@ -51,7 +54,7 @@ export async function updateDraft(userId: string, id: string, input: { title?: u
     where: { id },
     data: {
       ...(typeof input.title === 'string' && input.title.trim() ? { title: input.title.trim().slice(0, 160) } : {}),
-      ...(input.data && typeof input.data === 'object' ? { data: input.data as object } : {}),
+      ...(safeData(input.data) ? { data: safeData(input.data) as object } : {}),
       ...('postId' in input ? { postId: await ownedPostId(userId, draft.socialProfileId, input.postId) } : {}),
     },
   });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PenLine } from 'lucide-react';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
@@ -20,17 +21,24 @@ type Tab = (typeof TABS)[number]['id'];
 // Create: write captions and briefs to each account's own brand kit
 export function CreateView() {
   const { profiles, selected, loaded } = usePlatform();
+  // Deep links: /create?topic=... from an idea, /create?from=<post id> from a post page
+  const params = useSearchParams();
+  const initialTopic = (params.get('topic') ?? '').slice(0, 300);
+  const fromPost = params.get('from') ?? '';
   const [tab, setTab] = useState<Tab>('caption');
   const [picked, setPicked] = useState<string | null>(null);
 
   // With one account in the top switcher, that is the account. With "all", choose here.
-  const account = selected !== 'all' ? selected : profiles.find((p) => p.id === picked)?.id ?? profiles[0]?.id ?? null;
+  const { data: allPosts } = useCachedJson<(PostRow & { username?: string })[]>(profiles.length ? '/api/posts' : null);
+  // A link from a post page opens that post's own account
+  const linked = profiles.find((p) => p.username === allPosts?.find((x) => x.id === fromPost)?.username)?.id;
+  const account = selected !== 'all' ? selected : profiles.find((p) => p.id === picked)?.id ?? linked ?? profiles[0]?.id ?? null;
   const current = profiles.find((p) => p.id === account);
 
   const { data: kit, refresh: reloadKit } = useCachedJson<Kit>(account ? `/api/brand-kit?account=${account}` : null);
   const { data: drafts, refresh: reloadDrafts } = useCachedJson<{ drafts: Draft[] }>(account ? `/api/creative?account=${account}` : null);
-  const { data: allPosts } = useCachedJson<(PostRow & { username?: string })[]>(account ? '/api/posts' : null);
   const posts = (allPosts ?? []).filter((p) => !current || p.username === current.username);
+  const initialPost = posts.some((p) => p.id === fromPost) ? fromPost : '';
 
   return (
     <div className="flex flex-col gap-5">
@@ -58,17 +66,17 @@ export function CreateView() {
             ) : (
               <span className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full glass-field text-[13px] font-bold"><PenLine className="w-3.5 h-3.5" /> @{current?.username}</span>
             )}
-            {kit && !kit.saved && <span className="text-[12.5px] font-semibold text-amber-300">No brand kit yet for this account. Set one up in the Brand kit tab.</span>}
+            {kit && !kit.saved && <span className="text-[12.5px] font-semibold text-amber-400">No brand kit yet for this account. Set one up in the Brand kit tab.</span>}
           </div>
 
           {!kit || !drafts ? (
             <div className="h-72 rounded-[30px] glass-panel animate-pulse" />
           ) : tab === 'caption' ? (
-            <CaptionLab key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />
+            <CaptionLab key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}:${initialPost}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} initialPost={initialPost} />
           ) : tab === 'briefs' ? (
             <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />
           ) : (
-            <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} />
+            <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} others={profiles.filter((p) => p.id !== account).map((p) => ({ id: p.id, username: p.username }))} />
           )}
         </>
       )}

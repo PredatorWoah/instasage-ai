@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { BRIEF_KINDS, PRESETS, presetKit, type BrandKit } from '@/lib/brandKit';
+import { BRIEF_KINDS, PRESETS, normalizeKit, presetKit, type BrandKit } from '@/lib/brandKit';
 import { primeJson } from '@/lib/useCachedJson';
 import { Field, Panel, area, btn, input, type Kit } from './ui';
 
 const lines = (s: string) => s.split(/\n|,/).map((x) => x.trim()).filter(Boolean);
 
 // Everything that differs between accounts. Each account keeps its own; presets are only a starting point.
-export function BrandKitEditor({ account, accountName, kit, reload }: { account: string; accountName: string; kit: Kit; reload: () => void }) {
+export function BrandKitEditor({ account, accountName, kit, reload, others = [] }: { account: string; accountName: string; kit: Kit; reload: () => void; others?: { id: string; username: string }[] }) {
   const [k, setK] = useState<BrandKit>(kit);
   const [flaggedText, setFlaggedText] = useState(kit.flagged.join('\n'));
   const [ctaText, setCtaText] = useState(kit.ctas.join('\n'));
@@ -25,6 +25,18 @@ export function BrandKitEditor({ account, accountName, kit, reload }: { account:
     setFlaggedText(next.flagged.join('\n'));
     setCtaText(next.ctas.join('\n'));
     setNote(`${PRESETS.find((x) => x.id === id)?.label} rules applied. Save to keep them.`);
+  };
+
+  // Start from another account's kit: fills the form, nothing is saved until you press Save
+  const copyFrom = async (id: string) => {
+    if (!id) return;
+    const res = await fetch(`/api/brand-kit?account=${id}`);
+    if (!res.ok) return setNote('Could not load that kit.');
+    const next = normalizeKit(await res.json());
+    setK(next);
+    setFlaggedText(next.flagged.join('\n'));
+    setCtaText(next.ctas.join('\n'));
+    setNote(`Copied from @${others.find((o) => o.id === id)?.username}. Check it over, then save.`);
   };
 
   const save = async () => {
@@ -55,6 +67,12 @@ export function BrandKitEditor({ account, accountName, kit, reload }: { account:
             <button key={p.id} type="button" onClick={() => applyPreset(p.id)} title={p.blurb} aria-pressed={k.preset === p.id} className={`${btn.small} ${k.preset === p.id ? '!bg-foreground !text-background' : ''}`}>{p.label}</button>
           ))}
         </div>
+        {others.length > 0 && (
+          <select aria-label="Copy the kit from another account" value="" onChange={(e) => copyFrom(e.target.value)} className={`${input} sm:max-w-[320px]`}>
+            <option value="">Copy from another account…</option>
+            {others.map((o) => <option key={o.id} value={o.id}>@{o.username}</option>)}
+          </select>
+        )}
         <p className="text-[12.5px] text-muted-foreground">{PRESETS.find((p) => p.id === k.preset)?.blurb} A preset changes the rules, voice and brief templates. Your name, products and hashtag sets stay.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Brand or account name"><input value={k.brandName} onChange={(e) => set({ brandName: e.target.value })} className={input} /></Field>
@@ -127,7 +145,7 @@ export function BrandKitEditor({ account, accountName, kit, reload }: { account:
 
       <div className="flex flex-wrap items-center gap-3 sticky bottom-20 sm:bottom-4 z-10">
         <button type="button" onClick={save} disabled={saving} className={`${btn.primary} shadow-lg`}>{saving ? 'Saving…' : 'Save brand kit'}</button>
-        {note && <p role="status" className="text-[13px] font-semibold text-violet-300 glass-panel rounded-full px-4 py-2">{note}</p>}
+        {note && <p role="status" className="text-[13px] font-semibold text-indigo-400 glass-panel rounded-full px-4 py-2">{note}</p>}
       </div>
     </div>
   );

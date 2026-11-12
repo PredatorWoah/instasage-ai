@@ -215,6 +215,7 @@ html.light .acrylic-panel {
 @keyframes glass-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,40px,0) scale(1.08); } }
 @keyframes glass-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-50px,60px,0) scale(1.1); } }
 .glass-blob { position: absolute; border-radius: 9999px; filter: blur(70px); will-change: transform; }
+html.light .glass-backdrop { opacity: 0.45; }
 .glass-blob-a { animation: glass-drift-a 28s ease-in-out infinite; }
 .glass-blob-b { animation: glass-drift-b 34s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {

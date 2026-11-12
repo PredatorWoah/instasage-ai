@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       cta: typeof body.cta === 'string' ? body.cta.slice(0, 300) : undefined,
       topic: typeof body.topic === 'string' ? body.topic.slice(0, 500) : undefined,
       fromPostId: typeof body.fromPostId === 'string' ? body.fromPostId : undefined,
+      fix: typeof body.fixBody === 'string' && body.fixBody.trim() ? { body: body.fixBody.slice(0, 3000), hashtags: typeof body.fixHashtags === 'string' ? body.fixHashtags.slice(0, 600) : '' } : undefined,
     });
     return NextResponse.json(result);
   } catch (error) {

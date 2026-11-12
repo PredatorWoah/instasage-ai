@@ -200,6 +200,13 @@ export function checkCaption(kit: BrandKit, input: CaptionInput): Check[] {
   return checks;
 }
 
+// Instagram cuts a caption at about 125 characters in the feed: this is the part people see before "more"
+export const FEED_CUT = 125;
+export function feedPreview(full: string) {
+  const first = full.split('\n')[0];
+  return { text: first.slice(0, FEED_CUT), cut: first.length > FEED_CUT || full.includes('\n') };
+}
+
 export const failing = (checks: Check[]) => checks.filter((c) => c.status === 'fail');
 
 // A saved brief as plain text, to paste into a design tool or send to a designer

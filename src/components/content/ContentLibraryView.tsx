@@ -1,7 +1,6 @@
 'use client';
 
-import { Suspense, useState, useMemo } from 'react';
-import Image from 'next/image';
+import { useState, useMemo } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, ArrowUpDown, Flame, LayoutGrid, Rows3, Download, Bookmark, X, Eye, Heart, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
@@ -76,6 +75,8 @@ export function ContentLibraryView() {
     direction: searchParams.get('dir') === 'asc' ? 'asc' : 'desc',
   };
   const [saved, setSaved] = useLocalJson<SavedView[]>('instasage:content-views', []);
+  const sortKey = sort.key;
+  const sortDirection = sort.direction;
   const setParam = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     for (const [k, v] of Object.entries(updates)) {
@@ -131,7 +132,8 @@ export function ContentLibraryView() {
     }
 
     // Sorting logic
-    const { key, direction } = sort;
+    const key = sortKey;
+    const direction = sortDirection;
     result.sort((a, b) => {
       let valA = a[key];
       let valB = b[key];
@@ -155,7 +157,7 @@ export function ContentLibraryView() {
     });
 
     return result;
-  }, [searchParams, platform, postType, range, sort.key, sort.direction, posts]);
+  }, [searchParams, platform, postType, range, sortKey, sortDirection, posts]);
 
   const summary = useMemo(() => {
     if (!processedPosts.length) return null;
