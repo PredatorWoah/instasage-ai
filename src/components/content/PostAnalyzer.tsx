@@ -141,6 +141,9 @@ export function PostAnalyzer({ id }: { id: string }) {
               Open on {getPlatformLabel(post.platform)} <ExternalLink className="w-3 h-3" />
             </a>
           )}
+          <Link href={`/create?from=${encodeURIComponent(post.id)}`} className="flex items-center gap-1 text-xs text-indigo-400 hover:underline">
+            Write a caption like this <Sparkles className="w-3 h-3" />
+          </Link>
           {post.platform === 'instagram' && (
             <Link href={`/comments?post=${encodeURIComponent(post.id)}`} className="flex items-center gap-1 text-xs text-indigo-400 hover:underline">
               Reply to comments ({post.comments}) <MessageCircle className="w-3 h-3" />

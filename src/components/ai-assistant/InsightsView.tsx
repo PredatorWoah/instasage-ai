@@ -30,12 +30,12 @@ export function InsightsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="min-w-0">
           <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">AI Insights</h1>
           <p className="text-[15px] text-muted-foreground mt-3">What is and isn&apos;t working in {label.toLowerCase()}, from real patterns in your posts. Spot a wrong number? Tell Sage the right one and it fixes it.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 self-start">
+        <div className="flex flex-wrap items-center gap-3 self-start max-w-full">
           <ExportAnalysis />
           <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
         </div>

@@ -41,6 +41,8 @@ model User {
   aiUsage           AiUsage[]
   pushSubscriptions PushSubscription[]
   sageActions       SageAction[]
+  brandKits         BrandKit[]
+  creativeDrafts    CreativeDraft[]
 }
 
 model SocialProfile {
@@ -325,4 +327,33 @@ model SageAction {
 
   @@index([userId, createdAt])
   @@index([target, active])
+}
+
+// Each account's brand kit: products, CTAs, flagged claims, hashtag sets, caption rules, brief defaults.
+// Switching accounts switches the kit. The shape lives in src/lib/brandKit.ts.
+model BrandKit {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialProfileId String
+  data            Json
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, socialProfileId])
+}
+
+// Saved captions and briefs from the Create tab, optionally tied to the post they became
+model CreativeDraft {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialProfileId String
+  kind            String // 'caption' | 'carousel' | 'feed' | 'reel'
+  title           String
+  data            Json
+  postId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, socialProfileId, kind, updatedAt])
 }
