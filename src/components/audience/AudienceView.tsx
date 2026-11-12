@@ -1,5 +1,6 @@
 'use client';
 
+import { SageNote } from '@/components/ai-assistant/SageNote';
 import { displayTimeZone } from '@/lib/utils';
 import { BestTimeHeatmap } from '@/components/charts/BestTimeHeatmap';
 import { useMemo } from 'react';
@@ -100,6 +101,8 @@ export function AudienceView() {
           {t.yt ? 'When your viewers show up, from your videos' : data ? `Who follows @${data.username} (${formatNumber(data.followerCount)} followers), from Instagram` : 'Who follows you, from Instagram'}
         </p>
       </div>
+
+      <SageNote page="audience" enabled={!!posts && posts.length > 0} />
 
       {t.yt ? (
         <p className="text-sm text-muted-foreground p-4 rounded-xl border border-dashed border-border leading-relaxed">

@@ -27,6 +27,8 @@ export type Post = {
   performanceScore: number;
   publishedAt: string;
   type: 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story';
+  aiVerdict?: string | null; // Sage's one-line review, once it has one
+  aiBestFor?: string | null;
 };
 
 export type ChatMessage = {

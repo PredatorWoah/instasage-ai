@@ -74,12 +74,12 @@ type Answer = { text: string; model: string; usage?: Usage };
 
 // ---------- Features and per-feature AI choice ----------
 
-export type Feature = 'insights' | 'recommendations' | 'plan' | 'brainstorm' | 'chat' | 'post' | 'report' | 'competitors' | 'writer' | 'replies';
+export type Feature = 'insights' | 'recommendations' | 'plan' | 'brainstorm' | 'chat' | 'post' | 'report' | 'competitors' | 'writer' | 'replies' | 'briefing';
 
 // Settings groups features so the choice stays simple: a strong model for the plan, a cheap one for chat...
 export const ROUTE_GROUPS = {
   plan: { label: 'Game plan', features: ['plan'] },
-  insights: { label: 'Insights and quick wins', features: ['insights', 'recommendations'] },
+  insights: { label: 'Insights, quick wins and the daily briefing', features: ['insights', 'recommendations', 'briefing'] },
   brainstorm: { label: 'Brainstorm', features: ['brainstorm'] },
   chat: { label: 'Sage chat', features: ['chat'] },
   writer: { label: 'Writing: scripts, captions, comment replies', features: ['writer', 'replies'] },

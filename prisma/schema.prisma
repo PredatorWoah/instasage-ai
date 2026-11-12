@@ -10,44 +10,45 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  name          String?
-  email         String?   @unique
-  image         String?
-  username      String?
-  bio           String?
-  geminiApiKey  String?
-  geminiModel   String?
-  timezone      String?   // IANA zone, e.g. "Asia/Kolkata": AI wording, reports and the daily cron use it
-  timezoneAuto  Boolean   @default(true) // false once picked by hand in Settings, so the browser stops overriding it
-  aiProvider    String?   // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
-  youtubeApiKey String?   // YouTube Data API v3 key (falls back to YOUTUBE_API_KEY)
-  creatorProfile Json?    // niche, audience, goals, posts per week, voice, topics to avoid (fed to the AI)
-  aiRouting     Json?     // per-feature AI choice: { plan: { provider, model }, chat: {...} }
-  goal          Json?     // { target, deadline? } for followers or subscribers
-  setupDismissed Boolean  @default(false) // first-run checklist hidden
-  dismissedAlerts Json?   // ids of alerts the creator closed
-  notifyPrefs   Json?     // { digest: boolean, alerts: boolean } for push notifications
-  notifiedAlerts Json?    // ids of alerts already sent as a push, so each goes out once
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  socialProfiles SocialProfile[]
-  aiResults     AiResult[]
-  aiCredentials AiCredential[]
-  ideaThreads   IdeaThread[]
-  savedIdeas    SavedIdea[]
-  metaLink      MetaLink?
-  competitors   Competitor[]
-  aiUsage       AiUsage[]
+  id                String             @id @default(uuid())
+  name              String?
+  email             String?            @unique
+  image             String?
+  username          String?
+  bio               String?
+  geminiApiKey      String?
+  geminiModel       String?
+  timezone          String? // IANA zone, e.g. "Asia/Kolkata": AI wording, reports and the daily cron use it
+  timezoneAuto      Boolean            @default(true) // false once picked by hand in Settings, so the browser stops overriding it
+  aiProvider        String? // 'gemini' | 'anthropic' | 'openai' | 'openrouter'
+  youtubeApiKey     String? // YouTube Data API v3 key (falls back to YOUTUBE_API_KEY)
+  creatorProfile    Json? // niche, audience, goals, posts per week, voice, topics to avoid (fed to the AI)
+  aiRouting         Json? // per-feature AI choice: { plan: { provider, model }, chat: {...} }
+  goal              Json? // { target, deadline? } for followers or subscribers
+  setupDismissed    Boolean            @default(false) // first-run checklist hidden
+  dismissedAlerts   Json? // ids of alerts the creator closed
+  notifyPrefs       Json? // { digest: boolean, alerts: boolean } for push notifications
+  notifiedAlerts    Json? // ids of alerts already sent as a push, so each goes out once
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  socialProfiles    SocialProfile[]
+  aiResults         AiResult[]
+  aiCredentials     AiCredential[]
+  ideaThreads       IdeaThread[]
+  savedIdeas        SavedIdea[]
+  metaLink          MetaLink?
+  competitors       Competitor[]
+  aiUsage           AiUsage[]
   pushSubscriptions PushSubscription[]
+  sageActions       SageAction[]
 }
 
 model SocialProfile {
   id                String    @id @default(uuid())
   userId            String
   user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform          String    // 'instagram' | 'facebook' | 'youtube'
-  externalId        String?   // Platform's own ID, e.g. the YouTube channel ID
+  platform          String // 'instagram' | 'facebook' | 'youtube'
+  externalId        String? // Platform's own ID, e.g. the YouTube channel ID
   username          String
   displayName       String
   profilePictureUrl String
@@ -56,9 +57,9 @@ model SocialProfile {
   lastSyncedAt      DateTime  @default(now())
   accessToken       String?
   tokenExpiresAt    DateTime?
-  audience          Json?     // Follower demographics from the platform, refreshed on sync
-  reach30           Int?      // Unique accounts reached over the last 30 days (Instagram), refreshed on sync
-  funnel            Json?     // 30-day profile visits, link taps, follows and unfollows (Instagram)
+  audience          Json? // Follower demographics from the platform, refreshed on sync
+  reach30           Int? // Unique accounts reached over the last 30 days (Instagram), refreshed on sync
+  funnel            Json? // 30-day profile visits, link taps, follows and unfollows (Instagram)
   posts             Post[]
   metrics           Metric[]
 
@@ -81,12 +82,12 @@ model Post {
   saves            Int
   shares           Int
   performanceScore Float
-  isBoosted        Boolean  @default(false) // Promoted posts: platform insights cover organic results only
+  isBoosted        Boolean        @default(false) // Promoted posts: platform insights cover organic results only
   publishedAt      DateTime
-  type             String   // 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story'
-  avgWatchMs       Int?     // reels: average watch time per play
-  skipRate         Float?   // reels: % of plays skipped in the first seconds, when Instagram reports it
-  facebookViews    Int?     // plays on Facebook (cross-posted or recommended there); added into views for Reels
+  type             String // 'reel' | 'carousel' | 'post' | 'video' | 'short' | 'story'
+  avgWatchMs       Int? // reels: average watch time per play
+  skipRate         Float? // reels: % of plays skipped in the first seconds, when Instagram reports it
+  facebookViews    Int? // plays on Facebook (cross-posted or recommended there); added into views for Reels
   ideas            SavedIdea[]
   snapshots        PostSnapshot[]
 
@@ -97,26 +98,26 @@ model Post {
 
 // A post's numbers at a point in its life (hours since posting), to draw growth curves
 model PostSnapshot {
-  id         String   @id // "<postId>:<hoursSincePost>"
-  postId     String
-  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  hours      Int
-  takenAt    DateTime @default(now())
-  views      Int
-  reach      Int?
-  likes      Int
-  comments   Int
-  saves      Int
-  shares     Int
+  id       String   @id // "<postId>:<hoursSincePost>"
+  postId   String
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hours    Int
+  takenAt  DateTime @default(now())
+  views    Int
+  reach    Int?
+  likes    Int
+  comments Int
+  saves    Int
+  shares   Int
 
   @@index([postId])
 }
 
 // One row per profile per day (id = "<profileId>:<yyyy-mm-dd>")
 model Metric {
-  id              String         @id @default(uuid())
+  id              String        @id @default(uuid())
   socialProfileId String
-  socialProfile   SocialProfile  @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
+  socialProfile   SocialProfile @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
   date            DateTime
   followers       Int?
   views           Int?
@@ -129,11 +130,11 @@ model Metric {
 }
 
 model SyncJob {
-  id              String         @id @default(uuid())
+  id              String    @id @default(uuid())
   socialProfileId String?
   platform        String
-  status          String         // 'pending' | 'running' | 'completed' | 'failed'
-  startedAt       DateTime       @default(now())
+  status          String // 'pending' | 'running' | 'completed' | 'failed'
+  startedAt       DateTime  @default(now())
   completedAt     DateTime?
   errorMessage    String?
 
@@ -146,7 +147,7 @@ model AiResult {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kind      String   // '<kind>:<scope>' or 'post:<id>'
+  kind      String // '<kind>:<scope>' or 'post:<id>'
   content   Json
   model     String
   createdAt DateTime @default(now())
@@ -162,7 +163,7 @@ model AiCredential {
   provider  String
   apiKey    String
   model     String
-  models    Json?    // Model ids this key can use, fetched when it was saved
+  models    Json? // Model ids this key can use, fetched when it was saved
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -188,7 +189,7 @@ model IdeaMessage {
   id        String     @id @default(uuid())
   threadId  String
   thread    IdeaThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  role      String     // 'user' | 'assistant'
+  role      String // 'user' | 'assistant'
   content   String
   model     String?
   createdAt DateTime   @default(now())
@@ -199,20 +200,20 @@ model IdeaMessage {
 
 // Ideas the creator kept, moved along a small board
 model SavedIdea {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  notes     String   @default("")
-  format    String?
-  status    String   @default("idea") // 'idea' | 'planned' | 'posted'
-  source    String   @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
-  postId       String?  // the real post this idea became, to see how it did
-  post         Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  notes        String    @default("")
+  format       String?
+  status       String    @default("idea") // 'idea' | 'planned' | 'posted'
+  source       String    @default("manual") // 'manual' | 'plan' | 'brainstorm' | 'recommendation'
+  postId       String? // the real post this idea became, to see how it did
+  post         Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
   scheduledFor DateTime? // planned date on the content calendar
-  drafts       Json?    // AI-written script, carousel outline and caption
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  drafts       Json? // AI-written script, carousel outline and caption
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Hot lookups (Postgres does not index foreign keys on its own)
   @@index([userId, updatedAt])
@@ -224,9 +225,9 @@ model MetaLink {
   id          String    @id @default(uuid())
   userId      String    @unique
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken String    // long-lived Facebook user token (about 60 days)
+  accessToken String // long-lived Facebook user token (about 60 days)
   expiresAt   DateTime?
-  igUserId    String    // your Instagram professional account, linked to the Page
+  igUserId    String // your Instagram professional account, linked to the Page
   igUsername  String
   pageName    String
   createdAt   DateTime  @default(now())
@@ -235,20 +236,20 @@ model MetaLink {
 
 // Public numbers of rival Instagram accounts, refreshed by sync
 model Competitor {
-  id                String   @id @default(uuid())
+  id                String               @id @default(uuid())
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   username          String
   name              String?
   biography         String?
   profilePictureUrl String?
-  followers         Int      @default(0)
-  mediaCount        Int      @default(0)
-  stats             Json?    // averages, cadence and format mix worked out from recent posts
-  posts             Json?    // recent posts (caption, likes, comments, type, permalink, timestamp)
+  followers         Int                  @default(0)
+  mediaCount        Int                  @default(0)
+  stats             Json? // averages, cadence and format mix worked out from recent posts
+  posts             Json? // recent posts (caption, likes, comments, type, permalink, timestamp)
   error             String?
-  lastSyncedAt      DateTime @default(now())
-  createdAt         DateTime @default(now())
+  lastSyncedAt      DateTime             @default(now())
+  createdAt         DateTime             @default(now())
   history           CompetitorSnapshot[]
 
   @@unique([userId, username])
@@ -278,7 +279,7 @@ model AiUsage {
   model        String
   inputTokens  Int      @default(0)
   outputTokens Int      @default(0)
-  cost         Float?   // USD, when known (Claude price list, or what OpenRouter reports)
+  cost         Float? // USD, when known (Claude price list, or what OpenRouter reports)
   createdAt    DateTime @default(now())
 
   @@index([userId, createdAt])
@@ -286,14 +287,14 @@ model AiUsage {
 
 // A browser or phone that asked for notifications (Web Push)
 model PushSubscription {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  endpoint  String   @unique
-  p256dh    String
-  auth      String
-  device    String?  // short label from the user agent, e.g. "Chrome on Android"
-  createdAt DateTime @default(now())
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  device     String? // short label from the user agent, e.g. "Chrome on Android"
+  createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
 
   @@index([userId])
@@ -304,4 +305,24 @@ model AppConfig {
   key       String   @id
   value     String
   createdAt DateTime @default(now())
+}
+
+// Changes Sage made when asked in chat: corrected numbers, remembered facts, goals, saved ideas.
+// Corrections stay active and are put back after every sync until undone.
+model SageAction {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      String // 'correct_post' | 'correct_account' | 'mark_boosted' | 'remember' | 'update_profile' | 'set_goal' | 'save_idea'
+  summary   String // one line for the feed and the undo chip
+  target    String? // post id or social profile id for corrections
+  field     String?
+  value     Json?
+  before    Json? // what it was, to undo
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  undoneAt  DateTime?
+
+  @@index([userId, createdAt])
+  @@index([target, active])
 }
