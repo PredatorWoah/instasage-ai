@@ -252,6 +252,11 @@ html.light .glass-panel {
   .flip-face { transition: none; }
 }
 
+/* Native dropdown menus: the select itself is translucent, which Windows copies into the open
+   list, so the options get an explicit solid background and text colour for each theme */
+select option, select optgroup { background-color: #17171F; color: #F5F5FA; }
+html.light select option, html.light select optgroup { background-color: #FFFFFF; color: #14141C; }
+
 /* Slow colour blobs behind the glass. Still when the device asks for less motion. */
 @keyframes glass-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,40px,0) scale(1.08); } }
 @keyframes glass-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-50px,60px,0) scale(1.1); } }

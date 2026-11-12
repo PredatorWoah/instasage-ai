@@ -11,6 +11,7 @@ import { formatLabel } from '@/lib/platform';
 import { formatRelativeTime } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import type { CommentRow } from '@/services/comments';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type PostItem = { id: string; caption: string; thumbnail: string; type: string; comments: number; publishedAt: string; username: string };
 type Load = { comments?: CommentRow[]; error?: string; code?: string };
@@ -127,6 +128,7 @@ function PostComments({ postId, post }: { postId: string; post?: PostItem }) {
           ))}
         </div>
         <button type="button" onClick={reload} aria-label="Refresh comments" className="p-2 rounded-full hover:bg-ink/[0.06]"><RefreshCw className="w-4 h-4" /></button>
+        <AiPicker group="writer" compact />
         <button type="button" onClick={draftAll} disabled={drafting || !shown.length} className="inline-flex items-center gap-1.5 h-9 px-4 rounded-full prism-hero text-white text-[12px] font-bold disabled:opacity-60">
           <Sparkles className={cn('w-3.5 h-3.5', drafting && 'animate-pulse')} /> {drafting ? 'Drafting...' : 'Draft replies'}
         </button>

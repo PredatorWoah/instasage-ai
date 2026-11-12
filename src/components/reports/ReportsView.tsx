@@ -13,6 +13,7 @@ import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { formatNumber } from '@/utils/formatters';
 import { cn, displayTimeZone } from '@/lib/utils';
 import { formatLabel, terms } from '@/lib/platform';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type StoryResult = { story: ReportStory; model: string; createdAt: string } | null;
 const TOOLTIP = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 12, fontSize: 12 };
@@ -185,9 +186,10 @@ export function ReportsView() {
             </button>
           </div>
         ) : (
+          <div className="relative flex flex-wrap items-center gap-2"><AiPicker group="analysis" className="bg-white/15 text-white border-white/25" />
           <button onClick={writeStory} disabled={writing} className="relative self-start inline-flex items-center gap-2 h-11 px-5 rounded-full bg-white text-[#0A0A0F] text-sm font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform disabled:opacity-70">
             <Sparkles className={cn('w-4 h-4', writing && 'animate-spin')} /> {writing ? 'Reading the month...' : 'Write the AI review'}
-          </button>
+          </button></div>
         )}
       </section>
       {failure && <AiNotice code={failure.code} message={failure.error} />}

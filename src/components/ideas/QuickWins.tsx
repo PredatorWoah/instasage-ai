@@ -51,7 +51,7 @@ export function QuickWins() {
             </button>
           ))}
         </div>
-        <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
+        <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} group="insights" />
       </div>
 
       {failure && <AiNotice code={failure.code} message={failure.error} />}

@@ -37,7 +37,7 @@ export function InsightsView() {
         </div>
         <div className="flex flex-wrap items-center gap-3 self-start max-w-full">
           <ExportAnalysis />
-          <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
+          <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} group="insights" />
         </div>
       </div>
 

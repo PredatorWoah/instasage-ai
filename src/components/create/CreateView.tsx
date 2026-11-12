@@ -10,6 +10,7 @@ import { BrandKitEditor } from './BrandKitEditor';
 import { BriefBuilder } from './BriefBuilder';
 import { CaptionLab } from './CaptionLab';
 import type { Draft, Kit, PostRow } from './ui';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 const TABS = [
   { id: 'caption', label: 'Caption lab' },
@@ -68,6 +69,7 @@ export function CreateView() {
             ) : (
               <span className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full glass-field text-[13px] font-bold"><PenLine className="w-3.5 h-3.5" /> @{current?.username}</span>
             )}
+            <AiPicker group="writer" />
             {kit && !kit.saved && <span className="text-[12.5px] font-semibold text-amber-400">No brand kit yet for this account. Set one up in the Brand kit tab.</span>}
           </div>
 

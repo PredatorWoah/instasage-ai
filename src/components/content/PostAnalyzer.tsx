@@ -14,6 +14,7 @@ import { formatNumber, formatRelativeTime, getPerformanceColor, getPerformanceLa
 import { GrowthCurve, type Snapshot } from '@/components/charts/GrowthCurve';
 import { PostNav } from '@/components/content/PostNav';
 import type { PostAnalysis } from '@/services/ai';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type PostData = {
   post: {
@@ -220,8 +221,9 @@ export function PostAnalyzer({ id }: { id: string }) {
       <Card className="bg-card border-border">
         <CardHeader className="pb-2 pt-4 px-5 flex flex-row items-center justify-between gap-3 space-y-0">
           <CardTitle className="text-sm font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-400" /> AI analysis</CardTitle>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {analysis && <span className="text-[11px] text-muted-foreground hidden sm:inline">{formatRelativeTime(analysis.createdAt)} · {analysis.model}</span>}
+            <AiPicker group="analysis" compact />
             <Button size="sm" onClick={analyze} disabled={analyzing} className="text-xs h-8 gap-1.5 bg-indigo-600 hover:bg-indigo-700">
               <RefreshCw className={cn('w-3.5 h-3.5', analyzing && 'animate-spin')} />
               {analyzing ? 'Analyzing...' : analysis ? 'Re-analyze' : 'Analyze this post'}

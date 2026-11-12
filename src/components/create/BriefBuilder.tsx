@@ -108,7 +108,7 @@ export function BriefBuilder({ account, kit, drafts, posts, reload }: { account:
           <Field label="Build on a post that worked" hint="Optional.">
             <select value={sourcePost} onChange={(e) => setSourcePost(e.target.value)} className={input}>
               <option value="">Sage chooses</option>
-              {posts.slice(0, 20).map((p) => <option key={p.id} value={p.id}>{p.caption.replace(/\s+/g, ' ').slice(0, 50) || p.type}</option>)}
+              {posts.slice(0, 20).map((p) => <option key={p.id} value={p.id}>{when(p.publishedAt)} · {p.caption.replace(/\s+/g, ' ').trim().slice(0, 48) || p.type}</option>)}
             </select>
           </Field>
           <button type="button" onClick={draft} disabled={busy !== null} className={`${btn.primary} sm:col-span-2`}>
