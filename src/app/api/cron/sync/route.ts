@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { syncSocialProfile } from '@/services/sync';
 import { generateInsights } from '@/services/ai';
 import { refreshCompetitor } from '@/services/competitors';
-import { sendDailyNotifications } from '@/services/push';
+import { sendDailyNotifications, sendWeeklyDigest } from '@/services/push';
 
 // Runs daily from vercel.json (01:00 UTC, about 6:30 AM in India)
 // A full Instagram sync alone can take most of a minute, so 60 seconds used to cut the run off
@@ -55,6 +55,12 @@ export async function GET(req: Request) {
     notified.push(await sendDailyNotifications(userId).catch((e) => `failed: ${(e as Error).message}`));
   }
 
+  // Mondays (in each creator's own timezone): the weekly digest, by push and by email when set up
+  const weekly: string[] = [];
+  for (const userId of userIds) {
+    weekly.push(await sendWeeklyDigest(userId).then((r) => (r.sent ? `sent (push ${r.push}${r.email ? `, email ${r.email}` : ''})` : r.reason ?? 'not sent')).catch((e) => `failed: ${(e as Error).message}`));
+  }
+
   // Fresh insights waiting in the morning (skipped quietly without an AI key)
   let insights = 'skipped';
   if (Date.now() - started < TIME_BUDGET_MS && results.some((r) => r.ok)) {
@@ -82,7 +88,7 @@ export async function GET(req: Request) {
     }),
   ]).then((r) => r.reduce((a, x) => a + x.count, 0)).catch(() => 0);
 
-  const summary = { synced: results.filter((r) => r.ok).length, total: profiles.length, competitors: `${rivalsRefreshed}/${rivals.length}`, insights, notified, pruned, results };
+  const summary = { synced: results.filter((r) => r.ok).length, total: profiles.length, competitors: `${rivalsRefreshed}/${rivals.length}`, insights, notified, weekly, pruned, results };
   console.log('Daily sync:', JSON.stringify(summary));
   return NextResponse.json(summary);
 }

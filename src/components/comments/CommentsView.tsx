@@ -12,6 +12,7 @@ import { formatRelativeTime } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import type { CommentRow } from '@/services/comments';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
+import { QuestionsView } from './QuestionsView';
 
 type PostItem = { id: string; caption: string; thumbnail: string; type: string; comments: number; publishedAt: string; username: string };
 type Load = { comments?: CommentRow[]; error?: string; code?: string };
@@ -36,15 +37,25 @@ export function CommentsView() {
   }, [params, router, pathname]);
 
   const choose = (id: string) => router.replace(`${pathname}?post=${encodeURIComponent(id)}`, { scroll: false });
+  const view = params.get('view') === 'questions' ? 'questions' : 'inbox';
+  const username = posts.find((p) => p.id === selected)?.username ?? posts[0]?.username;
 
   return (
     <div className="space-y-5">
       <div>
         <h1 className="text-[34px] sm:text-[44px] leading-none tracking-[-0.045em]">Comments</h1>
-        <p className="text-[15px] text-muted-foreground mt-3">Answer people from one place, with AI drafts in your voice. You always choose what gets posted.</p>
+        <p className="text-[15px] text-muted-foreground mt-3">{view === 'questions' ? 'What people keep asking under your posts. Every repeated question is a post waiting to be made.' : 'Answer people from one place, with AI drafts in your voice. You always choose what gets posted.'}</p>
       </div>
 
-      {data === undefined ? (
+      <div role="tablist" aria-label="Comments views" className="inline-flex gap-1 p-1 rounded-full bg-ink/[0.05] border border-ink/[0.06]">
+        {([['inbox', 'Inbox'], ['questions', 'Questions']] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => router.replace(id === 'inbox' ? pathname : `${pathname}?view=questions`, { scroll: false })} className={cn('h-10 px-5 rounded-full text-[13px] font-bold transition-colors', view === id ? 'bg-ink text-background' : 'text-muted-foreground hover:text-foreground')}>{label}</button>
+        ))}
+      </div>
+
+      {view === 'questions' ? (
+        <QuestionsView permissionCard={<PermissionCard username={username} />} />
+      ) : data === undefined ? (
         <div className="h-96 rounded-[30px] bg-card animate-pulse" />
       ) : posts.length === 0 ? (
         <p className="text-sm text-muted-foreground p-4 rounded-xl border border-dashed border-border">No Instagram posts from the last 60 days in the selected accounts. Comments work for Instagram only.</p>

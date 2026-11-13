@@ -8,6 +8,8 @@ import { usePlatform } from '@/lib/usePlatform';
 import { cn } from '@/lib/utils';
 import { BrandKitEditor } from './BrandKitEditor';
 import { BriefBuilder } from './BriefBuilder';
+import { HookLibrary } from './HookLibrary';
+import { Scorecard } from './Scorecard';
 import { Studio } from './Studio';
 import type { Draft, Kit, PostRow } from './ui';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
@@ -15,6 +17,8 @@ import { AiPicker } from '@/components/ai-assistant/AiPicker';
 const TABS = [
   { id: 'caption', label: 'Write' },
   { id: 'briefs', label: 'Briefs' },
+  { id: 'hooks', label: 'Hooks' },
+  { id: 'score', label: 'Scorecard' },
   { id: 'kit', label: 'Brand kit' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
@@ -26,8 +30,10 @@ export function CreateView() {
   const params = useSearchParams();
   const initialTopic = (params.get('topic') ?? '').slice(0, 300);
   const fromPost = params.get('from') ?? '';
-  const [tab, setTab] = useState<Tab>('caption');
+  const [tab, setTab] = useState<Tab>(() => TABS.find((t) => t.id === params.get('tab'))?.id ?? 'caption');
   const [picked, setPicked] = useState<string | null>(null);
+  // The post to build on: from the link, or picked in the hook library
+  const [usePost, setUsePost] = useState<string | null>(null);
 
   // With one account in the top switcher, that is the account. With "all", choose here.
   const { data: allPosts } = useCachedJson<(PostRow & { username?: string })[]>(profiles.length ? '/api/posts' : null);
@@ -41,13 +47,14 @@ export function CreateView() {
   const { data: drafts, error: draftsError, reload: reloadDrafts } = useLoad<{ drafts: Draft[] }>(id ? `/api/creative?account=${id}` : null);
   const loadError = kitError ?? draftsError;
   const posts = (allPosts ?? []).filter((p) => !current || p.username === current.username);
-  const initialPost = posts.some((p) => p.id === fromPost) ? fromPost : '';
+  const wanted = usePost ?? fromPost;
+  const sourcePost = posts.some((p) => p.id === wanted) ? wanted : '';
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
         <h1 className="font-display font-extrabold text-[40px] sm:text-[60px] leading-[0.92] tracking-[-0.05em]">Create.</h1>
-        <p className="text-[15px] text-muted-foreground max-w-[640px]">Captions and briefs written to each account&apos;s own rules. Sage drafts, the checks keep it on brand, and saved captions link to the post they became.</p>
+        <p className="text-[15px] text-muted-foreground max-w-[640px]">Captions and briefs written to each account&apos;s own rules. Sage drafts from the hooks and words that work for you, forecasts how each draft will do, and gets marked on it afterwards.</p>
       </div>
 
       {loaded && profiles.length === 0 && (
@@ -81,12 +88,17 @@ export function CreateView() {
             </div>
           ) : !kit || !drafts ? (
             <div className="h-72 rounded-[30px] glass-panel animate-pulse" aria-label="Loading" />
-          ) : tab === 'caption' ? (
-            <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}:${initialPost}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} initialPost={initialPost} />
-          ) : tab === 'briefs' ? (
-            <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />
           ) : (
-            <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} others={profiles.filter((p) => p.id !== account).map((p) => ({ id: p.id, username: p.username }))} />
+            <>
+              {/* Write stays mounted while other tabs are open, so an unsaved draft survives a look at Hooks or the Scorecard */}
+              <div hidden={tab !== 'caption'}>
+                <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} sourcePost={sourcePost} setSourcePost={setUsePost} />
+              </div>
+              {tab === 'briefs' && <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />}
+              {tab === 'hooks' && <HookLibrary key={account} account={account} onUse={(postId) => { setUsePost(postId); setTab('caption'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
+              {tab === 'score' && <Scorecard key={account} account={account} />}
+              {tab === 'kit' && <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} others={profiles.filter((p) => p.id !== account).map((p) => ({ id: p.id, username: p.username }))} />}
+            </>
           )}
         </>
       )}

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUserId, unauthorized } from '@/lib/api';
-import { DEFAULT_PREFS, deviceLabel, getPrefs, vapidKeys, type NotifyPrefs } from '@/services/push';
+import { DEFAULT_PREFS, PREF_FLAGS, deviceLabel, getPrefs, vapidKeys, type NotifyPrefs } from '@/services/push';
+import { emailReady, validEmail } from '@/services/email';
 
 // The public key browsers need to subscribe, your notification choices and the devices signed up
 export async function GET() {
@@ -12,7 +13,7 @@ export async function GET() {
     getPrefs(userId),
     prisma.pushSubscription.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, select: { id: true, endpoint: true, device: true, createdAt: true, lastUsedAt: true } }),
   ]);
-  return NextResponse.json({ publicKey, prefs, devices });
+  return NextResponse.json({ publicKey, prefs, devices, emailReady: emailReady() });
 }
 
 // { subscription } from PushManager.subscribe() adds this device
@@ -38,14 +39,19 @@ export async function POST(req: Request) {
   return NextResponse.json(row);
 }
 
-// { prefs: { digest?, alerts? } }
+// { prefs: { digest?, alerts?, plan?, weekly?, email? } }; an empty email clears it
 export async function PATCH(req: Request) {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
   const body = await req.json().catch(() => ({}));
   const current = await getPrefs(userId);
   const next: NotifyPrefs = { ...DEFAULT_PREFS, ...current };
-  for (const k of ['digest', 'alerts'] as const) if (typeof body.prefs?.[k] === 'boolean') next[k] = body.prefs[k];
+  for (const k of PREF_FLAGS) if (typeof body.prefs?.[k] === 'boolean') next[k] = body.prefs[k];
+  if (typeof body.prefs?.email === 'string') {
+    const email = body.prefs.email.trim();
+    if (email && !validEmail(email)) return NextResponse.json({ error: 'That does not look like an email address.' }, { status: 400 });
+    next.email = email;
+  }
   await prisma.user.update({ where: { id: userId }, data: { notifyPrefs: next } });
   return NextResponse.json({ prefs: next });
 }

@@ -21,7 +21,7 @@ like know see go going come want need use using way day days thing things time o
 hai hain ka ki ke ko se me mein aur ye yeh wo woh toh to bhi na nahi kya par pe ek ho hota hoti tha thi the kar karo karna apna apni apne
 jo ab hi bas sab koi kuch mera meri mere tera teri tumhara aap hum raha rahi rahe wala wali wale`.split(/\s+/));
 
-const tokens = (caption: string) =>
+export const tokens = (caption: string) =>
   caption
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
@@ -31,7 +31,7 @@ const tokens = (caption: string) =>
     .map((w) => w.replace(/^'+|'+$/g, ''))
     .filter((w) => w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w));
 
-const hashtagsOf = (caption: string) => [...new Set((caption.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((t) => t.toLowerCase()))];
+export const hashtagsOf = (caption: string) => [...new Set((caption.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((t) => t.toLowerCase()))];
 const median = (xs: number[]) => {
   if (!xs.length) return 0;
   const s = [...xs].sort((a, b) => a - b);

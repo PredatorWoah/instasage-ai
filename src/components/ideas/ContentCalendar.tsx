@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { CalendarArrowDown, ChevronLeft, ChevronRight, GripVertical, Plus } from 'lucide-react';
+import { CalendarArrowDown, ChevronLeft, ChevronRight, Copy, GripVertical, PenLine, Plus } from 'lucide-react';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatLabel } from '@/lib/platform';
@@ -34,9 +34,12 @@ export function ContentCalendar() {
   const [filling, setFilling] = useState<{ day: Date; slot: Slot } | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
-  const slots = useMemo<Slot[]>(() => (planData?.plan?.schedule ?? [])
+  const planSlots = useMemo<Slot[]>(() => (planData?.plan?.schedule ?? [])
     .map((s) => ({ weekday: weekdayIndex(s.day), time: parseTime(s.time), label: s.time, format: s.format, why: s.why }))
     .filter((s) => s.weekday >= 0), [planData]);
+  // No game plan yet: fall back to the weekdays and hours your own posts did best on
+  const slots = useMemo(() => (planSlots.length ? planSlots : bestSlots(posts ?? [])), [planSlots, posts]);
+  const fromPlan = planSlots.length > 0;
 
   const days = useMemo(() => monthGrid(month), [month]);
 
@@ -50,6 +53,23 @@ export function ContentCalendar() {
   }, [ideas, posts]);
 
   const unscheduled = (ideas ?? []).filter((i) => i.status !== 'posted' && !i.scheduledFor);
+
+  // The next 14 days: slot days with nothing planned and nothing posted
+  const gaps = useMemo(() => {
+    if (ideas === undefined || posts === undefined) return [];
+    const start = new Date(`${today}T00:00:00`);
+    const out: { day: Date; slot: Slot }[] = [];
+    for (let i = 0; i < 14; i++) {
+      const day = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const slot = slots.find((s) => s.weekday === (day.getDay() + 6) % 7);
+      const cell = byDay.get(dayKey(day));
+      if (!slot || cell?.planned.length || cell?.posted.length) continue;
+      // Today only counts while the slot's hour is still ahead
+      if (i === 0 && atTime(day, slot.time).getTime() < nowMs()) continue;
+      out.push({ day, slot });
+    }
+    return out;
+  }, [ideas, posts, slots, byDay, today]);
 
   const schedule = async (id: string, at: Date | null) => {
     const res = await fetch(`${SAVED_URL}/${id}`, {
@@ -91,6 +111,25 @@ export function ContentCalendar() {
 
   return (
     <div className="grid lg:grid-cols-[1fr_260px] gap-4">
+      {!loading && slots.length > 0 && (
+        <section className="lg:col-span-2 rounded-[30px] bg-card border border-ink/[0.05] p-4 sm:p-5 flex flex-col gap-3 min-w-0" aria-label="Open slots">
+          <div>
+            <h2 className="font-bold">{gaps.length ? `${gaps.length} open ${gaps.length === 1 ? 'slot' : 'slots'} in the next two weeks` : 'The next two weeks are covered'}</h2>
+            <p className="text-[12px] text-muted-foreground">{fromPlan ? 'Days from your game plan with nothing planned yet.' : 'Your best days and hours so far, worked out from your own posts, with nothing planned yet.'} {gaps.length > 0 && 'Tap one to fill it.'}</p>
+          </div>
+          {gaps.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {gaps.map(({ day, slot }) => (
+                <button key={dayKey(day)} type="button" onClick={() => setFilling({ day, slot })} className="inline-flex items-center gap-2 min-h-11 px-4 rounded-full border border-dashed border-ink/[0.2] text-[13px] font-bold hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>{day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                  <span className="font-normal text-muted-foreground">{formatLabel(slot.format)} · {slot.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       <section className="rounded-[30px] bg-card border border-ink/[0.05] p-3 sm:p-5 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <h2 className="text-lg font-bold mr-auto">{monthLabel}</h2>
@@ -187,7 +226,7 @@ export function ContentCalendar() {
           <span><span className="inline-block w-2 h-2 rounded-sm bg-emerald-400 mr-1" />Posted (views)</span>
           <span><span className="inline-block w-2 h-2 rounded-sm bg-indigo-400 mr-1" />Planned</span>
           <span><span className="inline-block w-2 h-2 rounded-sm bg-amber-400 mr-1" />Planned but the day passed</span>
-          {slots.length > 0 ? <span>Dashed: open slots from your game plan</span> : <Link href="/recommendations" className="underline">Build a game plan to see suggested slots</Link>}
+          {fromPlan ? <span>Dashed: open slots from your game plan</span> : slots.length > 0 ? <span>Dashed: your best days so far. <Link href="/recommendations" className="underline">Build a game plan</Link> for a fuller schedule</span> : <Link href="/recommendations" className="underline">Build a game plan to see suggested slots</Link>}
         </div>
       </section>
 
@@ -256,6 +295,45 @@ export function ContentCalendar() {
   );
 }
 
+// Without a game plan: the three weekdays your posts did best on, each at the hour you most often posted then.
+// Needs at least 8 posts and 2 on a weekday before that weekday counts.
+function bestSlots(posts: Post[]): Slot[] {
+  if (posts.length < 8) return [];
+  const mid = (xs: number[]) => {
+    const s = [...xs].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const overall = mid(posts.map((p) => p.views)) || 1;
+  const days = new Map<number, Post[]>();
+  for (const p of posts) {
+    const w = (new Date(p.publishedAt).getDay() + 6) % 7;
+    days.set(w, [...(days.get(w) ?? []), p]);
+  }
+  return [...days]
+    .filter(([, list]) => list.length >= 2)
+    .map(([weekday, list]) => ({ weekday, list, views: mid(list.map((p) => p.views)) }))
+    // Only days that really do better than usual: a below average day is not a "best day"
+    .filter((d) => d.views >= overall)
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 3)
+    .map(({ weekday, list, views }) => {
+      const hours = new Map<number, number>();
+      for (const p of list) hours.set(new Date(p.publishedAt).getHours(), (hours.get(new Date(p.publishedAt).getHours()) ?? 0) + 1);
+      const hour = [...hours].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+      const types = new Map<string, number>();
+      for (const p of list) types.set(p.type, (types.get(p.type) ?? 0) + 1);
+      const lift = Math.round((views / overall - 1) * 100);
+      return {
+        weekday,
+        time: [hour, 0] as [number, number],
+        label: `${hour % 12 || 12} ${hour < 12 ? 'AM' : 'PM'}`,
+        format: [...types].sort((a, b) => b[1] - a[1])[0][0],
+        why: lift > 0 ? `Your ${WEEKDAYS[weekday]} posts get ${lift}% more views than your usual (${list.length} posts).` : `Your ${WEEKDAYS[weekday]} posts do as well as any day (${list.length} posts).`,
+      };
+    });
+}
+
 // Tomorrow at the first plan slot time (or 6 PM), as a starting point in the date picker
 function nextSlot(slots: Slot[]) {
   const tomorrow = new Date(nowMs() + 86_400_000);
@@ -277,6 +355,21 @@ function EditModal({ idea, at, onClose, onSave }: { idea: SavedIdea; at: Date; o
           <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-border bg-background/60 px-3 text-sm focus:outline-none focus:border-indigo-500" />
         </label>
         {idea.notes && <p className="text-[12px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{idea.notes}</p>}
+        {idea.drafts?.caption ? (
+          <div className="rounded-2xl bg-ink/[0.04] border border-ink/[0.08] p-3 flex flex-col gap-2">
+            <p className="text-[12px] font-bold text-muted-foreground">Caption, ready to paste</p>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words max-h-40 overflow-y-auto">{idea.drafts.caption}</p>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(idea.drafts!.caption!).then(() => toast.success('Caption copied'), () => toast.error('Could not copy', { description: 'Select the text instead.' }))}
+              className="self-start inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-[12px] font-bold hover:bg-ink/[0.12]"
+            >
+              <Copy className="w-3.5 h-3.5" /> Copy caption
+            </button>
+          </div>
+        ) : (
+          <Link href={`/create?topic=${encodeURIComponent(idea.title)}`} className="self-start inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-[12px] font-bold hover:bg-ink/[0.12]"><PenLine className="w-3.5 h-3.5" /> Write the caption with Sage</Link>
+        )}
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!value} onClick={() => onSave(new Date(value))} className="h-10 px-5 rounded-full bg-ink text-background text-sm font-bold disabled:opacity-50">Save</button>
           {idea.scheduledFor && <button type="button" onClick={() => onSave(null)} className="h-10 px-4 rounded-full bg-ink/[0.07] border border-ink/[0.1] text-sm font-bold">Unschedule</button>}

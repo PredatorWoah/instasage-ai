@@ -14,6 +14,7 @@ import { formatNumber } from '@/utils/formatters';
 import { cn, displayTimeZone } from '@/lib/utils';
 import { formatLabel, terms } from '@/lib/platform';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
+import { WeeklyDigest } from './WeeklyDigest';
 
 type StoryResult = { story: ReportStory; model: string; createdAt: string } | null;
 const TOOLTIP = { background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: 12, fontSize: 12 };
@@ -162,6 +163,8 @@ export function ReportsView() {
           </a>
         </div>
       </div>
+
+      <WeeklyDigest />
 
       {/* Story */}
       <section className="animate-rise relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-9 flex flex-col gap-5">
