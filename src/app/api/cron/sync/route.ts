@@ -7,10 +7,12 @@ import { refreshCompetitor } from '@/services/competitors';
 import { sendDailyNotifications } from '@/services/push';
 
 // Runs daily from vercel.json (01:00 UTC, about 6:30 AM in India)
-export const maxDuration = 60;
+// A full Instagram sync alone can take most of a minute, so 60 seconds used to cut the run off
+// part way (leaving the rest of the accounts, the alerts and the insights undone)
+export const maxDuration = 300;
 
 // Stop starting new work after this, so the function finishes inside its time limit
-const TIME_BUDGET_MS = 45_000;
+const TIME_BUDGET_MS = 200_000;
 
 function authorized(req: Request) {
   const secret = process.env.CRON_SECRET;

@@ -71,8 +71,11 @@ export async function correctionsText(userId: string) {
   return rows.length ? `\n## Numbers the creator corrected by hand (trust these over the platform's)\n${rows.map((r) => `- ${r.summary}`).join('\n')}\n` : '';
 }
 
-// Sync writes whatever the platform says; corrections the creator made win again afterwards
-export async function reapplyCorrections(profileId: string) {
+// Sync writes whatever the platform says; corrections the creator made win again afterwards.
+// Followers and 30 day reach keep moving, so a correction of either holds only while the platform
+// still reports the number it was correcting. Once the platform reports something new, the correction
+// retires; otherwise the count would stay frozen on that number forever and look like sync stopped.
+export async function reapplyCorrections(profileId: string, reported: { followers?: number | null; reach30?: number | null } = {}) {
   const profile = await prisma.socialProfile.findUnique({ where: { id: profileId }, select: { id: true, userId: true } });
   if (!profile) return;
   const rows = await prisma.sageAction.findMany({ where: { userId: profile.userId, active: true, kind: { in: ['correct_post', 'correct_account', 'mark_boosted'] } }, orderBy: { createdAt: 'asc' } });
@@ -80,6 +83,12 @@ export async function reapplyCorrections(profileId: string) {
     if (r.kind === 'correct_account' && r.target === profileId) {
       const value = n(r.value);
       if (value == null) continue;
+      const fresh = r.field === 'followers' ? reported.followers : reported.reach30;
+      const was = n(r.before);
+      if (fresh != null && (was == null || Math.round(fresh) !== Math.round(was))) {
+        await prisma.sageAction.update({ where: { id: r.id }, data: { active: false } }).catch(() => {});
+        continue;
+      }
       await prisma.socialProfile.update({ where: { id: profileId }, data: r.field === 'followers' ? { followerCount: Math.round(value) } : { reach30: Math.round(value) } }).catch(() => {});
     } else if (r.target && (r.kind === 'correct_post' || r.kind === 'mark_boosted')) {
       const post = await prisma.post.findFirst({ where: { id: r.target, socialProfileId: profileId } });

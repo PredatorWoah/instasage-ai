@@ -29,7 +29,7 @@ export async function syncSocialProfile(profileId: string) {
   try {
     const result = profile.platform === 'youtube' ? await syncYouTubeProfile(profile) : await syncInstagramProfile(profile);
     // Numbers the creator corrected through Sage win over what the platform just reported
-    await reapplyCorrections(profile.id).catch((error) => console.error('Reapplying corrections failed:', error));
+    await reapplyCorrections(profile.id, result.reported).catch((error) => console.error('Reapplying corrections failed:', error));
 
     await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'completed', completedAt: new Date() } });
     await prisma.socialProfile.update({ where: { id: profile.id }, data: { lastSyncedAt: new Date(), isConnected: true } });
@@ -38,7 +38,9 @@ export async function syncSocialProfile(profileId: string) {
   } catch (error) {
     const message = (error as Error).message;
     await prisma.syncJob.update({ where: { id: syncJob.id }, data: { status: 'failed', completedAt: new Date(), errorMessage: message } });
-    if (/token|auth/i.test(message)) {
+    // Only a token Instagram itself rejected means reconnecting. Any other error that happens to
+    // mention "auth" (OAuthException rate limits, say) used to switch syncing off for good.
+    if (/token is invalid or expired|access token missing/i.test(message)) {
       await prisma.socialProfile.update({ where: { id: profile.id }, data: { isConnected: false } });
     }
     throw error;
@@ -106,7 +108,7 @@ async function syncYouTubeProfile(profile: SocialProfile) {
     });
     await snapshotPost(video.id, new Date(video.snippet?.publishedAt || Date.now()), { views, reach: null, likes, comments, saves: 0, shares: 0 });
   });
-  return { followers: followerCount, posts: videos.length };
+  return { followers: followerCount, posts: videos.length, reported: { followers: followerCount } };
 }
 
 // Keeps the 60-day token alive: refresh once it is more than a week old
@@ -221,64 +223,80 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
   // How Instagram answered the Facebook-views question for reels, shown on the Status page
   const fbDiag = { reported: 0, missing: 0, lastError: null as string | null };
 
+  // Facebook views of a post that is a month old barely move: ask once, then leave it
+  const fbKnown = new Map((await prisma.post.findMany({ where: { socialProfileId: profile.id, facebookViews: { not: null } }, select: { id: true, facebookViews: true } })).map((p) => [p.id, p.facebookViews as number]));
+  let postErrors = 0;
+  let lastPostError = '';
+
   await inBatches(media, 5, async (m) => {
-    const askReel = m.media_product_type === 'REELS' && (Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000 || !watched.has(m.id));
-    const [{ values, failed }, reel, fb] = await Promise.all([
-      getInstagramMediaInsights(token, m.id),
-      askReel ? getInstagramReelMetrics(token, m.id) : Promise.resolve(null),
-      getInstagramFacebookViews(token, m.id),
-    ]);
-    const facebookViews = fb.value;
-    if (m.media_product_type === 'REELS') {
-      if (fb.value != null) fbDiag.reported++;
-      else { fbDiag.missing++; fbDiag.lastError = fb.error; }
+    try {
+      const recent = Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000;
+      const askFb = recent || (m.media_product_type === 'REELS' && !fbKnown.has(m.id));
+      const askReel = m.media_product_type === 'REELS' && (Date.now() - Date.parse(m.timestamp) < 30 * 86_400_000 || !watched.has(m.id));
+      const [{ values, failed }, reel, fb] = await Promise.all([
+        getInstagramMediaInsights(token, m.id),
+        askReel ? getInstagramReelMetrics(token, m.id) : Promise.resolve(null),
+        askFb ? getInstagramFacebookViews(token, m.id) : Promise.resolve(null),
+      ]);
+      // Not asked this time: keep the stored number, so a reel's views don't drop by its Facebook plays
+      const facebookViews = fb ? fb.value : fbKnown.get(m.id);
+      if (fb && m.media_product_type === 'REELS') {
+        if (fb.value != null) fbDiag.reported++;
+        else { fbDiag.missing++; fbDiag.lastError = fb.error; }
+      }
+      failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
+      if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
+
+      // Public counters can lag or hide likes; insights are the source of truth when present
+      const likes = Math.max(m.like_count ?? 0, values.likes ?? 0);
+      const comments = Math.max(m.comments_count ?? 0, values.comments ?? 0);
+      const saves = values.saved ?? 0;
+      const shares = values.shares ?? 0;
+      const reach = values.reach ?? null;
+      // Reels views count Instagram plays only, so Facebook plays of a cross-posted reel are added.
+      // Feed posts' views can already include Facebook, so there it is only kept for the breakdown.
+      const isReel = m.media_product_type === 'REELS';
+      const views = (values.views ?? 0) + (isReel && facebookViews ? facebookViews : 0);
+
+      // Engagement rate by reach, the usual Instagram definition
+      const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
+      const fields = {
+        views,
+        reach,
+        likes,
+        comments,
+        saves,
+        shares,
+        performanceScore,
+        permalink: m.permalink ?? null,
+        isBoosted: isBoosted(m),
+        thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
+        caption: m.caption || '',
+        ...(reel ? { avgWatchMs: reel.avgWatchMs, skipRate: reel.skipRate } : {}),
+        ...(fb ? { facebookViews } : {}),
+      };
+
+      await prisma.post.upsert({
+        where: { id: m.id },
+        update: fields,
+        create: {
+          ...fields,
+          id: m.id,
+          socialProfileId: profile.id,
+          platform: 'instagram',
+          type: instagramPostType(m),
+          publishedAt: new Date(m.timestamp),
+        },
+      });
+      await snapshotPost(m.id, new Date(m.timestamp), { views, reach, likes, comments, saves, shares });
+    } catch (error) {
+      // One odd post must not throw away the whole sync
+      postErrors++;
+      lastPostError = (error as Error).message;
     }
-    failed.forEach((f) => failedMetrics.add(f.split(':')[0]));
-    if (failed.length) console.warn(`Instagram insights for ${m.id} (${m.media_product_type}/${m.media_type}) missing:`, failed.join(' | '));
-
-    // Public counters can lag or hide likes; insights are the source of truth when present
-    const likes = Math.max(m.like_count ?? 0, values.likes ?? 0);
-    const comments = Math.max(m.comments_count ?? 0, values.comments ?? 0);
-    const saves = values.saved ?? 0;
-    const shares = values.shares ?? 0;
-    const reach = values.reach ?? null;
-    // Reels views count Instagram plays only, so Facebook plays of a cross-posted reel are added.
-    // Feed posts' views can already include Facebook, so there it is only kept for the breakdown.
-    const isReel = m.media_product_type === 'REELS';
-    const views = (values.views ?? 0) + (isReel && facebookViews ? facebookViews : 0);
-
-    // Engagement rate by reach, the usual Instagram definition
-    const performanceScore = reach ? ((likes + comments + saves + shares) / reach) * 100 : 0;
-    const fields = {
-      views,
-      reach,
-      likes,
-      comments,
-      saves,
-      shares,
-      performanceScore,
-      permalink: m.permalink ?? null,
-      isBoosted: isBoosted(m),
-      thumbnail: m.thumbnail_url || (m.media_type === 'VIDEO' ? '' : m.media_url) || '',
-      caption: m.caption || '',
-      ...(reel ? { avgWatchMs: reel.avgWatchMs, skipRate: reel.skipRate } : {}),
-      facebookViews,
-    };
-
-    await prisma.post.upsert({
-      where: { id: m.id },
-      update: fields,
-      create: {
-        ...fields,
-        id: m.id,
-        socialProfileId: profile.id,
-        platform: 'instagram',
-        type: instagramPostType(m),
-        publishedAt: new Date(m.timestamp),
-      },
-    });
-    await snapshotPost(m.id, new Date(m.timestamp), { views, reach, likes, comments, saves, shares });
   });
+  if (postErrors) console.warn(`Instagram sync skipped ${postErrors} of ${media.length} posts:`, lastPostError);
+  if (media.length && postErrors === media.length) throw new Error(`Could not save any posts: ${lastPostError}`);
   if (fbDiag.reported + fbDiag.missing > 0) {
     if (fbDiag.missing) console.warn(`Facebook views missing on ${fbDiag.missing} reels:`, fbDiag.lastError);
     const value = JSON.stringify({ ...fbDiag, at: new Date().toISOString() });
@@ -325,7 +343,7 @@ async function syncInstagramProfile(profile: SocialProfile & { accessToken: stri
       ...(hasFunnel ? { funnel: { ...funnel, at: new Date().toISOString() } } : {}),
     },
   });
-  return { followers: followerCount, posts: media.length };
+  return { followers: followerCount, posts: media.length, reported: { followers: followerCount, reach30 } };
 }
 
 // Cheap refresh between full syncs: the follower or subscriber count and today's snapshot,
@@ -356,7 +374,7 @@ export async function refreshProfileLight(profileId: string) {
   }
 
   await prisma.socialProfile.update({ where: { id: profile.id }, data: { followerCount, ...identity } });
-  await reapplyCorrections(profile.id).catch(() => {});
+  await reapplyCorrections(profile.id, { followers: followerCount }).catch(() => {});
   const key = dayKey(new Date());
   const snapshot = { followers: followerCount, ...(views != null ? { views } : {}) };
   await prisma.metric.upsert({

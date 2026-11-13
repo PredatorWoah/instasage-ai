@@ -16,7 +16,9 @@ export async function POST() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
 
-  const profiles = await prisma.socialProfile.findMany({ where: { userId, isConnected: true } });
+  // Disconnected accounts are included too: one marked disconnected by mistake would otherwise never
+  // sync again. They get a full try at most hourly, and a token that is really dead just fails again.
+  const profiles = await prisma.socialProfile.findMany({ where: { userId } });
   const now = Date.now();
   let changed = false;
   let synced = 0;
@@ -27,6 +29,17 @@ export async function POST() {
     // Someone else is syncing it, or it failed a moment ago: leave it alone for now
     if (lastJob?.status === 'running' && jobAge < 10 * 60 * 1000) continue;
     const recentlyFailed = lastJob?.status === 'failed' && jobAge < 30 * 60 * 1000;
+    if (!p.isConnected) {
+      if (jobAge < 60 * 60 * 1000 || (p.platform === 'instagram' && !p.accessToken)) continue;
+      try {
+        await syncSocialProfile(p.id);
+        synced += 1;
+        changed = true;
+      } catch (error) {
+        console.warn(`Reconnect try for @${p.username} failed:`, (error as Error).message);
+      }
+      continue;
+    }
 
     const needsReach = p.platform === 'instagram' && p.reach30 == null;
     const stale = now - p.lastSyncedAt.getTime() > FULL_AFTER_MS || needsReach;
