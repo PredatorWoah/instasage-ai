@@ -37,6 +37,8 @@ export async function POST(req: Request) {
       format: typeof body.format === 'string' ? body.format.slice(0, 40) : null,
       source: ['plan', 'brainstorm', 'recommendation'].includes(body.source) ? body.source : 'manual',
       ...(scheduled ? { scheduledFor: scheduled, status: 'planned' } : {}),
+      // A caption written in Create rides along, so it is there when the day comes
+      ...(typeof body.caption === 'string' && body.caption.trim() ? { drafts: { caption: body.caption.slice(0, 5000) } } : {}),
     },
   });
   return NextResponse.json(idea);

@@ -12,15 +12,52 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | --- | --- |
 | **Overview** | Month story, followers or subscribers, reach or channel views, engagement, views per day, best time to post, top posts |
 | **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days, each headline number against the period before, and the follow funnel |
-| **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for an AI breakdown against your own averages |
+| **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for its **Insights** (the plain numbers, compared with nothing), **Compare** (against your average or any other post, side by side) and an AI breakdown |
 | **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action. Below the AI's read, "The numbers behind it" shows every pattern straight from your posts, with or without an AI key |
-| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and open game plan slots; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
+| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and the open slots of the next two weeks; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
+| **Create** | **Write** (captions, reel scripts and carousels from Sage, built on the words and hooks that work for the account, with live brand checks and a views forecast), **Briefs** for a designer, **Hooks** (every opening line you posted, ranked), **Scorecard** (each forecast marked against what the post really did) and a **Brand kit** per account |
 | **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
-| **Comments** | Unanswered Instagram comments on recent posts, three AI reply drafts each in your voice, reply or hide in one tap (needs the comments permission, asked for on first use) |
-| **Reports** | Real monthly numbers vs the previous month, an AI review, and a designed **PDF export** (plus CSV) |
+| **Comments** | Unanswered Instagram comments on recent posts, three AI reply drafts each in your voice, reply or hide in one tap. **Questions** pulls out what people keep asking, in English and Hinglish, groups it by topic and turns it into post ideas (needs the comments permission, asked for on first use) |
+| **Reports** | **Your week** (the last 7 days, best and lowest post, what is planned, three things to do next), real monthly numbers vs the previous month, an AI review, and a designed **PDF export** (plus CSV) |
 | **Status** | Health of every account, the AI, competitor tracking and recent syncs, with a fix button next to anything broken |
 | **Sage** | The chat bubble in the corner: ask anything about your numbers |
+
+### A closer look
+
+**Write with a forecast.** Sage drafts the caption, the checks keep it on brand, and the forecast says roughly how many views this wording should get, worked out from your own posts. *Plan it* puts the draft on the calendar with its caption attached.
+
+![Create: caption, checks and forecast](docs/screenshots/create-write.png)
+
+**Hook library.** Every opening line you have posted, ranked by views, and which styles of hook do better or worse for you. Sage reads this list whenever it writes hooks.
+
+![Create: hook library](docs/screenshots/create-hooks.png)
+
+**Scorecard.** Every saved draft keeps its forecast. Link the draft to the post it became and, once the post is three days old, the forecast is marked as beat, in range or below. A forecast made after the post went out is shown but never counted.
+
+![Create: scorecard](docs/screenshots/create-scorecard.png)
+
+**Post insights.** Open any post for its numbers on their own: views, reach, likes, comments, saves, shares, engagement, and how the interactions split.
+
+![Post insights](docs/screenshots/post-insights.png)
+
+**Compare.** One tap puts the post next to your average, or next to any other post you pick.
+
+![Compare two posts](docs/screenshots/post-compare.png)
+
+**Comment questions.** The questions people ask under your posts, grouped by topic. Reply, write a post about one, or let Sage turn the groups into post ideas.
+
+![Comment questions](docs/screenshots/comment-questions.png)
+
+**Your week.** A digest at the top of Reports, sent as a push every Monday (and by email when that is set up).
+
+![Weekly digest](docs/screenshots/weekly-digest.png)
+
+**Calendar with open slots.** The next two weeks at a glance: what is planned, and the good days that still have nothing on them.
+
+![Calendar](docs/screenshots/calendar.png)
+
+The screenshots use made-up demo data.
 
 Other details:
 
@@ -39,7 +76,9 @@ Other details:
 * **Rival trends.** Daily follower snapshots give every competitor a sparkline and a 30 day growth column.
 * **Alerts.** The bell flags a post outperforming your average, a long gap since your last post, follower milestones and drops, and a rival post going viral.
 * **Install it as an app.** Add InstaSage to your phone's home screen or install it from the desktop browser's address bar. It opens full screen and shows a friendly page when offline.
-* **Push notifications.** Turn them on per device in Settings: alerts (each sent once) and a morning digest after the daily sync. On iPhone, add it to the home screen first.
+* **Push notifications.** Turn them on per device in Settings: alerts (each sent once), a morning digest after the daily sync, a reminder on days with a planned post, and the Monday weekly digest. On iPhone, add it to the home screen first.
+* **Forecasts without AI.** Hooks, word lists, forecasts, the scorecard, comment questions and the weekly digest are plain arithmetic on your own posts, so they cost nothing and work without an AI key. They get useful from about 8 posts.
+* **No auto-posting.** The calendar plans and reminds; you still publish on Instagram yourself.
 * **Since your last visit.** The Overview tells you what changed since you last looked (new followers, new posts), and flags a sync that is over a day old.
 * **Flip through posts.** Newer and Older buttons (or the ← → keys) on every post page.
 * **Crash-proof.** If one page or widget breaks, the rest of the app keeps working, with a Try again button and an error ID to report.
@@ -122,6 +161,7 @@ Everything is listed in [`.env.example`](.env.example). Put them in `.env.local`
 | `YOUTUBE_API_KEY` | YouTube | Optional; the key can be pasted on the Accounts page instead |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | AI | Optional default; AI keys are normally pasted in Settings |
 | `CRON_SECRET` | Daily auto sync | Any long random string |
+| `RESEND_API_KEY`, `DIGEST_EMAIL_FROM` | Weekly digest by email | Optional. A [Resend](https://resend.com) key; without it the digest goes out by push only. The default sender only delivers to the Resend account's own address, so verify a domain and set `DIGEST_EMAIL_FROM` to send anywhere. The address to send to is saved in Settings → Notifications |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications | Optional. A key pair is generated on first use and stored in the database; set these only to bring your own |
 
 API keys you paste inside the app (AI providers, YouTube) are stored in your database and are never sent back to the browser. Only the last 4 characters are shown.
@@ -222,6 +262,11 @@ src/services/
   ai.ts                     Insights, game plan, brainstorm, reports and post analysis
   competitors.ts            Facebook Login and Business Discovery
   reports.ts                Monthly numbers for the Reports page and PDF
+  vocab.ts, hooks.ts        Words, hashtags and opening lines that go with the better posts
+  forecast.ts               Views forecast for a draft, and the scorecard that marks it
+  questions.ts              Questions pulled from comments, grouped by topic
+  weekly.ts, email.ts       The weekly digest, as a page, a push and an email
+  creative.ts               Brand kits and saved drafts for the Create tab
 src/proxy.ts                Redirects to /login when signed out (Next 16's middleware)
 vercel.json                 Daily cron schedule
 ```

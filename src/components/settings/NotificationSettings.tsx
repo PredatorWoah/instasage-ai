@@ -9,11 +9,13 @@ import { cn } from '@/lib/utils';
 
 type PushInfo = {
   publicKey: string;
-  prefs: { digest: boolean; alerts: boolean };
+  prefs: { digest: boolean; alerts: boolean; plan: boolean; weekly: boolean; email: string };
+  emailReady: boolean;
   devices: { id: string; endpoint: string; device: string | null; createdAt: string; lastUsedAt: string | null }[];
 };
 
 const URL_ = '/api/push';
+type Flag = 'digest' | 'alerts' | 'plan' | 'weekly';
 
 // The browser wants the key as raw bytes
 function keyBytes(base64url: string) {
@@ -61,7 +63,8 @@ export function NotificationSettings() {
   );
   const [busy, setBusy] = useState<string | null>(null);
   // Ticks flip at once; the saved value takes over when the refetch lands
-  const [pending, setPending] = useState<Partial<PushInfo['prefs']>>({});
+  const [pending, setPending] = useState<Partial<Record<Flag, boolean>>>({});
+  const [email, setEmail] = useState<string | null>(null);
 
   const here = data?.devices.find((d) => d.endpoint === endpoint);
 
@@ -105,7 +108,19 @@ export function NotificationSettings() {
     setBusy(null);
   };
 
-  const setPref = async (key: 'digest' | 'alerts', value: boolean) => {
+  const saveEmail = async (value: string) => {
+    setBusy('email');
+    const res = await fetch(URL_, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefs: { email: value } }) }).catch(() => null);
+    const body = await res?.json().catch(() => ({}));
+    if (res?.ok) {
+      toast.success(value ? 'Email saved' : 'Email removed', { description: value ? (data?.emailReady ? 'The Monday digest goes there too.' : 'It starts arriving once email sending is set up.') : undefined });
+      setEmail(null);
+      await refresh();
+    } else toast.error(body?.error || 'Could not save that');
+    setBusy(null);
+  };
+
+  const setPref = async (key: Flag, value: boolean) => {
     setPending((p) => ({ ...p, [key]: value }));
     const res = await fetch(URL_, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefs: { [key]: value } }) }).catch(() => null);
     if (!res?.ok) toast.error('Could not save that');
@@ -159,6 +174,8 @@ export function NotificationSettings() {
         {([
           { key: 'alerts', title: 'Alerts', blurb: 'A post taking off, a long gap since your last post, milestones, a follower drop, a rival going viral' },
           { key: 'digest', title: 'Morning digest', blurb: 'Follower change since yesterday and your best post this week, after the daily sync' },
+          { key: 'plan', title: 'Today on the calendar', blurb: 'A morning reminder on days you planned a post, with its time' },
+          { key: 'weekly', title: 'Monday weekly digest', blurb: 'Your week in a few lines and three things to do next. Also by email if you add an address below' },
         ] as const).map((o) => (
           <label key={o.key} className={cn('flex items-start gap-3 p-3 rounded-2xl border cursor-pointer', (pending[o.key] ?? data.prefs[o.key]) ? 'bg-ink/[0.05] border-ink/[0.12]' : 'bg-ink/[0.02] border-ink/[0.06]')}>
             <input type="checkbox" checked={pending[o.key] ?? data.prefs[o.key]} onChange={(e) => setPref(o.key, e.target.checked)} className="mt-1 accent-[#8E78FF]" />
@@ -169,6 +186,25 @@ export function NotificationSettings() {
           </label>
         ))}
       </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void saveEmail((email ?? data.prefs.email).trim());
+        }}
+        className="space-y-2"
+      >
+        <label htmlFor="digest-email" className="block text-sm font-bold">Email for the weekly digest</label>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input id="digest-email" type="email" inputMode="email" autoComplete="email" value={email ?? data.prefs.email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" maxLength={200} className="w-full sm:w-auto sm:flex-1 min-w-0 h-11 shrink-0 rounded-xl border border-border bg-background/60 px-3 text-sm focus:outline-none focus:border-indigo-500" />
+          <button type="submit" disabled={busy === 'email' || email === null || email.trim() === data.prefs.email} className="h-11 px-5 shrink-0 rounded-full bg-ink text-background text-[13px] font-bold disabled:opacity-50">{busy === 'email' ? 'Saving...' : 'Save'}</button>
+        </div>
+        <p className="text-[12px] text-muted-foreground leading-snug">
+          {data.emailReady
+            ? 'Email sending is set up. Leave this empty to get the digest by push only.'
+            : 'Email sending is not set up yet, so for now the digest arrives by push only. To turn it on, add a RESEND_API_KEY (from resend.com, free tier) in Vercel and redeploy.'}
+        </p>
+      </form>
 
       {data.devices.length > 0 ? (
         <ul className="space-y-1.5">

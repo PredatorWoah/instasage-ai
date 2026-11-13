@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { BRIEF_KINDS, normalizeKit, presetKit, type BrandKit } from '@/lib/brandKit';
+import { forecastDraft } from '@/services/forecast';
 
 const KINDS = ['caption', ...BRIEF_KINDS.map((k) => k.id)];
 
@@ -28,6 +29,18 @@ export async function saveKit(userId: string, accountId: string, raw: unknown) {
   return kit;
 }
 
+// A caption draft carries the forecast made for its wording, so it can be graded once the post is out.
+// The forecast is always worked out here: whatever the browser sent in its place is dropped.
+// Once the draft is tied to a post the forecast is frozen, since changing it afterwards would be cheating.
+async function withForecast(accountId: string, kind: string, data: unknown, frozen?: unknown) {
+  if (kind !== 'caption' || !data || typeof data !== 'object') return data;
+  const rest = { ...(data as Record<string, unknown>) };
+  delete rest.predicted;
+  if (frozen) return { ...rest, predicted: frozen };
+  const predicted = await forecastDraft(accountId, { format: String(rest.format ?? 'caption'), body: String(rest.body ?? ''), hashtags: String(rest.hashtags ?? '') }).catch(() => null);
+  return predicted ? { ...rest, predicted } : rest;
+}
+
 export async function listDrafts(userId: string, accountId: string) {
   return prisma.creativeDraft.findMany({ where: { userId, socialProfileId: accountId }, orderBy: { updatedAt: 'desc' }, take: 100 });
 }
@@ -36,7 +49,7 @@ export async function createDraft(userId: string, accountId: string, input: { ki
   const kind = typeof input.kind === 'string' && KINDS.includes(input.kind) ? input.kind : null;
   if (!kind) return null;
   const title = typeof input.title === 'string' && input.title.trim() ? input.title.trim().slice(0, 160) : kind === 'caption' ? 'Untitled caption' : 'Untitled brief';
-  const data = safeData(input.data) ?? {};
+  const data = (await withForecast(accountId, kind, safeData(input.data))) ?? {};
   const postId = await ownedPostId(userId, accountId, input.postId);
   return prisma.creativeDraft.create({ data: { userId, socialProfileId: accountId, kind, title, data: data as object, postId } });
 }
@@ -50,14 +63,23 @@ async function ownedPostId(userId: string, accountId: string, id: unknown) {
 export async function updateDraft(userId: string, id: string, input: { title?: unknown; data?: unknown; postId?: unknown }) {
   const draft = await prisma.creativeDraft.findFirst({ where: { id, userId } });
   if (!draft) return null;
+  const frozen = draft.postId ? (draft.data as { predicted?: unknown } | null)?.predicted ?? null : null;
+  // Linked to a post with no forecast on file: stays without one, rather than getting one after the fact
+  const data = safeData(input.data) ? (draft.postId && !frozen ? stripForecast(safeData(input.data)) : await withForecast(draft.socialProfileId, draft.kind, safeData(input.data), frozen)) : null;
   return prisma.creativeDraft.update({
     where: { id },
     data: {
       ...(typeof input.title === 'string' && input.title.trim() ? { title: input.title.trim().slice(0, 160) } : {}),
-      ...(safeData(input.data) ? { data: safeData(input.data) as object } : {}),
+      ...(data ? { data: data as object } : {}),
       ...('postId' in input ? { postId: await ownedPostId(userId, draft.socialProfileId, input.postId) } : {}),
     },
   });
+}
+
+function stripForecast(data: unknown) {
+  const rest = { ...(data as Record<string, unknown>) };
+  delete rest.predicted;
+  return rest;
 }
 
 export async function deleteDraft(userId: string, id: string) {

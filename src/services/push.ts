@@ -1,9 +1,15 @@
 import webpush from 'web-push';
 import { prisma } from '@/lib/prisma';
 import { computeAlerts } from '@/services/alerts';
+import { localParts } from '@/services/analysis';
+import { emailReady, sendEmail, validEmail } from '@/services/email';
+import { weeklyDigest, weeklyDue, weeklyEmail, weeklyPush } from '@/services/weekly';
 
-export type NotifyPrefs = { digest: boolean; alerts: boolean };
-export const DEFAULT_PREFS: NotifyPrefs = { digest: true, alerts: true };
+// digest: the morning update. alerts: things that need a look. plan: what is on the calendar today.
+// weekly: the Monday digest (push, and email when an address is saved and email is set up).
+export type NotifyPrefs = { digest: boolean; alerts: boolean; plan: boolean; weekly: boolean; email: string };
+export const DEFAULT_PREFS: NotifyPrefs = { digest: true, alerts: true, plan: true, weekly: true, email: '' };
+export const PREF_FLAGS = ['digest', 'alerts', 'plan', 'weekly'] as const;
 
 export type PushMessage = { title: string; body: string; url?: string; tag?: string };
 
@@ -88,6 +94,14 @@ export async function sendDailyNotifications(userId: string) {
     }
   }
 
+  if (prefs.plan) {
+    const today = await plannedToday(userId);
+    if (today) {
+      await sendPush(userId, { ...today, url: '/recommendations?tab=calendar', tag: 'plan' });
+      out.push('plan');
+    }
+  }
+
   if (prefs.digest) {
     const digest = await buildDigest(userId);
     if (digest) {
@@ -131,4 +145,55 @@ export async function buildDigest(userId: string): Promise<{ title: string; body
   const title = totals.length ? `${totals.join(' · ')} since yesterday` : 'Your morning update';
   const body = [parts.length > 1 ? parts.join(' · ') : '', best ? `Top post this week: "${best.caption.replace(/\s+/g, ' ').slice(0, 60) || 'Untitled'}" with ${best.views.toLocaleString()} views` : ''].filter(Boolean).join('\n');
   return { title, body: body || 'Your numbers are fresh. Open InstaSage for the details.' };
+}
+
+const siteUrl = () => process.env.NEXTAUTH_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '');
+
+// What the calendar says goes out today, in the creator's own timezone
+export async function plannedToday(userId: string, now = new Date()): Promise<{ title: string; body: string } | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+  const timeZone = user?.timezone || 'UTC';
+  const today = localParts(now, timeZone).dayKey;
+  // A day is never more than 14 hours ahead or 12 behind UTC, so this window always covers "today"
+  const ideas = await prisma.savedIdea.findMany({
+    where: { userId, status: { not: 'posted' }, scheduledFor: { gte: new Date(now.getTime() - 26 * 3_600_000), lte: new Date(now.getTime() + 26 * 3_600_000) } },
+    orderBy: { scheduledFor: 'asc' },
+    select: { title: true, scheduledFor: true },
+  });
+  const due = ideas.filter((i) => localParts(i.scheduledFor!, timeZone).dayKey === today);
+  if (!due.length) return null;
+  const time = (d: Date) => new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(d);
+  return {
+    title: due.length === 1 ? `On today's plan: ${time(due[0].scheduledFor!)}` : `${due.length} posts on today's plan`,
+    body: due.slice(0, 4).map((i) => (due.length === 1 ? i.title : `${time(i.scheduledFor!)}  ${i.title}`).slice(0, 110)).join('\n'),
+  };
+}
+
+const weeklyKey = (userId: string) => `weekly:sent:${userId}`;
+
+// The Monday digest. From the daily cron it goes out once, on Monday in the creator's timezone;
+// with force (the "Send it now" button) it goes out straight away.
+export async function sendWeeklyDigest(userId: string, force = false) {
+  const prefs = await getPrefs(userId);
+  if (!force && !prefs.weekly) return { sent: false, push: 0, email: null as string | null, reason: 'turned off' };
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true } });
+  const timeZone = user?.timezone || 'UTC';
+  const last = await prisma.appConfig.findUnique({ where: { key: weeklyKey(userId) } });
+  const due = weeklyDue(timeZone, last?.value ?? null);
+  if (!force && !due) return { sent: false, push: 0, email: null as string | null, reason: 'not Monday, or already sent this week' };
+  const digest = await weeklyDigest(userId);
+  if (!digest) return { sent: false, push: 0, email: null as string | null, reason: 'no accounts' };
+
+  const push = await sendPush(userId, { ...weeklyPush(digest), url: '/reports', tag: 'weekly' });
+  let email: string | null = null;
+  if (validEmail(prefs.email)) {
+    if (!emailReady()) email = 'Email is not set up. Add RESEND_API_KEY in Vercel.';
+    else {
+      const result = await sendEmail({ to: prefs.email, ...weeklyEmail(digest, siteUrl(), timeZone) });
+      email = result.ok ? `sent to ${prefs.email}` : result.error ?? 'failed';
+    }
+  }
+  if (due) await prisma.appConfig.upsert({ where: { key: weeklyKey(userId) }, create: { key: weeklyKey(userId), value: due }, update: { value: due } }).catch(() => {});
+  const sent = push.sent > 0 || !!email?.startsWith('sent');
+  return { sent, push: push.sent, email, reason: sent ? null : email ?? (push.devices ? 'The push did not go through. Check Settings, Notifications.' : 'No device has notifications on and no email address is saved. Set one up in Settings.') };
 }

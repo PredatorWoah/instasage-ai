@@ -1,11 +1,15 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { Check, CircleAlert, Circle, Copy, Lightbulb, Plus, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { CalendarPlus, Check, CircleAlert, Circle, Copy, Lightbulb, Plus, Sparkles, Trash2, TrendingUp, Wand2 } from 'lucide-react';
 import { checkCaption, composeCaption, failing, feedPreview, parseHashtags, type Check as CheckRow, type WordRules } from '@/lib/brandKit';
 import type { MakeFormat, ScriptBeat, Slide } from '@/services/ai';
 import type { Vocab } from '@/services/vocab';
-import { useCachedJson } from '@/lib/useCachedJson';
+import type { Forecast } from '@/services/forecast';
+import { dropJson, useCachedJson } from '@/lib/useCachedJson';
+import { atTime, nowMs } from '@/lib/calendar';
+import { Modal } from '@/components/ui/modal';
 import { formatNumber } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Field, Panel, area, btn, copyText, input, when, type Draft, type Kit, type PostRow } from './ui';
@@ -32,14 +36,13 @@ const scriptText = (s: ScriptBeat[]) => s.map((b) => `${b.time}  ${b.shot}${b.on
 const slidesText = (s: Slide[]) => s.map((x, i) => `Slide ${i + 1}: ${x.title}${x.text ? `\n${x.text}` : ''}`).join('\n\n');
 
 // Make a caption, reel script or carousel with Sage, steered by the words that work for this account
-export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', initialPost = '' }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; initialPost?: string }) {
+export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void }) {
   const { data: vocab } = useCachedJson<Vocab | null>(`/api/creative/words?account=${encodeURIComponent(account)}`);
   const { data: ideas } = useCachedJson<Idea[] | null>('/api/ideas/saved');
   const [format, setFormat] = useState<MakeFormat>('caption');
   const [productId, setProductId] = useState(kit.products[0]?.id ?? '');
   const [cta, setCta] = useState(kit.ctas[0] ?? '');
   const [topic, setTopic] = useState(initialTopic);
-  const [sourcePost, setSourcePost] = useState(initialPost);
   const [strict, setStrict] = useState(true);
   const [body, setBody] = useState('');
   const [hashtags, setHashtags] = useState('');
@@ -50,7 +53,31 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const [planned, setPlanned] = useState<string | null>(null);
+  const [ideaId, setIdeaId] = useState<string | null>(null); // this draft's calendar entry, so planning it again moves it
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const acct = encodeURIComponent(account);
+
+  // What this wording is expected to do, refreshed a moment after typing stops
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      if (!body.trim()) return setForecast(null);
+      try {
+        const res = await fetch('/api/creative/forecast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, format, body, hashtags }), signal: ctrl.signal });
+        const data = (await res.json().catch(() => ({}))) as { forecast?: Forecast | null };
+        setForecast(res.ok ? data.forecast ?? null : null);
+      } catch {
+        // typing again cancels the request; the next one answers
+      }
+    }, 700);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [account, format, body, hashtags]);
 
   const rules = useMemo<WordRules | undefined>(() => (vocab?.enough
     ? { good: vocab.words.good.map((t) => t.term), bad: vocab.words.bad.map((t) => t.term), tags: [...vocab.hashtags.good.map((t) => t.term), ...(vocab.hashtags.used ?? [])], badTags: vocab.hashtags.bad.map((t) => t.term), strict }
@@ -83,6 +110,8 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
           setScript(data.script ?? []);
           setSlides(data.slides ?? []);
           setLoadedId(null);
+          setPlanned(null);
+          setIdeaId(null);
         }
         const left = failing(data.checks ?? []);
         setNote(left.length ? `Still failing: ${left.map((c) => c.label).join(', ')}. Try a rewrite below.` : payload.kind === 'make' ? 'Done. Pick a hook, tweak anything, then save or copy.' : 'Rewritten.');
@@ -111,7 +140,7 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
   const addTags = (tags: string) => setHashtags((h) => [...new Set([...parseHashtags(h), ...parseHashtags(tags)])].join(' '));
 
   const save = async () => {
-    if (!body.trim()) return;
+    if (!body.trim()) return false;
     setBusy('save');
     const data = { format, body, cta, hashtags, productId, hooks, script, slides, topic };
     const title = body.replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -121,10 +150,37 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
     const out = await res.json().catch(() => ({}));
     if (res.ok) {
       if (!loadedId && out.id) setLoadedId(out.id);
-      setNote('Saved. Link it to the post it becomes, and Sage learns from how it did.');
+      setNote('Saved with its forecast. Link it to the post it becomes, and the Scorecard marks Sage on it.');
+      dropJson(`/api/creative/scorecard?account=${acct}`);
       reload();
     } else setNote(out.error || 'Could not save.');
     setBusy(null);
+    return res.ok;
+  };
+
+  // Put this draft on the content calendar (Ideas Studio), caption included, and keep the draft itself
+  const plan = async (at: Date) => {
+    setPlanning(false);
+    setBusy('plan');
+    const title = (topic.trim() || body.split('\n')[0].trim()).replace(/\s+/g, ' ').slice(0, 120) || 'Planned post';
+    try {
+      // Planned once already: move that calendar entry instead of adding a second one
+      let res = ideaId ? await fetch(`/api/ideas/saved/${ideaId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, scheduledFor: at.toISOString() }) }) : null;
+      if (!res?.ok) {
+        res = await fetch('/api/ideas/saved', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, format: format === 'caption' ? 'post' : format, source: 'manual', scheduledFor: at.toISOString(), caption: full }) });
+        if (!res.ok) throw new Error();
+        const idea = (await res.json().catch(() => ({}))) as { id?: string };
+        setIdeaId(idea.id ?? null);
+      }
+      dropJson('/api/ideas/saved');
+      setPlanned(at.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }));
+      setBusy(null);
+      if (!loadedId) await save();
+      setNote(null);
+    } catch {
+      setBusy(null);
+      setNote('Could not add it to the calendar. Try again.');
+    }
   };
 
   const load = (d: Draft) => {
@@ -140,19 +196,25 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
     setTopic(x.topic ?? '');
     setLoadedId(d.id);
     setNote(null);
+    setPlanned(null);
+    setIdeaId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   const clear = () => {
-    setBody(''); setHashtags(''); setHooks([]); setScript([]); setSlides([]); setLoadedId(null); setNote(null);
+    setBody(''); setHashtags(''); setHooks([]); setScript([]); setSlides([]); setLoadedId(null); setNote(null); setPlanned(null); setIdeaId(null);
   };
   const copy = async (text: string, what: string) => setNote((await copyText(text)) ? `${what} copied.` : 'Could not copy. Select the text instead.');
   const link = async (id: string, postId: string) => {
-    await fetch(`/api/creative/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: postId || null }) });
+    const res = await fetch(`/api/creative/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId: postId || null }) }).catch(() => null);
+    if (!res?.ok) setNote('Could not link that post. Try again.');
+    dropJson(`/api/creative/scorecard?account=${acct}`);
     reload();
   };
   const remove = async (id: string) => {
-    await fetch(`/api/creative/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/creative/${id}`, { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) setNote('Could not delete that draft. Try again.');
     if (loadedId === id) setLoadedId(null);
+    dropJson(`/api/creative/scorecard?account=${acct}`);
     reload();
   };
 
@@ -295,9 +357,15 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
           )}
 
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={save} disabled={!body.trim() || busy !== null} className={btn.primary}>{loadedId ? 'Update draft' : 'Save draft'}</button>
+            <button type="button" onClick={save} disabled={!body.trim() || busy !== null} className={btn.primary}>{busy === 'save' ? 'Saving…' : loadedId ? 'Update draft' : 'Save draft'}</button>
+            <button type="button" onClick={() => setPlanning(true)} disabled={!body.trim() || busy !== null} className={btn.ghost}><CalendarPlus className="w-4 h-4" /> {busy === 'plan' ? 'Adding…' : 'Plan it'}</button>
             <button type="button" onClick={clear} className={btn.ghost}>Start over</button>
           </div>
+          {planned && (
+            <p role="status" className="text-[13px] font-semibold text-emerald-400 break-words">
+              On the calendar for {planned}, caption included. <Link href="/recommendations?tab=calendar" className="underline underline-offset-2">Open the calendar</Link>
+            </p>
+          )}
           {kit.claimNote && <p className="text-[13px] text-muted-foreground leading-relaxed">{kit.claimNote}</p>}
         </Panel>
 
@@ -322,6 +390,17 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
               <p className="text-[12.5px] text-muted-foreground leading-snug break-words">
                 <b className="text-foreground">In the feed, before &ldquo;more&rdquo;:</b> {preview.text}{preview.cut ? '…' : ''}
               </p>
+            )}
+            {forecast && (
+              <div className="rounded-2xl bg-violet-500/[0.08] border border-violet-400/20 p-3.5 flex flex-col gap-1.5 min-w-0">
+                <span className="text-[13px] font-bold inline-flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-indigo-400" /> Forecast</span>
+                <p className="text-[14px] leading-snug break-words">About <b>{formatNumber(forecast.views)} views</b>, most likely between {formatNumber(forecast.low)} and {formatNumber(forecast.high)}.</p>
+                <p className="text-[12.5px] text-muted-foreground leading-snug break-words">
+                  Your usual for this format is {formatNumber(forecast.base)}.
+                  {forecast.basis.map((b) => ` ${b.label}: ${b.effect >= 0 ? '+' : ''}${b.effect}%.`).join('')}
+                  {' '}A pattern from your {forecast.posts} posts, not a promise.
+                </p>
+              </div>
             )}
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => copy(full, 'Caption')} disabled={!full} className={btn.primary}><Copy className="w-4 h-4" /> {bad.length ? 'Copy anyway' : 'Copy caption'}</button>
@@ -382,7 +461,36 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
           </ul>
         )}
       </Panel>
+
+      {planning && <PlanModal title={(topic.trim() || body.split('\n')[0]).slice(0, 80)} onClose={() => setPlanning(false)} onSave={plan} />}
     </div>
+  );
+}
+
+// Value for <input type="datetime-local"> in local time
+const localInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+function PlanModal({ title, onClose, onSave }: { title: string; onClose: () => void; onSave: (at: Date) => void }) {
+  // Tomorrow at 6 PM is a sane starting point; the calendar can move it later
+  const [value, setValue] = useState(() => localInput(atTime(new Date(nowMs() + 86_400_000), null)));
+  const at = value ? new Date(value) : null;
+  const valid = !!at && !Number.isNaN(at.getTime());
+  const past = valid && at!.getTime() < nowMs();
+  return (
+    <Modal open onClose={onClose} title="When does this go out?" subtitle={title}>
+      <div className="flex flex-col gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-bold">Date and time</span>
+          <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className={input} />
+        </label>
+        {past && <p className="text-[12.5px] font-semibold text-amber-400">That time has already passed.</p>}
+        <p className="text-[12.5px] text-muted-foreground leading-snug">It lands on the calendar in Ideas Studio with the caption attached. With notifications on, you get a reminder that morning. InstaSage does not post for you: you still publish it on Instagram.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!valid || past} onClick={() => valid && onSave(at!)} className={btn.primary}>Add to calendar</button>
+          <button type="button" onClick={onClose} className={btn.ghost}>Cancel</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

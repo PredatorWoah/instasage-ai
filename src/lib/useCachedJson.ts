@@ -70,6 +70,11 @@ export function clearJsonCache() {
   cache.clear();
 }
 
+// One URL's data changed (a draft was linked, say): the next reader fetches it again
+export function dropJson(url: string) {
+  cache.delete(url);
+}
+
 // Put fresh data straight into the cache (for example right after generating it)
 export function primeJson(url: string, data: unknown) {
   cache.set(url, { data, at: Date.now() });
