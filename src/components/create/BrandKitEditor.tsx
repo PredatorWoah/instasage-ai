@@ -47,7 +47,7 @@ export function BrandKitEditor({ account, accountName, kit, reload, others = [] 
     const out = await res.json().catch(() => ({}));
     if (res.ok) {
       primeJson(`/api/brand-kit?account=${account}`, out);
-      setNote('Saved. The Caption lab and Sage now use this kit for this account.');
+      setNote('Saved. Create and Sage now use this kit for this account.');
       reload();
     } else setNote(out.error || 'Could not save.');
     setSaving(false);
@@ -80,7 +80,16 @@ export function BrandKitEditor({ account, accountName, kit, reload, others = [] 
         </div>
       </Panel>
 
-      <Panel title="Products" sub="What you sell or talk about. The Caption lab and briefs let you pick one.">
+      <Panel title="Feed Sage" sub="The more Sage knows, the less it guesses. Used in every caption, script and brief for this account.">
+        <Field label="Things Sage should know" hint="Facts, prices, offers, launches, ingredients, what your audience keeps asking. One per line.">
+          <textarea value={k.context} onChange={(e) => set({ context: e.target.value })} placeholder={'10% off first order with code FIRST10\nFree shipping above 999\nHydra Glow: 30ml, hyaluronic acid and niacinamide'} className={`${area} min-h-[130px]`} />
+        </Field>
+        <Field label="Captions you love" hint="Paste up to 5 of your best or favourite captions, a blank line between each. Sage matches their style, never copies them.">
+          <textarea value={k.examples} onChange={(e) => set({ examples: e.target.value })} className={`${area} min-h-[170px]`} />
+        </Field>
+      </Panel>
+
+      <Panel title="Products" sub="What you sell or talk about. Create and briefs let you pick one.">
         <div className="flex flex-col gap-3">
           {k.products.map((p, i) => (
             <div key={p.id} className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-2 items-start">
