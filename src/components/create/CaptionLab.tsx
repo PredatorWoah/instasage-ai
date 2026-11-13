@@ -127,7 +127,7 @@ export function CaptionLab({ account, kit, drafts, posts, reload, initialTopic =
             <Field label="Build on a post that worked" hint="Optional. Same angle, new words.">
               <select value={sourcePost} onChange={(e) => setSourcePost(e.target.value)} className={input}>
                 <option value="">Sage chooses</option>
-                {posts.slice(0, 20).map((p) => <option key={p.id} value={p.id}>{p.caption.replace(/\s+/g, ' ').slice(0, 50) || p.type}</option>)}
+                {posts.slice(0, 20).map((p) => <option key={p.id} value={p.id}>{when(p.publishedAt)} · {p.caption.replace(/\s+/g, ' ').trim().slice(0, 48) || p.type}</option>)}
               </select>
             </Field>
             <button type="button" onClick={() => draft()} disabled={busy !== null} className={`${btn.primary} sm:col-span-2`}>

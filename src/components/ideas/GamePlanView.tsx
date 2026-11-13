@@ -9,6 +9,7 @@ import { GeneratedAt } from '@/components/ai-assistant/GeneratedAt';
 import { SageOrb } from '@/components/ai-assistant/SageOrb';
 import { saveIdea } from './saveIdea';
 import { cn } from '@/lib/utils';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type Cached = { plan: GamePlan; model: string; createdAt: string } | null;
 const PLAN_URL = '/api/ai/plan';
@@ -66,6 +67,7 @@ export function GamePlanView() {
   if (!plan) {
     return (
       <div className="space-y-4">
+        <div className="flex justify-end"><AiPicker group="plan" /></div>
         {failure && <AiNotice code={failure.code} message={failure.error} />}
         <section className="relative overflow-hidden rounded-[34px] prism-hero p-7 sm:p-10 flex flex-col sm:flex-row sm:items-center gap-6">
           <div aria-hidden className="absolute -right-20 -top-28 w-[380px] h-[380px] rounded-full bg-[radial-gradient(closest-side,rgba(255,224,102,0.5),transparent)]" />
@@ -89,7 +91,7 @@ export function GamePlanView() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} />
+        <GeneratedAt createdAt={result?.createdAt} model={result?.model} generating={generating} onRegenerate={generate} group="plan" />
       </div>
       {failure && <AiNotice code={failure.code} message={failure.error} />}
       {generating && <p className="text-xs text-muted-foreground text-right animate-pulse">{THINKING[step]}</p>}

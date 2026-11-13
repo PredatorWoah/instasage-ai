@@ -11,6 +11,7 @@ import { saveIdea } from './saveIdea';
 import { cn } from '@/lib/utils';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatRelativeTime } from '@/utils/formatters';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type Thread = { id: string; title: string; updatedAt: string; messages: number };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; model?: string | null; pending?: boolean };
@@ -167,6 +168,10 @@ export function Brainstorm() {
 
       {/* Conversation */}
       <section className="rounded-[30px] bg-card border border-ink/[0.05] flex flex-col overflow-hidden min-h-[560px] max-h-[78vh]">
+        <div className="flex items-center justify-end gap-2 px-4 pt-3 shrink-0">
+          <span className="text-[11px] font-semibold text-muted-foreground">Brainstorming with</span>
+          <AiPicker group="brainstorm" />
+        </div>
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
           {loadingThread ? (
             <div className="space-y-3">{[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-2xl bg-ink/[0.03] animate-pulse" />)}</div>

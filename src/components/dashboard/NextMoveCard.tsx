@@ -6,6 +6,7 @@ import { Check, RefreshCw } from 'lucide-react';
 import type { Briefing } from '@/services/ai';
 import { useFreshAiRead } from '@/components/ai-assistant/useFreshAiRead';
 import { askSage } from '@/lib/askSage';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type Read = { briefing: Briefing; model: string; createdAt: string; stale: boolean };
 
@@ -28,7 +29,8 @@ export function NextMoveCard({ hasData }: { hasData: boolean }) {
   return (
     <article className="glass-tint rounded-[30px] p-6 sm:p-7 flex flex-col gap-2.5 min-h-[250px] bg-blue-500/20 border border-blue-300/35 min-w-0">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[14px] font-bold text-foreground/85">Post next</span>
+        <span className="text-[14px] font-bold text-foreground/85 mr-auto">Post next</span>
+        <AiPicker group="insights" compact />
         {updating ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-muted-foreground" aria-label="Sage is updating this" /> : move ? (
           <button type="button" onClick={refresh} aria-label="Ask Sage for a fresh next move" className="w-9 h-9 -m-2 flex items-center justify-center text-muted-foreground hover:text-foreground"><RefreshCw className="w-3.5 h-3.5" /></button>
         ) : null}

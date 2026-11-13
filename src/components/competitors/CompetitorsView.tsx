@@ -12,6 +12,7 @@ import { AiNotice } from '@/components/ai-assistant/AiNotice';
 import { formatLabel } from '@/lib/platform';
 import { formatNumber, formatRelativeTime } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type Row = {
   id?: string;
@@ -333,7 +334,8 @@ function TakeawaysCard() {
   return (
     <section className="rounded-[30px] bg-white text-[#0A0A0F] p-5 sm:p-7 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="text-[13px] font-bold prism-text">What to steal, what to skip</span>
+        <span className="text-[13px] font-bold prism-text mr-auto">What to steal, what to skip</span>
+        <AiPicker group="analysis" compact className="bg-[#F4F4F8] text-[#0A0A0F] border-black/10" />
         <button onClick={generate} disabled={busy} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[#0A0A0F] text-white text-[13px] font-bold disabled:opacity-60">
           <Sparkles className={cn('w-4 h-4', busy && 'animate-spin')} /> {busy ? 'Comparing...' : t ? 'Refresh' : 'Compare with AI'}
         </button>

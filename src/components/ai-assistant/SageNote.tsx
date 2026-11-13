@@ -8,6 +8,7 @@ import { withPostLinks } from './SageText';
 import { askSage } from '@/lib/askSage';
 import { usePeriod } from '@/lib/usePeriod';
 import { cn } from '@/lib/utils';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 type Read = { note: PageNote; model: string; createdAt: string; stale: boolean };
 
@@ -32,7 +33,8 @@ export function SageNote({ page, enabled = true }: { page: NotePage; enabled?: b
           <Sparkles className="w-3 h-3" /> Sage&apos;s read
         </span>
         <span className="text-[12px] text-muted-foreground font-semibold">{label}</span>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
+          <AiPicker group="insights" compact />
           {updating ? (
             <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-muted-foreground"><RefreshCw className="w-3 h-3 animate-spin" /> Updating…</span>
           ) : result ? (

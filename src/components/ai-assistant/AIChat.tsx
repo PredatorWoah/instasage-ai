@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
-import { clearJsonCache, useCachedJson } from '@/lib/useCachedJson';
+import { clearJsonCache } from '@/lib/useCachedJson';
 import { useRouter } from 'next/navigation';
 import { Check, Undo2, X } from 'lucide-react';
+import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 const SUGGESTED_PROMPTS = [
   'Which 3 posts got the most saves, and why?',
@@ -39,9 +40,6 @@ export function AIChat() {
     },
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { data: settings } = useCachedJson<{ active: string | null; providers: { id: string; label: string; model: string | null }[] } | null>(open ? '/api/settings/ai' : null);
-  const activeAi = settings?.providers.find((p) => p.id === settings.active);
-  const ai = activeAi ? `${activeAi.label}${activeAi.model ? ` (${activeAi.model})` : ''}` : null;
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -131,10 +129,11 @@ export function AIChat() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center gap-2.5 shrink-0">
             <SageOrb size={34} className="shrink-0" />
-            <div>
+            <div className="min-w-0 mr-auto">
               <p className="text-sm font-display font-extrabold">Sage</p>
-              <p className="text-[10px] text-muted-foreground">{ai ? `${ai} · ` : ''}knows your synced posts</p>
+              <p className="text-[10px] text-muted-foreground">knows your synced posts</p>
             </div>
+            <AiPicker group="chat" compact />
           </div>
 
           {/* Messages */}
