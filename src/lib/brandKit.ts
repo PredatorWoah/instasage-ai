@@ -16,6 +16,8 @@ export type BrandKit = {
   ctas: string[];
   flagged: string[]; // claims and words a caption must not contain
   claimNote: string; // shown under the caption box
+  context: string; // facts, offers, campaigns Sage must know
+  examples: string; // captions the creator loves, separated by blank lines: style references
   hashtagSets: { name: string; tags: string }[];
   rules: { minChars: number; maxChars: number; minTags: number; maxTags: number; oneCta: boolean; noEmDashes: boolean };
   briefs: {
@@ -36,6 +38,8 @@ const GENERIC: BrandKit = {
   ctas: ['Save this for later.', 'Follow for more.', 'Send this to a friend.'],
   flagged: [],
   claimNote: '',
+  context: '',
+  examples: '',
   hashtagSets: [],
   rules: { minChars: 40, maxChars: 2200, minTags: 0, maxTags: 8, oneCta: true, noEmDashes: false },
   briefs: {
@@ -120,6 +124,8 @@ export function normalizeKit(raw: unknown): BrandKit {
     ctas: list(r.ctas),
     flagged: list(r.flagged, 100, 60),
     claimNote: str(r.claimNote, 400),
+    context: str(r.context, 3000),
+    examples: str(r.examples, 5000),
     hashtagSets: sets.slice(0, 20).map((s) => {
       const o = (s && typeof s === 'object' ? s : {}) as Record<string, unknown>;
       return { name: str(o.name, 60).trim(), tags: str(o.tags, 400) };
@@ -145,6 +151,8 @@ export function normalizeKit(raw: unknown): BrandKit {
 
 export type Check = { id: string; status: 'ok' | 'warn' | 'fail'; label: string; detail: string };
 export type CaptionInput = { body: string; cta: string; hashtags: string };
+// What the account's own numbers say about words: the proven and weak lists from the vocab service
+export type WordRules = { good: string[]; bad: string[]; tags: string[]; badTags?: string[]; strict: boolean }; // tags: hashtags the account has used without them hurting
 
 export const parseHashtags = (text: string) => [...new Set((text.match(/#[^\s#]+/g) ?? []).map((t) => t.toLowerCase()))];
 
@@ -158,7 +166,7 @@ export function flaggedHits(kit: BrandKit, text: string) {
   return kit.flagged.filter((term) => new RegExp(`(^|[^\\p{L}])${escape(term.trim())}($|[^\\p{L}])`, 'iu').test(text));
 }
 
-export function checkCaption(kit: BrandKit, input: CaptionInput): Check[] {
+export function checkCaption(kit: BrandKit, input: CaptionInput, words?: WordRules): Check[] {
   const r = kit.rules;
   const full = composeCaption(input);
   const tags = parseHashtags(input.hashtags + ' ' + input.body);
@@ -196,6 +204,26 @@ export function checkCaption(kit: BrandKit, input: CaptionInput): Check[] {
   if (kit.flagged.length) {
     const hits = flaggedHits(kit, full);
     checks.push(hits.length ? { id: 'flagged', status: 'fail', label: `Flagged: ${hits.join(', ')}`, detail: 'soften or remove these claims' } : { id: 'flagged', status: 'ok', label: 'No flagged claims', detail: 'confirm substantiation separately' });
+  }
+
+  // Words from the account's own results
+  if (words && (words.good.length || words.bad.length)) {
+    const text = full.toLowerCase();
+    const has = (t: string) => new RegExp(`(^|[^\\p{L}])${escape(t)}($|[^\\p{L}])`, 'iu').test(text);
+    const used = words.good.filter(has);
+    const weak = words.bad.filter(has);
+    const want = Math.min(words.strict ? 3 : 2, words.good.length);
+    if (words.good.length) {
+      checks.push(used.length >= want
+        ? { id: 'words', status: 'ok', label: `${used.length} proven word${used.length === 1 ? '' : 's'}`, detail: used.slice(0, 5).join(', ') }
+        : { id: 'words', status: 'warn', label: `${used.length} proven word${used.length === 1 ? '' : 's'}`, detail: `use ${want} or more of what works for you` });
+    }
+    if (weak.length) checks.push({ id: 'weak', status: 'warn', label: `Weak words: ${weak.slice(0, 4).join(', ')}`, detail: 'these went with your weaker posts' });
+    const allowed = new Set([...words.tags, ...kit.hashtagSets.flatMap((s) => parseHashtags(s.tags))].map((t) => t.toLowerCase()));
+    const untested = allowed.size ? tags.filter((t) => !allowed.has(t) && !words.badTags?.includes(t)) : [];
+    if (untested.length) checks.push({ id: 'untested', status: 'warn', label: `New hashtags: ${untested.slice(0, 4).join(' ')}`, detail: 'you have never used these, so there is no data on them' });
+    const weakTags = tags.filter((t) => words.badTags?.includes(t));
+    if (weakTags.length) checks.push({ id: 'weaktags', status: 'warn', label: `Weak hashtags: ${weakTags.slice(0, 4).join(' ')}`, detail: 'these went with your weaker posts' });
   }
   return checks;
 }

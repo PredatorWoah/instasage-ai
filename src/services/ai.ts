@@ -2,7 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { AiError, generate, getAiConfig, parseJson, type ChatTurn } from '@/services/llm';
 import { analysisToPrompt, buildAnalysis, localTime } from '@/services/analysis';
 import { competitorsToPrompt } from '@/services/competitors';
-import { composeCaption, checkCaption, failing, type BrandKit, type BriefKind, type Check } from '@/lib/brandKit';
+import { composeCaption, checkCaption, failing, type BrandKit, type BriefKind, type Check, type WordRules } from '@/lib/brandKit';
+import { vocabText, type Vocab } from '@/services/vocab';
 import { ACTIONS_PROMPT, applyAction, correctionsText, memoryText, splitActions, type ActionResult } from '@/services/sageActions';
 
 export { AiError, type ChatTurn };
@@ -719,36 +720,79 @@ Return a JSON object: {"headline": one sentence, max 16 words, the main takeaway
   return { note, model, createdAt: row.createdAt, stale: false };
 }
 
-// ---------- Create: captions and briefs written to the account's brand kit ----------
+// ---------- Create: captions, reel scripts, carousels and briefs, written to the account's brand kit ----------
+
+export type MakeFormat = 'caption' | 'reel' | 'carousel';
+export type ScriptBeat = { time: string; shot: string; onScreen: string; voiceover: string };
+export type Slide = { title: string; text: string };
 
 export type CreateInput = {
-  kind: 'caption' | 'brief';
+  kind: 'make' | 'rewrite' | 'brief';
   kit: BrandKit;
+  vocab: Vocab;
+  strict: boolean; // stick to the words that work
+  format?: MakeFormat;
   productId?: string;
   cta?: string;
   topic?: string;
   briefKind?: BriefKind;
   fromPostId?: string;
-  fix?: { body: string; hashtags: string }; // an existing draft to repair instead of writing a new one
+  current?: { body: string; hashtags: string }; // the draft to rewrite
+  instruction?: string; // how to rewrite it
 };
 
 function kitText(kit: BrandKit, input: CreateInput) {
   const product = kit.products.find((p) => p.id === input.productId);
   const sets = kit.hashtagSets.map((h) => `${h.name}: ${h.tags}`).join('\n');
+  const examples = kit.examples.split(/\n\s*\n/).map((e) => e.trim()).filter(Boolean).slice(0, 5);
   return [
     kit.brandName && `Brand: ${kit.brandName}`,
     kit.voice && `Voice: ${kit.voice}`,
     product && `Product: ${product.name}${product.notes ? `. ${product.notes}` : ''}`,
+    kit.context && `Facts, offers and context the creator gave you (use them, never contradict them, never invent others):\n${kit.context}`,
+    examples.length && `Captions the creator loves, match their style and rhythm, never copy them:\n${examples.map((e, i) => `${i + 1}. """${e.slice(0, 600)}"""`).join('\n')}`,
     kit.flagged.length && `Never use these claims or words, even loosely: ${kit.flagged.join(', ')}.`,
     kit.claimNote && `Claim guidance: ${kit.claimNote}`,
     sets && `Hashtag sets to pick from:\n${sets}`,
   ].filter(Boolean).join('\n');
 }
 
+// Captions written here that became real posts, with how they did: the feedback loop
+async function pastResults(userId: string, accountId: string) {
+  const drafts = await prisma.creativeDraft.findMany({ where: { userId, socialProfileId: accountId, kind: 'caption', postId: { not: null } }, orderBy: { updatedAt: 'desc' }, take: 8, select: { data: true, postId: true } });
+  if (!drafts.length) return '';
+  const posts = await prisma.post.findMany({ where: { id: { in: drafts.map((d) => d.postId!) } }, select: { id: true, views: true, saves: true, performanceScore: true } });
+  const avg = await prisma.post.aggregate({ where: { socialProfileId: accountId, isBoosted: false }, _avg: { views: true } });
+  const base = avg._avg.views ?? 0;
+  const rows = drafts.flatMap((d) => {
+    const p = posts.find((x) => x.id === d.postId);
+    const body = String((d.data as { body?: string })?.body ?? '').replace(/\s+/g, ' ').slice(0, 160);
+    if (!p || !body) return [];
+    const lift = base ? Math.round(((p.views - base) / base) * 100) : 0;
+    return [`- "${body}": ${p.views} views (${lift >= 0 ? '+' : ''}${lift}% vs average), ${p.saves} saves`];
+  });
+  return rows.length ? `\n## Captions written here before, and how those posts did\nRepeat what worked, drop what did not.\n${rows.join('\n')}\n` : '';
+}
+
+const wordRules = (input: CreateInput): WordRules => ({
+  good: input.vocab.enough ? input.vocab.words.good.map((t) => t.term) : [],
+  bad: input.vocab.enough ? input.vocab.words.bad.map((t) => t.term) : [],
+  tags: input.vocab.enough ? [...input.vocab.hashtags.good.map((t) => t.term), ...input.vocab.hashtags.used] : [],
+  badTags: input.vocab.enough ? input.vocab.hashtags.bad.map((t) => t.term) : [],
+  strict: input.strict,
+});
+
+const FORMAT_TASK: Record<MakeFormat, string> = {
+  caption: 'an Instagram caption',
+  reel: 'a short Instagram Reel (15 to 40 seconds): the script and its caption',
+  carousel: 'an Instagram carousel (5 to 8 slides): the slide text and its caption',
+};
+
 export async function draftWithSage(userId: string, accountId: string, input: CreateInput) {
   const config = await getAiConfig(userId, 'writer');
   const kit = input.kit;
-  const [data, source] = await Promise.all([
+  const rules = wordRules(input);
+  const [data, source, past] = await Promise.all([
     context(userId, [accountId], config.timeZone, false, null).catch((error) => {
       if (error instanceof AiError && error.code === 'no_data') return '';
       throw error;
@@ -756,44 +800,75 @@ export async function draftWithSage(userId: string, accountId: string, input: Cr
     input.fromPostId
       ? prisma.post.findFirst({ where: { id: input.fromPostId, socialProfile: { userId, id: accountId } }, select: { caption: true, type: true, views: true, saves: true, shares: true } })
       : Promise.resolve(null),
+    pastResults(userId, accountId),
   ]);
   const winner = source ? `\nBuild on this post that worked (same angle, new wording, never copy it): [${source.type}, ${source.views} views, ${source.saves} saves, ${source.shares} shares] "${source.caption.slice(0, 500)}"\n` : '';
+  const background = `${data}\n${vocabText(input.vocab, input.strict)}${past}\n## Brand kit\n${kitText(kit, input)}\n${winner}`;
 
-  if (input.kind === 'caption') {
+  if (input.kind === 'make' || input.kind === 'rewrite') {
+    const format = input.format ?? 'caption';
     const r = kit.rules;
-    const base = `${data}\n\n## Brand kit\n${kitText(kit, input)}\n${winner}
-Write one Instagram caption body${input.topic ? ` about: ${input.topic}` : ''}.
-Rules: the whole caption (body, then the CTA, then hashtags) must be ${r.minChars} to ${r.maxChars} characters. ${r.noEmDashes ? 'Never use em dashes or en dashes. ' : ''}${r.oneCta ? 'Do not put any call to action in the body: the CTA is added separately. ' : ''}${r.maxTags ? `Give ${Math.max(r.minTags, 1)} to ${r.maxTags} unique hashtags. ` : ''}The CTA that will follow the body is: "${input.cta || 'none'}", so the body should lead naturally into it. Write in the creator's language and voice.
-Return a JSON object: {"body": the caption body only, "hashtags": ["#tag", ...]}`;
+    const captionRules = `The whole caption (body, then the CTA "${input.cta || 'none'}", then hashtags) must be ${r.minChars} to ${r.maxChars} characters. The body's first line is the hook: it must stop the scroll on its own. ${r.noEmDashes ? 'Never use em dashes or en dashes. ' : ''}${r.oneCta ? 'Put no call to action in the body: the CTA is added after it. ' : ''}${r.maxTags ? `Give ${Math.max(r.minTags, 1)} to ${r.maxTags} unique hashtags. ` : ''}Write in the creator's language, voice and mix of languages. No generic filler ("game changer", "must-have", "elevate", "unlock") unless the data shows it works for them.`;
 
-    let prompt = base;
-    if (input.fix) {
-      const now = checkCaption(kit, { body: input.fix.body, cta: input.cta ?? '', hashtags: input.fix.hashtags });
-      prompt = `${base}\n\nDo not write a new caption. Repair this draft, keeping its meaning, voice and as much of the wording as you can:\n${composeCaption({ body: input.fix.body, cta: input.cta ?? '', hashtags: input.fix.hashtags })}\n\nIt fails or misses these checks: ${now.filter((c) => c.status !== 'ok').map((c) => `${c.label} (${c.detail})`).join('; ') || 'none, just tighten it'}`;
+    let prompt: string;
+    if (input.kind === 'rewrite' && input.current) {
+      prompt = `${background}
+Rewrite this caption. What to change: ${input.instruction || 'make it better'}. Keep its meaning and keep everything that already works.
+${composeCaption({ body: input.current.body, cta: input.cta ?? '', hashtags: input.current.hashtags })}
+
+${captionRules}
+Return a JSON object: {"body": the caption body only, "hashtags": ["#tag", ...]}`;
+    } else {
+      const extra = format === 'reel'
+        ? `,\n"script": 4 to 7 beats [{"time": e.g. "0-2s", "shot": what the camera shows, "onScreen": the text on screen (short), "voiceover": what is said, or "" for none}]`
+        : format === 'carousel'
+          ? `,\n"slides": 5 to 8 slides [{"title": the slide headline, max 8 words, "text": one or two short lines}], the first slide is the hook, the last one carries the CTA`
+          : '';
+      prompt = `${background}
+Write ${FORMAT_TASK[format]}${input.topic ? ` about: ${input.topic}` : ''}.
+${captionRules}
+Return a JSON object: {"hooks": 3 different first lines to choose from (short, specific, built on the proven words), "body": the caption body, starting with the first hook, "hashtags": ["#tag", ...]${extra}}`;
     }
-    let result = { body: '', hashtags: [] as string[] };
+
+    let result = { body: '', hashtags: [] as string[], hooks: [] as string[], script: [] as ScriptBeat[], slides: [] as Slide[] };
     let checks: Check[] = [];
     let model = '';
-    // Up to three tries: whatever fails the checks is told back to Sage to fix
+    // The best attempt wins, not the last one: a retry that comes back worse (or empty) is thrown away
+    let best: { result: typeof result; checks: Check[]; score: number } | null = null;
+    // Up to three tries: whatever fails the checks (and, when sticking to proven words, the word checks) goes back to Sage
+    const firstPrompt = prompt;
     for (let attempt = 0; attempt < 3; attempt++) {
-      const out = await generate(config, prompt, { json: true, system: ANALYST, feature: 'writer' });
+      const out = await generate(config, prompt, { json: true, system: ANALYST, feature: 'writer', long: format !== 'caption' });
       model = out.model;
-      const parsed = parseJson<{ body?: string; hashtags?: string[] }>(out.text);
-      result = { body: String(parsed.body ?? '').trim(), hashtags: (Array.isArray(parsed.hashtags) ? parsed.hashtags : []).map(String) };
-      checks = checkCaption(kit, { body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') });
-      const bad = failing(checks);
+      const parsed = parseJson<{ body?: string; hashtags?: string[]; hooks?: string[]; script?: ScriptBeat[]; slides?: Slide[] }>(out.text);
+      result = {
+        body: String(parsed.body ?? '').trim(),
+        hashtags: (Array.isArray(parsed.hashtags) ? parsed.hashtags : []).map(String),
+        hooks: attempt === 0 || !result.hooks.length ? (Array.isArray(parsed.hooks) ? parsed.hooks : []).map(String).filter(Boolean).slice(0, 3) : result.hooks,
+        script: Array.isArray(parsed.script) ? parsed.script.slice(0, 10).map((b) => ({ time: String(b?.time ?? ''), shot: String(b?.shot ?? ''), onScreen: String(b?.onScreen ?? ''), voiceover: String(b?.voiceover ?? '') })) : result.script,
+        slides: Array.isArray(parsed.slides) ? parsed.slides.slice(0, 10).map((x) => ({ title: String(x?.title ?? ''), text: String(x?.text ?? '') })) : result.slides,
+      };
+      checks = checkCaption(kit, { body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') }, rules);
+      const bad = [...failing(checks), ...(input.strict ? checks.filter((c) => ['words', 'weak', 'untested', 'weaktags'].includes(c.id) && c.status !== 'ok') : [])];
+      const score = result.body ? bad.length : 1000;
+      if (!best || score < best.score) best = { result: { ...result }, checks, score };
       if (!bad.length) break;
-      prompt = `${base}\n\nYour last attempt was:\n${composeCaption({ body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') })}\n\nIt failed these checks, so fix them and keep everything else: ${bad.map((c) => `${c.label} (${c.detail})`).join('; ')}`;
+      prompt = `${firstPrompt}\n\nYour last attempt was:\n${composeCaption({ body: result.body, cta: input.cta ?? '', hashtags: result.hashtags.join(' ') })}\n\nIt failed these checks, so fix them and keep everything else (return the same JSON shape): ${bad.map((c) => `${c.label} (${c.detail})`).join('; ')}`;
     }
-    return { kind: 'caption' as const, ...result, checks, model };
+    if (best) {
+      result = best.result;
+      checks = best.checks;
+    }
+    if (!result.body) throw new AiError('api', 'Sage came back empty. Try again, or pick another AI.', true);
+    return { kind: input.kind, format, ...result, checks, model };
   }
 
   const kind = input.briefKind ?? 'carousel';
   const out = await generate(
     config,
-    `${data}\n\n## Brand kit\n${kitText(kit, input)}\n${winner}
+    `${background}
 Write a ${kind === 'feed' ? 'feed ad' : kind} brief${input.topic ? ` about: ${input.topic}` : ''} for the creator's designer. Format spec: ${kit.briefs.specs[kind]}.
-Start from this structure and make it specific to the product and topic, keeping the same number of lines or fewer:
+Start from this structure and make it specific to the product and topic, keeping the same number of lines or fewer. Use the proven words in on-screen text where they fit:
 ${kit.briefs.templates[kind]}
 Return a JSON object: {"title": a short working title, "lines": ["one line per ${kind === 'carousel' ? 'slide' : kind === 'reel' ? 'shot' : 'layout note'}", ...]}`,
     { json: true, system: ANALYST, feature: 'writer' },

@@ -14,7 +14,7 @@ export type Draft = {
   updatedAt: string;
   result: { views: number; saves: number; shares: number; performanceScore: number } | null;
 };
-export type PostRow = { id: string; caption: string; username?: string; type: string; publishedAt: string };
+export type PostRow = { id: string; caption: string; username?: string; type: string; publishedAt: string; views?: number };
 
 export const field = 'glass-field w-full rounded-2xl px-4 text-[14px] text-foreground placeholder:text-muted-foreground outline-none focus:border-violet-400/70 focus-visible:ring-2 focus-visible:ring-violet-400/40';
 export const input = `${field} h-12`;

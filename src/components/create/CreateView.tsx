@@ -8,12 +8,12 @@ import { usePlatform } from '@/lib/usePlatform';
 import { cn } from '@/lib/utils';
 import { BrandKitEditor } from './BrandKitEditor';
 import { BriefBuilder } from './BriefBuilder';
-import { CaptionLab } from './CaptionLab';
+import { Studio } from './Studio';
 import type { Draft, Kit, PostRow } from './ui';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 const TABS = [
-  { id: 'caption', label: 'Caption lab' },
+  { id: 'caption', label: 'Write' },
   { id: 'briefs', label: 'Briefs' },
   { id: 'kit', label: 'Brand kit' },
 ] as const;
@@ -82,7 +82,7 @@ export function CreateView() {
           ) : !kit || !drafts ? (
             <div className="h-72 rounded-[30px] glass-panel animate-pulse" aria-label="Loading" />
           ) : tab === 'caption' ? (
-            <CaptionLab key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}:${initialPost}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} initialPost={initialPost} />
+            <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}:${initialPost}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} initialPost={initialPost} />
           ) : tab === 'briefs' ? (
             <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />
           ) : (
