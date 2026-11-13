@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, ArrowDown, ArrowUp, ExternalLink, MessageCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { ArrowLeft, ExternalLink, MessageCircle, RefreshCw, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { formatLabel } from '@/lib/platform';
 import { formatNumber, formatRelativeTime, getPerformanceColor, getPerformanceLabel, getPlatformColor, getPlatformLabel } from '@/utils/formatters';
 import { GrowthCurve, type Snapshot } from '@/components/charts/GrowthCurve';
 import { PostNav } from '@/components/content/PostNav';
+import { PostInsights } from '@/components/content/PostInsights';
 import type { PostAnalysis } from '@/services/ai';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
@@ -50,34 +51,6 @@ type PostData = {
 
 type Analysis = { analysis: PostAnalysis; model: string; createdAt: string };
 
-const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
-
-function StatTile({ label, value, average, percent, show, lowerIsBetter }: {
-  label: string;
-  value: number;
-  average: number;
-  percent?: boolean;
-  show?: (n: number) => string;
-  lowerIsBetter?: boolean;
-}) {
-  const diff = average > 0 ? ((value - average) / average) * 100 : 0;
-  const up = diff >= 0;
-  const good = lowerIsBetter ? !up : up;
-  const fmt = show ?? ((n: number) => (percent ? `${n.toFixed(1)}%` : formatNumber(Math.round(n))));
-  return (
-    <div className="p-3 rounded-lg border border-border bg-secondary/15">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="text-lg font-bold tabular-nums mt-0.5">{fmt(value)}</p>
-      {average > 0 && (
-        <p className={cn('text-[10px] flex items-center gap-0.5 tabular-nums', good ? 'text-emerald-400' : 'text-rose-400')}>
-          {up ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          {Math.abs(diff).toFixed(0)}% vs avg {fmt(average)}
-        </p>
-      )}
-    </div>
-  );
-}
-
 function List({ title, items }: { title: string; items?: string[] }) {
   if (!items?.length) return null;
   return (
@@ -90,7 +63,7 @@ function List({ title, items }: { title: string; items?: string[] }) {
   );
 }
 
-export function PostAnalyzer({ id }: { id: string }) {
+export function PostAnalyzer({ id, vs }: { id: string; vs?: string }) {
   const [data, setData] = useState<PostData | null | undefined>(undefined);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [failure, setFailure] = useState<{ error: string; code?: string } | null>(null);
@@ -170,26 +143,8 @@ export function PostAnalyzer({ id }: { id: string }) {
           <div className="flex items-center gap-2">
             <span className={cn('text-sm font-bold', getPerformanceColor(post.performanceScore))}>{post.performanceScore.toFixed(1)}% engagement</span>
             <span className={cn('text-xs', getPerformanceColor(post.performanceScore))}>{getPerformanceLabel(post.performanceScore)}</span>
-            {b.rank > 0 && <span className="text-xs text-muted-foreground">· #{b.rank} of {b.posts} {yt ? 'videos' : 'posts'}</span>}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
-            <StatTile label="Views" value={post.views} average={b.views} />
-            {post.facebookViews != null && post.facebookViews > 0 && (
-              <div className="p-3 rounded-lg border border-border bg-secondary/15">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">On Facebook</p>
-                <p className="text-lg font-bold tabular-nums mt-0.5">{formatNumber(post.facebookViews)}</p>
-                <p className="text-[10px] text-muted-foreground">{post.type === 'reel' ? 'included in views' : 'part of views'} · {Math.round((post.facebookViews / Math.max(1, post.views)) * 100)}% of the total</p>
-              </div>
-            )}
-            {post.reach != null && <StatTile label="Reach" value={post.reach} average={b.reach} />}
-            <StatTile label="Likes" value={post.likes} average={b.likes} />
-            <StatTile label="Comments" value={post.comments} average={b.comments} />
-            {!yt && <StatTile label="Saves" value={post.saves} average={b.saves} />}
-            {!yt && <StatTile label="Shares" value={post.shares} average={b.shares} />}
-            <StatTile label="Engagement" value={post.performanceScore} average={b.engagement} percent />
-            {post.avgWatchMs != null && <StatTile label="Avg watch time" value={post.avgWatchMs} average={b.avgWatchMs ?? 0} show={seconds} />}
-            {post.skipRate != null && <StatTile label="Skip rate" value={post.skipRate} average={b.skipRate ?? 0} show={(n) => `${n.toFixed(0)}%`} lowerIsBetter />}
-          </div>
+          <PostInsights post={post} averages={b} initialVs={vs} />
         </div>
       </div>
 
