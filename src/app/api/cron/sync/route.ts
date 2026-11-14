@@ -6,6 +6,7 @@ import { generateInsights } from '@/services/ai';
 import { refreshCompetitor } from '@/services/competitors';
 import { sendDailyNotifications, sendWeeklyDigest } from '@/services/push';
 import { runQueue } from '@/services/publish';
+import { DEMO_ID } from '@/lib/demo';
 
 // Runs daily from vercel.json (01:00 UTC, about 6:30 AM in India)
 // A full Instagram sync alone can take most of a minute, so 60 seconds used to cut the run off
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
   // Anything due to be posted goes first, so a missing 5 minute pinger still means posts go out daily
   const posted = await runQueue('cron', 30_000).catch((e) => ({ error: (e as Error).message }));
   // Least recently synced first, so anything skipped today goes first tomorrow
-  const profiles = await prisma.socialProfile.findMany({ orderBy: { lastSyncedAt: 'asc' } });
+  const profiles = await prisma.socialProfile.findMany({ where: { userId: { not: DEMO_ID } }, orderBy: { lastSyncedAt: 'asc' } });
   const results: { account: string; ok: boolean; error?: string }[] = [];
 
   for (const profile of profiles) {
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
   }
 
   // Competitors' public numbers, oldest first, while there is time left
-  const rivals = await prisma.competitor.findMany({ orderBy: { lastSyncedAt: 'asc' }, select: { userId: true, username: true } });
+  const rivals = await prisma.competitor.findMany({ where: { userId: { not: DEMO_ID } }, orderBy: { lastSyncedAt: 'asc' }, select: { userId: true, username: true } });
   let rivalsRefreshed = 0;
   for (const r of rivals) {
     if (Date.now() - started > TIME_BUDGET_MS) break;

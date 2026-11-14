@@ -63,7 +63,7 @@ export function SageNote({ page, enabled = true }: { page: NotePage; enabled?: b
         </div>
       ) : failure ? (
         <p className="relative text-[13px] text-muted-foreground">
-          {failure.code === 'no_key' ? <>Add an AI key and Sage explains this page for you. <Link href="/settings#ai" className="font-bold text-violet-400 hover:underline">Add a key</Link></> : failure.code === 'no_data' ? 'Sync an account first, then Sage reads this page for you.' : <>Sage could not read this page: {failure.error} <button type="button" onClick={refresh} className="font-bold text-violet-400 hover:underline">Try again</button></>}
+          {failure.code === 'no_key' ? <>Add an AI key and Sage explains this page for you. <Link href="/settings#ai" className="font-bold text-violet-400 hover:underline">Add a key</Link></> : failure.code === 'no_data' ? 'Sync an account first, then Sage reads this page for you.' : failure.code === 'demo' ? failure.error : <>Sage could not read this page: {failure.error} <button type="button" onClick={refresh} className="font-bold text-violet-400 hover:underline">Try again</button></>}
         </p>
       ) : null}
 

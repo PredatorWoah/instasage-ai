@@ -4,6 +4,7 @@ import { CommandPalette } from '@/components/layout/CommandPalette';
 import { AIChat } from '@/components/ai-assistant/AIChat';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { Guard } from '@/components/ui/Guard';
+import { DemoBanner } from '@/components/layout/DemoBanner';
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
           <div className="glass-blob glass-blob-a -bottom-48 left-1/4 w-[600px] h-[600px] bg-[radial-gradient(circle_at_35%_35%,#E4FF7A,#B6F01F_60%,transparent)] opacity-20" />
         </div>
         <SiteHeader />
+        <Guard name="DemoBanner"><DemoBanner /></Guard>
         <Guard name="HealthBanner"><HealthBanner /></Guard>
         <Guard name="CommandPalette"><CommandPalette /></Guard>
         {/* Extra room at the bottom on phones so the Sage button never covers the last item */}

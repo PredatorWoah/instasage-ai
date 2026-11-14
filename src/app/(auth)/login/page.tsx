@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
-import { Lock } from 'lucide-react';
+import { getProviders, signIn } from 'next-auth/react';
+import { Lock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [demo, setDemo] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  // The demo button only shows when the server has the demo turned on
+  useEffect(() => {
+    getProviders().then((p) => setDemo(!!p?.demo)).catch(() => {});
+  }, []);
+
+  const tryDemo = async () => {
+    setDemoLoading(true);
+    setError('');
+    const res = await signIn('demo', { redirect: false });
+    if (res?.ok) router.replace('/');
+    else {
+      setDemoLoading(false);
+      setError(res?.error && res.error !== 'CredentialsSignin' ? res.error : 'The demo could not start. Try again in a minute.');
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,6 +91,18 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+
+          {demo && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="h-px flex-1 bg-ink/[0.1]" /> or <span className="h-px flex-1 bg-ink/[0.1]" />
+              </div>
+              <button type="button" onClick={tryDemo} disabled={demoLoading || loading} className="h-12 rounded-2xl bg-ink/[0.06] border border-ink/[0.12] text-sm font-bold inline-flex items-center justify-center gap-2 hover:bg-ink/[0.1] disabled:opacity-60 transition-colors">
+                <Sparkles className="w-4 h-4" /> {demoLoading ? 'Opening the demo...' : 'Try the demo'}
+              </button>
+              <p className="text-[12px] text-muted-foreground text-center leading-snug">A look around with made-up data for a sample skincare brand. Nothing real, and nothing can be changed.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,11 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
+import { DEMO_AI_MESSAGE, isDemo } from '@/lib/demo';
 
 // One interface over every AI provider the creator can plug a key into.
 // Features call generate(); which model answers is a Settings choice.
 
 export class AiError extends Error {
-  constructor(public code: 'no_key' | 'no_data' | 'api', message: string, public retryable = false) {
+  constructor(public code: 'no_key' | 'no_data' | 'api' | 'demo', message: string, public retryable = false) {
     super(message);
   }
 }
@@ -131,7 +132,8 @@ export async function listCredentials(userId: string) {
   if (!creds.has('gemini') && user?.geminiApiKey) {
     creds.set('gemini', { apiKey: user.geminiApiKey, model: user.geminiModel || PROVIDERS.gemini.defaultModel, models: [] });
   }
-  if (!creds.has('gemini') && process.env.GEMINI_API_KEY) {
+  // The demo never uses the owner's fallback key
+  if (!creds.has('gemini') && process.env.GEMINI_API_KEY && !isDemo(userId)) {
     creds.set('gemini', { apiKey: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL || PROVIDERS.gemini.defaultModel, models: [] });
   }
   const preferred = isProvider(user?.aiProvider) && creds.has(user.aiProvider) ? user.aiProvider : null;
@@ -140,6 +142,7 @@ export async function listCredentials(userId: string) {
 }
 
 export async function getAiConfig(userId: string, feature?: Feature): Promise<LlmConfig & { backups: LlmConfig[] }> {
+  if (isDemo(userId)) throw new AiError('demo', DEMO_AI_MESSAGE);
   const { creds, active, timeZone, routing } = await listCredentials(userId);
   if (!active) throw new AiError('no_key', 'Add an AI key in Settings (Gemini, Claude, ChatGPT or OpenRouter) to use AI features.');
   const toConfig = (provider: ProviderId, model?: string): LlmConfig => ({ provider, ...creds.get(provider)!, ...(model ? { model } : {}), timeZone, userId });

@@ -50,7 +50,7 @@ export function NextMoveCard({ hasData }: { hasData: boolean }) {
         <div className="flex flex-col gap-2.5 mt-2" aria-label="Sage is working out your next post">{[60, 90, 75].map((w) => <div key={w} className="h-5 rounded-full bg-ink/[0.1] animate-pulse" style={{ width: `${w}%` }} />)}</div>
       ) : (
         <>
-          <p className="font-display font-extrabold text-[30px] sm:text-[34px] leading-[0.98] tracking-[-0.04em]">{failure?.code === 'no_key' ? 'Add an AI key and Sage plans it.' : 'Get your next post from the Ideas Studio.'}</p>
+          <p className="font-display font-extrabold text-[30px] sm:text-[34px] leading-[0.98] tracking-[-0.04em]">{failure?.code === 'no_key' ? 'Add an AI key and Sage plans it.' : failure?.code === 'demo' ? 'In the real app, Sage plans your next post here.' : 'Get your next post from the Ideas Studio.'}</p>
           <Link href={failure?.code === 'no_key' ? '/settings#ai' : '/recommendations'} className="mt-auto self-start h-11 px-5 rounded-full bg-foreground text-background text-[13px] font-bold inline-flex items-center">{failure?.code === 'no_key' ? 'Add a key' : 'Open Ideas'}</Link>
         </>
       )}

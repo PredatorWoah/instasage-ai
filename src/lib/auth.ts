@@ -2,6 +2,8 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createHash, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { DEMO_ID, demoEnabled } from "@/lib/demo";
+import { ensureDemo } from "@/services/demo";
 
 // Single-owner app: one password from the environment, one user row
 const OWNER_ID = "owner";
@@ -39,6 +41,24 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
+    // "Try the demo" on the login page: a separate account with made-up data, read-only, no AI.
+    // It never sees the owner's data: every query is scoped to the signed-in user.
+    ...(demoEnabled()
+      ? [CredentialsProvider({
+          id: "demo",
+          name: "Demo",
+          credentials: {},
+          async authorize() {
+            try {
+              await ensureDemo();
+              return { id: DEMO_ID, name: "Demo creator" };
+            } catch (error) {
+              console.error("Demo login failed:", error);
+              throw new Error("The demo could not start. Try again in a minute.");
+            }
+          },
+        })]
+      : []),
   ],
   session: {
     strategy: "jwt",
