@@ -171,12 +171,10 @@ async function pruneGonePosts(profileId: string, token: string, fetched: string[
   if (!gone.length) return 0;
   await prisma.post.deleteMany({ where: { id: { in: gone }, socialProfileId: profileId } });
   const owner = await prisma.socialProfile.findUnique({ where: { id: profileId }, select: { userId: true } });
-  // Cached AI answers were built on those posts. Reviews of posts that are still live stay
-  if (owner) {
-    await prisma.aiResult.deleteMany({
-      where: { userId: owner.userId, OR: [{ kind: { in: gone.map((id) => `post:${id}`) } }, { NOT: [{ kind: { startsWith: 'report:' } }, { kind: { startsWith: 'post:' } }] }] },
-    });
-  }
+  // Only the reviews of the posts that went go with them. Game plans, insights and briefings stay:
+  // this used to wipe all of them whenever a single post was archived, which looked like the app
+  // forgetting things. They say when they were made, and refresh on their own or with one tap.
+  if (owner) await prisma.aiResult.deleteMany({ where: { userId: owner.userId, kind: { in: gone.map((id) => `post:${id}`) } } });
   console.log(`Removed ${gone.length} posts no longer on Instagram (archived or deleted)`);
   return gone.length;
 }

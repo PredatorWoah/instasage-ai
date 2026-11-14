@@ -5,6 +5,7 @@ import { competitorsToPrompt } from '@/services/competitors';
 import { composeCaption, checkCaption, failing, type BrandKit, type BriefKind, type Check, type WordRules } from '@/lib/brandKit';
 import { vocabText, type Vocab } from '@/services/vocab';
 import { hookLibrary, hooksText } from '@/services/hooks';
+import { zonedDate, zonedToday } from '@/lib/zoned';
 import { saveQuestionIdeas, type Mined, type QuestionIdea } from '@/services/questions';
 import { ACTIONS_PROMPT, applyAction, correctionsText, memoryText, splitActions, type ActionResult } from '@/services/sageActions';
 
@@ -171,10 +172,6 @@ async function saveList(userId: string, kind: ListKind, scopeKey: string, list: 
   return { items: list, model, createdAt: row.createdAt };
 }
 
-// Times in cached answers were worded for the old timezone
-export async function clearTimedResults(userId: string) {
-  await prisma.aiResult.deleteMany({ where: { userId, NOT: { kind: { startsWith: 'report:' } } } });
-}
 
 // ---------- Insights and quick wins ----------
 
@@ -227,11 +224,18 @@ export type GamePlan = {
   targets: { metric: string; now: string; target: string }[];
 };
 
-export async function getCachedPlan(userId: string, scopeKey: string) {
-  const legacy = legacyKey(scopeKey);
-  const row = (await read(userId, `plan:${scopeKey}`)) ?? (legacy ? await read(userId, `plan:${legacy}`) : null);
+// One game plan per account (or for "all accounts"), whatever time window the top bar shows: it used to be
+// kept per window too, so switching from 30 days to 7 looked like the plan had vanished.
+// Plans saved before that are still found: the newest one for the account wins.
+const planKey = (scope: Scope) => `plan:${scope.key}`;
+
+export async function getCachedPlan(userId: string, scope: Scope) {
+  const row = (await read(userId, planKey(scope)))
+    ?? (await prisma.aiResult.findFirst({ where: { userId, kind: { startsWith: `plan:${scope.key}@` } }, orderBy: { createdAt: 'desc' } }));
   return row ? { plan: row.content as GamePlan, model: row.model, createdAt: row.createdAt } : null;
 }
+
+export const savePlan = (userId: string, scope: Scope, plan: GamePlan, model: string) => write(userId, planKey(scope), plan, model);
 
 export async function generateGamePlan(userId: string, scope: Scope) {
   const config = await getAiConfig(userId, 'plan');
@@ -256,7 +260,7 @@ Return a JSON object with exactly these keys:
   );
   const plan = parseJson<GamePlan>(text);
   if (!plan.headline || !Array.isArray(plan.weeks)) throw new AiError('api', 'The game plan came back incomplete. Try again.', true);
-  const row = await write(userId, `plan:${cacheKey(scope)}`, plan, model);
+  const row = await savePlan(userId, scope, plan, model);
   return { plan, model, createdAt: row.createdAt };
 }
 
@@ -412,6 +416,129 @@ ${data}${table}`,
   return { reply: reply || (results.length ? 'Done.' : text), actions: results };
 }
 
+// ---------- Changing the game plan in chat ----------
+
+export type PlanTurn = { role: 'user' | 'assistant'; content: string; at: string; changes?: string[]; added?: number };
+const planChatKey = (userId: string, scope: Scope) => `planchat:${userId}:${scope.key}`;
+const planPrevKey = (userId: string, scope: Scope) => `planprev:${userId}:${scope.key}`;
+
+async function readJson<T>(key: string, fallback: T): Promise<T> {
+  const row = await prisma.appConfig.findUnique({ where: { key } });
+  try {
+    return row ? (JSON.parse(row.value) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+const writeJson = (key: string, value: unknown) => prisma.appConfig.upsert({ where: { key }, create: { key, value: JSON.stringify(value) }, update: { value: JSON.stringify(value) } });
+
+export async function planChat(userId: string, scope: Scope) {
+  const [turns, prev] = await Promise.all([readJson<PlanTurn[]>(planChatKey(userId, scope), []), readJson<unknown[]>(planPrevKey(userId, scope), [])]);
+  return { turns, canUndo: prev.length > 0 };
+}
+
+// Compares by content: the database hands JSON back with its keys in a different order
+const stable = (v: unknown): string => (Array.isArray(v) ? `[${v.map(stable).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(',')}}` : JSON.stringify(v) ?? 'null');
+
+const PLAN_KEYS: (keyof GamePlan)[] = ['headline', 'diagnosis', 'keep', 'stop', 'pillars', 'schedule', 'weeks', 'experiments', 'targets'];
+
+// A changed plan keeps every part the answer left out or broke, so a reply can never blank a section
+function mergePlan(old: GamePlan, raw: unknown): GamePlan | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const next = raw as Partial<GamePlan>;
+  const out = { ...old };
+  let changed = false;
+  for (const k of PLAN_KEYS) {
+    const v = next[k];
+    const ok = k === 'headline' || k === 'diagnosis' ? typeof v === 'string' && v.trim() : Array.isArray(v) && (v.length > 0 || k === 'experiments');
+    if (ok && stable(v) !== stable(old[k])) {
+      (out as Record<string, unknown>)[k] = v;
+      changed = true;
+    }
+  }
+  return changed ? out : null;
+}
+
+// The creator asks for a change in plain words. Sage edits the saved plan itself (every change can be
+// undone) and, when asked, puts posts from it on the content calendar.
+export async function changePlan(userId: string, scope: Scope, message: string) {
+  const current = await getCachedPlan(userId, scope);
+  if (!current) throw new AiError('no_data', 'Build the game plan first, then ask for changes here.');
+  const config = await getAiConfig(userId, 'plan');
+  const [data, turns] = await Promise.all([
+    context(userId, scope.profileIds, config.timeZone, true, scope.days ?? null).catch(() => ''),
+    readJson<PlanTurn[]>(planChatKey(userId, scope), []),
+  ]);
+  const today = zonedToday(config.timeZone);
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: config.timeZone, weekday: 'long' }).format(new Date());
+  const history = turns.slice(-8).map((t) => `${t.role === 'user' ? 'Creator' : 'Sage'}: ${t.content}`).join('\n');
+
+  const { text, model } = await generate(
+    config,
+    `${data}
+
+## The current 30-day game plan (JSON)
+${JSON.stringify(current.plan)}
+
+${history ? `## Earlier in this conversation\n${history}\n` : ''}
+## The creator says
+${message.slice(0, 2000)}
+
+Today is ${weekday}, ${today} (${config.timeZone}).
+Do what the creator asks. If they ask for a change, change the plan itself: rewrite the affected parts and keep everything else exactly as it is. If they only ask a question, answer it and leave the plan alone. Keep it honest: tie changes to the numbers above, and say plainly when a request works against what the data shows (then do it anyway if they insist).
+Only if they ask to put posts on the calendar or schedule them, list those posts with real future dates starting from today.
+
+Return a JSON object:
+{"reply": 1 to 4 short sentences to the creator, in their language, saying what you did,
+ "plan": the whole updated plan with the same keys and shape as above, or null when nothing in it changes,
+ "changes": ["each change in a few words"], or [],
+ "calendar": [{"title": the post idea, "format": "reel" | "carousel" | "post" | "story", "date": "YYYY-MM-DD", "time": "HH:MM" in 24 hours, "hook": the opening line}], or [] unless they asked}`,
+    { json: true, system: ANALYST, long: true, feature: 'plan' },
+  );
+  const out = parseJson<{ reply?: string; plan?: unknown; changes?: unknown; calendar?: unknown }>(text);
+  const reply = String(out.reply ?? '').trim() || 'Done.';
+  const next = mergePlan(current.plan, out.plan);
+  const changes = next && Array.isArray(out.changes) ? out.changes.map(String).filter(Boolean).slice(0, 8) : [];
+
+  let createdAt = current.createdAt;
+  if (next) {
+    // Up to five earlier versions, newest last, for Undo
+    const prev = await readJson<{ plan: GamePlan; model: string }[]>(planPrevKey(userId, scope), []);
+    await writeJson(planPrevKey(userId, scope), [...prev, { plan: current.plan, model: current.model }].slice(-5));
+    createdAt = (await savePlan(userId, scope, next, model)).createdAt;
+  }
+
+  // Posts to put on the calendar: future dates only, at most 12, in the creator's own time
+  const items = Array.isArray(out.calendar) ? out.calendar.slice(0, 12) : [];
+  let added = 0;
+  for (const raw of items) {
+    const c = raw as { title?: unknown; format?: unknown; date?: unknown; time?: unknown; hook?: unknown };
+    const title = typeof c.title === 'string' ? c.title.trim().slice(0, 200) : '';
+    const at = typeof c.date === 'string' && typeof c.time === 'string' ? zonedDate(c.date, c.time, config.timeZone) : null;
+    if (!title || !at || at.getTime() < Date.now()) continue;
+    const format = ['reel', 'carousel', 'post', 'story'].includes(String(c.format)) ? String(c.format) : 'reel';
+    await prisma.savedIdea.create({ data: { userId, title, format, source: 'plan', status: 'planned', scheduledFor: at, notes: typeof c.hook === 'string' && c.hook.trim() ? `Hook: ${c.hook.trim().slice(0, 300)}` : '' } });
+    added++;
+  }
+
+  const now = new Date().toISOString();
+  const nextTurns: PlanTurn[] = [...turns, { role: 'user' as const, content: message.slice(0, 2000), at: now }, { role: 'assistant' as const, content: reply, at: now, changes, added }].slice(-40);
+  await writeJson(planChatKey(userId, scope), nextTurns);
+  return { plan: next ?? current.plan, model: next ? model : current.model, createdAt, turns: nextTurns, changed: !!next, added, canUndo: !!next || (await readJson<unknown[]>(planPrevKey(userId, scope), [])).length > 0 };
+}
+
+export async function undoPlanChange(userId: string, scope: Scope) {
+  const prev = await readJson<{ plan: GamePlan; model: string }[]>(planPrevKey(userId, scope), []);
+  const last = prev.pop();
+  if (!last) return null;
+  const row = await savePlan(userId, scope, last.plan, last.model);
+  await writeJson(planPrevKey(userId, scope), prev);
+  const turns = await readJson<PlanTurn[]>(planChatKey(userId, scope), []);
+  const next = [...turns, { role: 'assistant' as const, content: 'Undone: the plan is back to how it was before the last change.', at: new Date().toISOString() }].slice(-40);
+  await writeJson(planChatKey(userId, scope), next);
+  return { plan: last.plan, model: last.model, createdAt: row.createdAt, turns: next, canUndo: prev.length > 0 };
+}
+
 // ---------- Brainstorm (Ideas Studio) ----------
 
 export async function brainstormReply(userId: string, scope: Scope, history: ChatTurn[], message: string) {
@@ -421,7 +548,7 @@ export async function brainstormReply(userId: string, scope: Scope, history: Cha
       if (error instanceof AiError && error.code === 'no_data') return 'No posts have been synced yet, so ideas cannot lean on past results.';
       throw error;
     }),
-    getCachedPlan(userId, cacheKey(scope)),
+    getCachedPlan(userId, scope),
     prisma.savedIdea.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 15, select: { title: true, status: true } }),
   ]);
 

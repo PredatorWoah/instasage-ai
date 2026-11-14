@@ -10,7 +10,7 @@ export async function GET() {
   const userId = await requireUserId();
   if (!userId) return unauthorized();
   const scope = await getAccountScope(userId);
-  return NextResponse.json(await getCachedPlan(userId, scope.aiKey));
+  return NextResponse.json(await getCachedPlan(userId, scope));
 }
 
 export async function POST() {

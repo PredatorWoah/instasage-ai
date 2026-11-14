@@ -32,6 +32,26 @@ const REWRITES = ['Shorter', 'Punchier hook', 'Use more proven words', 'Fix the 
 type Idea = { id: string; title: string; status: string; format?: string | null };
 type Made = { format: MakeFormat; body: string; hashtags: string[]; hooks: string[]; script: ScriptBeat[]; slides: Slide[]; checks: CheckRow[] };
 
+type Work = { format: MakeFormat; productId: string; cta: string; topic: string; body: string; hashtags: string; hooks: string[]; script: ScriptBeat[]; slides: Slide[]; loadedId: string | null };
+const workKey = (account: string) => `instasage:write:${account}`;
+function readWork(account: string, linked: boolean): Work | null {
+  try {
+    const w = JSON.parse(localStorage.getItem(workKey(account)) ?? 'null') as Work | null;
+    if (!w || typeof w.body !== 'string') return null;
+    return linked ? { ...w, topic: '' } : w;
+  } catch {
+    return null;
+  }
+}
+function writeWork(account: string, w: Work) {
+  try {
+    if (!w.body.trim() && !w.topic.trim() && !w.script.length && !w.slides.length) localStorage.removeItem(workKey(account));
+    else localStorage.setItem(workKey(account), JSON.stringify(w));
+  } catch {
+    // private windows can refuse storage; the draft then lives only until the tab closes
+  }
+}
+
 const scriptText = (s: ScriptBeat[]) => s.map((b) => `${b.time}  ${b.shot}${b.onScreen ? `\n  On screen: ${b.onScreen}` : ''}${b.voiceover ? `\n  Voiceover: ${b.voiceover}` : ''}`).join('\n\n');
 const slidesText = (s: Slide[]) => s.map((x, i) => `Slide ${i + 1}: ${x.title}${x.text ? `\n${x.text}` : ''}`).join('\n\n');
 
@@ -39,25 +59,33 @@ const slidesText = (s: Slide[]) => s.map((x, i) => `Slide ${i + 1}: ${x.title}${
 export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost, onOpenCalendar, username }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void; onOpenCalendar: () => void; username: string }) {
   const { data: vocab } = useCachedJson<Vocab | null>(`/api/creative/words?account=${encodeURIComponent(account)}`);
   const { data: ideas } = useCachedJson<Idea[] | null>('/api/ideas/saved');
-  const [format, setFormat] = useState<MakeFormat>('caption');
-  const [productId, setProductId] = useState(kit.products[0]?.id ?? '');
-  const [cta, setCta] = useState(kit.ctas[0] ?? '');
-  const [topic, setTopic] = useState(initialTopic);
+  // The draft being worked on survives closing the tab: it is kept in this browser until saved or cleared.
+  // A topic or post passed in a link wins over it.
+  const [restored] = useState(() => readWork(account, !!initialTopic));
+  const [format, setFormat] = useState<MakeFormat>(restored?.format ?? 'caption');
+  const [productId, setProductId] = useState(restored?.productId ?? kit.products[0]?.id ?? '');
+  const [cta, setCta] = useState(restored?.cta ?? kit.ctas[0] ?? '');
+  const [topic, setTopic] = useState(initialTopic || restored?.topic || '');
   const [strict, setStrict] = useState(true);
-  const [body, setBody] = useState('');
-  const [hashtags, setHashtags] = useState('');
-  const [hooks, setHooks] = useState<string[]>([]);
-  const [script, setScript] = useState<ScriptBeat[]>([]);
-  const [slides, setSlides] = useState<Slide[]>([]);
+  const [body, setBody] = useState(restored?.body ?? '');
+  const [hashtags, setHashtags] = useState(restored?.hashtags ?? '');
+  const [hooks, setHooks] = useState<string[]>(restored?.hooks ?? []);
+  const [script, setScript] = useState<ScriptBeat[]>(restored?.script ?? []);
+  const [slides, setSlides] = useState<Slide[]>(restored?.slides ?? []);
   const [custom, setCustom] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [loadedId, setLoadedId] = useState<string | null>(restored?.loadedId ?? null);
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [planning, setPlanning] = useState(false);
   const [planned, setPlanned] = useState<string | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
-  const [posting, setPosting] = useState<string | null>(null); // the saved draft id while the post window is open // this draft's calendar entry, so planning it again moves it
+  const [posting, setPosting] = useState<string | null>(null); // the saved draft id while the post window is open
+
+  useEffect(() => {
+    const timer = setTimeout(() => writeWork(account, { format, productId, cta, topic, body, hashtags, hooks, script, slides, loadedId }), 400);
+    return () => clearTimeout(timer);
+  }, [account, format, productId, cta, topic, body, hashtags, hooks, script, slides, loadedId]);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const acct = encodeURIComponent(account);
 
@@ -145,13 +173,18 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
     setBusy('save');
     const data = { format, body, cta, hashtags, productId, hooks, script, slides, topic };
     const title = body.replace(/\s+/g, ' ').trim().slice(0, 60);
-    const res = loadedId
-      ? await fetch(`/api/creative/${loadedId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, data }) })
-      : await fetch('/api/creative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, kind: 'caption', title, data }) });
+    const create = () => fetch('/api/creative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, kind: 'caption', title, data }) });
+    let res = loadedId ? await fetch(`/api/creative/${loadedId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, data }) }) : await create();
+    // The draft it was opened from was deleted meanwhile: save it as a new one instead
+    let updated = !!loadedId;
+    if (loadedId && res.status === 404) {
+      res = await create();
+      updated = false;
+    }
     const out = await res.json().catch(() => ({}));
-    const savedId: string | null = res.ok ? loadedId ?? out.id ?? null : null;
+    const savedId: string | null = res.ok ? (updated ? loadedId : out.id ?? null) : null;
     if (res.ok) {
-      if (!loadedId && out.id) setLoadedId(out.id);
+      if (!updated && out.id) setLoadedId(out.id);
       setNote('Saved with its forecast. Link it to the post it becomes, and the Scorecard marks Sage on it.');
       dropJson(`/api/creative/scorecard?account=${acct}`);
       reload();

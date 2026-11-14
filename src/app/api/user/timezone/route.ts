@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireUserId, unauthorized, saveTimeZone, validTimeZone } from '@/lib/api';
+import { maskedZone, requireUserId, unauthorized, saveTimeZone, validTimeZone } from '@/lib/api';
 
 export async function GET() {
   const userId = await requireUserId();
@@ -19,7 +19,7 @@ export async function PUT(req: Request) {
   if ('detected' in body) {
     if (!validTimeZone(body.detected)) return NextResponse.json({ error: 'Unknown timezone' }, { status: 400 });
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true, timezoneAuto: true } });
-    const changed = user?.timezoneAuto !== false ? await saveTimeZone(userId, body.detected, true) : false;
+    const changed = user?.timezoneAuto !== false && !maskedZone(body.detected, user?.timezone) ? await saveTimeZone(userId, body.detected, true) : false;
     return NextResponse.json({ changed });
   }
 
