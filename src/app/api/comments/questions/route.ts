@@ -4,6 +4,7 @@ import { getAccountScope } from '@/lib/scope';
 import { PERMISSION_CODE } from '@/services/comments';
 import { IgPermissionError } from '@/services/instagram';
 import { cachedQuestions, mineQuestions } from '@/services/questions';
+import { isDemo } from '@/lib/demo';
 
 // Reading 15 posts' comments takes a few seconds
 export const maxDuration = 60;
@@ -19,7 +20,8 @@ export async function GET(req: Request) {
   if (!ids.length) return NextResponse.json({ error: 'Comment questions work for Instagram accounts only.', code: 'no_instagram' }, { status: 400 });
   const force = new URL(req.url).searchParams.get('refresh') === '1';
   const cached = await cachedQuestions(userId, scope.key);
-  if (cached && !force && Date.now() - Date.parse(cached.at) < FRESH_MS) return NextResponse.json(cached);
+  // The demo has no Instagram: it keeps showing its saved example
+  if (cached && (isDemo(userId) || (!force && Date.now() - Date.parse(cached.at) < FRESH_MS))) return NextResponse.json(cached);
   try {
     return NextResponse.json(await mineQuestions(userId, scope.key, ids));
   } catch (error) {

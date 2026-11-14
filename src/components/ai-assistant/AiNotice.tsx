@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { KeyRound, RefreshCw, TriangleAlert } from 'lucide-react';
+import { KeyRound, RefreshCw, Sparkles, TriangleAlert } from 'lucide-react';
 
 // Explains why AI output is missing and what to do about it
 export function AiNotice({ code, message }: { code?: string; message: string }) {
-  const Icon = code === 'no_key' ? KeyRound : code === 'no_data' ? RefreshCw : TriangleAlert;
+  const Icon = code === 'no_key' ? KeyRound : code === 'no_data' ? RefreshCw : code === 'demo' ? Sparkles : TriangleAlert;
   // Key, quota and model problems are fixed in AI settings, so point there too
   const settingsIssue = code === 'api' && /key|quota|billing|credit|model|permission|limit/i.test(message);
   const action =

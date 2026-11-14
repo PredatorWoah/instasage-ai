@@ -4,32 +4,44 @@ A personal analytics studio for Instagram and YouTube creators. It syncs your re
 
 It is built for **one owner**: a single password, no signups, your data in your own database.
 
+**Try it without an account:** press **Try the demo** on the login page. It opens a sample skincare brand with three months of made-up posts, a game plan, ideas, drafts and AI examples. The demo is read-only: it can't save, post, sync or use AI, and it never sees the owner's data.
+
+![Login with the demo button](docs/screenshots/login.png)
+
 ---
 
 ## What it does
 
 | Page | What you get |
 | --- | --- |
-| **Overview** | Month story, followers or subscribers, reach or channel views, engagement, views per day, best time to post, top posts |
+| **Overview** | Your latest post first, whether you are growing, Sage's next move, shortcuts to the calendar, writing, comment questions and your week, flip cards for recent posts, your goal and best time to post |
 | **Analytics** | Reach (or YouTube channel views), views, engagement, follower growth and posting frequency over 7, 30, 90 or 365 days, each headline number against the period before, and the follow funnel |
 | **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for its **Insights** (the plain numbers, compared with nothing), **Compare** (against your average or any other post, side by side) and an AI breakdown |
 | **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action. Below the AI's read, "The numbers behind it" shows every pattern straight from your posts, with or without an AI key |
-| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and the open slots of the next two weeks; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
+| **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets, and a chat to change it: Sage rewrites the plan and can put posts on the calendar, with undo), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and the open slots of the next two weeks; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
 | **Create** | **Write** (captions, reel scripts and carousels from Sage, built on the words and hooks that work for the account, with live brand checks and a views forecast), **Briefs** for a designer, **Calendar** (with the posting queue), **Hooks** (every opening line you posted, ranked), **Scorecard** (each forecast marked against what the post really did) and a **Brand kit** per account |
 | **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
 | **Comments** | Unanswered Instagram comments on recent posts, three AI reply drafts each in your voice, reply or hide in one tap. **Questions** pulls out what people keep asking, in English and Hinglish, groups it by topic and turns it into post ideas (needs the comments permission, asked for on first use) |
 | **Reports** | **Your week** (the last 7 days, best and lowest post, what is planned, three things to do next), real monthly numbers vs the previous month, an AI review, and a designed **PDF export** (plus CSV) |
 | **Status** | Health of every account, the AI, competitor tracking and recent syncs, with a fix button next to anything broken |
-| **Sage** | The chat bubble in the corner: ask anything about your numbers |
+| **Sage** | The chat bubble in the corner: ask anything about your numbers, or tell it a number is wrong and it fixes it. The conversation is kept, on every device |
 
 ### A closer look
+
+**Overview.** Your newest post and how it is doing, then the few things worth acting on.
+
+![Overview](docs/screenshots/overview.png)
 
 **Post straight to Instagram.** From Write, the calendar or the posting queue: pick a photo, carousel, reel or story, upload the files, and post now or schedule it. Your brand kit's flagged claims are checked before it goes out and again at the scheduled time. A scheduled post sits on the calendar, moves when you drag its entry, and you get a notification when it is live. Posts sent from here link themselves to their draft, so the Scorecard grades them with no linking by hand. It needs a one-time permission, file uploads and a 5 minute scheduler: **Settings → Posting** walks through all three and shows which are done.
 
 **Write with a forecast.** Sage drafts the caption, the checks keep it on brand, and the forecast says roughly how many views this wording should get, worked out from your own posts. *Plan it* puts the draft on the calendar with its caption attached.
 
 ![Create: caption, checks and forecast](docs/screenshots/create-write.png)
+
+**The posting window.** Pick the type, add the files (or a link to them), check the caption and post now or schedule it.
+
+![Posting to Instagram](docs/screenshots/posting.png)
 
 **Hook library.** Every opening line you have posted, ranked by views, and which styles of hook do better or worse for you. Sage reads this list whenever it writes hooks.
 
@@ -55,14 +67,20 @@ It is built for **one owner**: a single password, no signups, your data in your 
 
 ![Weekly digest](docs/screenshots/weekly-digest.png)
 
-**Calendar with open slots.** The next two weeks at a glance: what is planned, and the good days that still have nothing on them.
+**Change the game plan by chatting.** Say what to change in plain words ("I can only post 3 times a week", "put week 1 on my calendar"). Sage rewrites the saved plan, lists what changed, and can add the posts to your calendar. Every change can be undone.
+
+![Game plan chat](docs/screenshots/plan-chat.png)
+
+**Calendar and posting queue.** In Create, next to Write: what is waiting to go out, what went out lately, the open slots of the next two weeks, and the month.
 
 ![Calendar](docs/screenshots/calendar.png)
 
-The screenshots use made-up demo data.
+The screenshots are of the demo account, so the brand and every number in them are made up.
 
 Other details:
 
+* **Nothing gets lost.** Game plans, AI reads and post reviews stay saved through timezone changes, syncs and switching the time window, and an unsaved draft in Write survives closing the tab.
+* **Fast where you are.** The server runs in Singapore, next to the database (see Region below), and background syncs never hold up a page.
 * **Multiple accounts.** Connect several Instagram accounts and YouTube channels. The switcher in the top bar shows one or all of them.
 * **YouTube mode.** Pick a channel and every page switches to subscribers, Shorts vs long videos and titles, and hides numbers YouTube does not share.
 * **Your AI, your choice.** Save keys for several providers and pick the active one. If it is overloaded, the others step in automatically.
@@ -165,6 +183,7 @@ Everything is listed in [`.env.example`](.env.example). Put them in `.env.local`
 | `CRON_SECRET` | Daily auto sync, scheduled posts | Any long random string. Also the password for the 5 minute posting pinger: on [cron-job.org](https://cron-job.org) call `https://<your app>/api/cron/publish` every 5 minutes with the header `Authorization: Bearer <CRON_SECRET>` |
 | `BLOB_READ_WRITE_TOKEN` | Posting from your device | Added for you when you connect a Vercel Blob store to the project (Storage tab). Files are deleted once Instagram has its copy. Without it you can still post from a public link |
 | `RESEND_API_KEY`, `DIGEST_EMAIL_FROM` | Weekly digest by email | Optional. A [Resend](https://resend.com) key; without it the digest goes out by push only. The default sender only delivers to the Resend account's own address, so verify a domain and set `DIGEST_EMAIL_FROM` to send anywhere. The address to send to is saved in Settings → Notifications |
+| `DEMO` | The demo account | Optional. Set to `off` to remove **Try the demo** from the login page |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications | Optional. A key pair is generated on first use and stored in the database; set these only to bring your own |
 
 API keys you paste inside the app (AI providers, YouTube) are stored in your database and are never sent back to the browser. Only the last 4 characters are shown.
@@ -275,6 +294,7 @@ src/services/
   weekly.ts, email.ts       The weekly digest, as a page, a push and an email
   creative.ts               Brand kits and saved drafts for the Create tab
   publish.ts                Posting to Instagram: checks, the queue, and each post's steps
+  demo.ts                   The demo account's made-up data, rebuilt once a day
 src/proxy.ts                Redirects to /login when signed out (Next 16's middleware)
 vercel.json                 Daily cron schedule
 ```
