@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireUserId, unauthorized } from '@/lib/api';
 import { refreshProfileLight, syncSocialProfile } from '@/services/sync';
+import { runQueue } from '@/services/publish';
 
 // A full sync can take a minute per account
 export const maxDuration = 300;
@@ -57,5 +58,8 @@ export async function POST() {
       console.warn(`Refresh of @${p.username} failed:`, (error as Error).message);
     }
   }
-  return NextResponse.json({ changed, synced });
+  // Opening the app also sends anything that is due, as a backstop for the scheduler
+  const posted = await prisma.scheduledPost.count({ where: { userId, OR: [{ status: 'processing' }, { status: 'scheduled', scheduledFor: { lte: new Date() } }] } }).catch(() => 0);
+  if (posted) await runQueue('app', 20_000, userId).catch((error) => console.warn('Posting from refresh failed:', (error as Error).message));
+  return NextResponse.json({ changed: changed || posted > 0, synced });
 }

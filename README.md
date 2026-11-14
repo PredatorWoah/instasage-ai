@@ -15,7 +15,7 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | **Content** | Every post or video in a table or a grid, searchable, sortable and filtered by date range, with saved views and CSV export of what you filtered. Open any one for its **Insights** (the plain numbers, compared with nothing), **Compare** (against your average or any other post, side by side) and an AI breakdown |
 | **AI Insights** | Patterns in your data: best formats, days, hours, caption length, hashtags, hooks, calls to action. Below the AI's read, "The numbers behind it" shows every pattern straight from your posts, with or without an AI key |
 | **Ideas Studio** | **Game plan** (keep/stop list, content pillars, posting slots, 4 weeks of post ideas with hooks, experiments, targets), **Brainstorm** (saved chats with the AI), **Idea board** (Ideas → Planned → Posted), **Calendar** (posted, planned and the open slots of the next two weeks; drag to reschedule, export to any calendar app as .ics), **Quick wins** |
-| **Create** | **Write** (captions, reel scripts and carousels from Sage, built on the words and hooks that work for the account, with live brand checks and a views forecast), **Briefs** for a designer, **Hooks** (every opening line you posted, ranked), **Scorecard** (each forecast marked against what the post really did) and a **Brand kit** per account |
+| **Create** | **Write** (captions, reel scripts and carousels from Sage, built on the words and hooks that work for the account, with live brand checks and a views forecast), **Briefs** for a designer, **Calendar** (with the posting queue), **Hooks** (every opening line you posted, ranked), **Scorecard** (each forecast marked against what the post really did) and a **Brand kit** per account |
 | **Audience** | Instagram follower age, gender, countries and cities, plus when your posts do best, with a weekday by hour heatmap |
 | **Competitors** | Any Business or Creator account's followers, posting rhythm, format mix, likes and comments per post, top posts, a head-to-head table and AI "what to borrow, what to skip" |
 | **Comments** | Unanswered Instagram comments on recent posts, three AI reply drafts each in your voice, reply or hide in one tap. **Questions** pulls out what people keep asking, in English and Hinglish, groups it by topic and turns it into post ideas (needs the comments permission, asked for on first use) |
@@ -24,6 +24,8 @@ It is built for **one owner**: a single password, no signups, your data in your 
 | **Sage** | The chat bubble in the corner: ask anything about your numbers |
 
 ### A closer look
+
+**Post straight to Instagram.** From Write, the calendar or the posting queue: pick a photo, carousel, reel or story, upload the files, and post now or schedule it. Your brand kit's flagged claims are checked before it goes out and again at the scheduled time. A scheduled post sits on the calendar, moves when you drag its entry, and you get a notification when it is live. Posts sent from here link themselves to their draft, so the Scorecard grades them with no linking by hand. It needs a one-time permission, file uploads and a 5 minute scheduler: **Settings → Posting** walks through all three and shows which are done.
 
 **Write with a forecast.** Sage drafts the caption, the checks keep it on brand, and the forecast says roughly how many views this wording should get, worked out from your own posts. *Plan it* puts the draft on the calendar with its caption attached.
 
@@ -78,7 +80,7 @@ Other details:
 * **Install it as an app.** Add InstaSage to your phone's home screen or install it from the desktop browser's address bar. It opens full screen and shows a friendly page when offline.
 * **Push notifications.** Turn them on per device in Settings: alerts (each sent once), a morning digest after the daily sync, a reminder on days with a planned post, and the Monday weekly digest. On iPhone, add it to the home screen first.
 * **Forecasts without AI.** Hooks, word lists, forecasts, the scorecard, comment questions and the weekly digest are plain arithmetic on your own posts, so they cost nothing and work without an AI key. They get useful from about 8 posts.
-* **No auto-posting.** The calendar plans and reminds; you still publish on Instagram yourself.
+* **What posting can't do.** Instagram's posting API has no music library, filters, stickers, product tags or story captions, and a post can't be edited from here once it is live.
 * **Since your last visit.** The Overview tells you what changed since you last looked (new followers, new posts), and flags a sync that is over a day old.
 * **Flip through posts.** Newer and Older buttons (or the ← → keys) on every post page.
 * **Crash-proof.** If one page or widget breaks, the rest of the app keeps working, with a Try again button and an error ID to report.
@@ -160,7 +162,8 @@ Everything is listed in [`.env.example`](.env.example). Put them in `.env.local`
 | `FACEBOOK_LOGIN_CONFIG_ID` | Competitors, Business-type apps | Only if Meta asks for a Facebook Login for Business configuration |
 | `YOUTUBE_API_KEY` | YouTube | Optional; the key can be pasted on the Accounts page instead |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | AI | Optional default; AI keys are normally pasted in Settings |
-| `CRON_SECRET` | Daily auto sync | Any long random string |
+| `CRON_SECRET` | Daily auto sync, scheduled posts | Any long random string. Also the password for the 5 minute posting pinger: on [cron-job.org](https://cron-job.org) call `https://<your app>/api/cron/publish` every 5 minutes with the header `Authorization: Bearer <CRON_SECRET>` |
+| `BLOB_READ_WRITE_TOKEN` | Posting from your device | Added for you when you connect a Vercel Blob store to the project (Storage tab). Files are deleted once Instagram has its copy. Without it you can still post from a public link |
 | `RESEND_API_KEY`, `DIGEST_EMAIL_FROM` | Weekly digest by email | Optional. A [Resend](https://resend.com) key; without it the digest goes out by push only. The default sender only delivers to the Resend account's own address, so verify a domain and set `DIGEST_EMAIL_FROM` to send anywhere. The address to send to is saved in Settings → Notifications |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications | Optional. A key pair is generated on first use and stored in the database; set these only to bring your own |
 
@@ -267,6 +270,7 @@ src/services/
   questions.ts              Questions pulled from comments, grouped by topic
   weekly.ts, email.ts       The weekly digest, as a page, a push and an email
   creative.ts               Brand kits and saved drafts for the Create tab
+  publish.ts                Posting to Instagram: checks, the queue, and each post's steps
 src/proxy.ts                Redirects to /login when signed out (Next 16's middleware)
 vercel.json                 Daily cron schedule
 ```

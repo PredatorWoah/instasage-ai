@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { requireUserId } from '@/lib/api';
-import { connectInstagramProfile, exchangeInstagramCode } from '@/services/instagram';
+import { COMMENTS_SCOPE, connectInstagramProfile, exchangeInstagramCode, PUBLISH_SCOPE } from '@/services/instagram';
+import { saveGrantedExtras } from '@/services/publish';
 import { callbackUrl, STATE_COOKIE } from '@/lib/instagram-oauth';
 
 // Instagram sends the browser back here with ?code=... (or ?error=...)
@@ -10,8 +11,9 @@ export async function GET(req: Request) {
   const saved = (await cookies()).get(STATE_COOKIE)?.value ?? '';
   const [expected, purpose] = saved.split(':');
   const back = (params: Record<string, string>) => {
-    const page = purpose === 'comments' && params.connected ? '/comments' : '/accounts';
-    const res = NextResponse.redirect(`${url.origin}${page}?${new URLSearchParams(params)}`);
+    const page = !params.connected ? '/accounts' : purpose === 'comments' ? '/comments' : purpose === 'publish' ? '/create?tab=calendar' : '/accounts';
+    const join = page.includes('?') ? '&' : '?';
+    const res = NextResponse.redirect(`${url.origin}${page}${join}${new URLSearchParams(params)}`);
     res.cookies.delete(STATE_COOKIE);
     return res;
   };
@@ -31,8 +33,11 @@ export async function GET(req: Request) {
   if (!code) return back({ error: 'Instagram did not send a login code. Try again.' });
 
   try {
-    const token = await exchangeInstagramCode(code, callbackUrl(req));
+    const { token, permissions } = await exchangeInstagramCode(code, callbackUrl(req));
     const profile = await connectInstagramProfile(userId, token);
+    // Remember which extra permissions this login has, so the next login asks for them again
+    const asked = purpose === 'comments' ? [COMMENTS_SCOPE] : purpose === 'publish' ? [PUBLISH_SCOPE] : [];
+    await saveGrantedExtras(userId, permissions, asked).catch((error) => console.error('Saving Instagram permissions failed:', error));
     return back({ connected: profile.username });
   } catch (error) {
     console.error('Instagram connect failed:', error);

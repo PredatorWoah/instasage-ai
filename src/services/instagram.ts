@@ -318,8 +318,10 @@ export async function connectInstagramProfile(userId: string, rawToken: string) 
 // ---------- Instagram Business Login (OAuth) ----------
 
 const INSTAGRAM_SCOPES = ['instagram_business_basic', 'instagram_business_manage_insights'];
-// Asked for only when the creator turns on comment replies, so plain connecting never depends on it
+// Asked for only when the creator turns on comment replies or posting, so plain connecting never depends on them
 export const COMMENTS_SCOPE = 'instagram_business_manage_comments';
+export const PUBLISH_SCOPE = 'instagram_business_content_publish';
+export const EXTRA_SCOPES = [COMMENTS_SCOPE, PUBLISH_SCOPE];
 
 export function instagramOAuthConfig() {
   // Trim: a stray space or newline from copy-paste makes Instagram reject the app ("Invalid platform app")
@@ -328,12 +330,14 @@ export function instagramOAuthConfig() {
   return appId && appSecret ? { appId, appSecret } : null;
 }
 
-export function instagramAuthorizeUrl(appId: string, redirectUri: string, state: string, withComments = false) {
+// extras: the optional permissions to ask for on top of the basic ones. A new login replaces the old
+// token, so it must ask again for every extra the creator already allowed, or that feature stops working.
+export function instagramAuthorizeUrl(appId: string, redirectUri: string, state: string, extras: string[] = []) {
   const url = new URL('https://www.instagram.com/oauth/authorize');
   url.searchParams.set('client_id', appId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', [...INSTAGRAM_SCOPES, ...(withComments ? [COMMENTS_SCOPE] : [])].join(','));
+  url.searchParams.set('scope', [...new Set([...INSTAGRAM_SCOPES, ...extras.filter((x) => EXTRA_SCOPES.includes(x))])].join(','));
   url.searchParams.set('state', state);
   // Always show the login screen so a different Instagram account can be picked
   url.searchParams.set('force_reauth', 'true');
@@ -364,7 +368,10 @@ export async function exchangeInstagramCode(code: string, redirectUri: string) {
     grant_type: 'ig_exchange_token',
     client_secret: config.appSecret,
   });
-  return long.access_token;
+  // The permissions the creator actually ticked, when Instagram says (a list, or a comma separated string)
+  const raw = short.permissions;
+  const permissions = Array.isArray(raw) ? raw.map(String) : typeof raw === 'string' ? raw.split(',').map((x: string) => x.trim()).filter(Boolean) : null;
+  return { token: long.access_token as string, permissions: permissions as string[] | null };
 }
 
 // ---------- Comments (needs instagram_business_manage_comments) ----------
@@ -412,4 +419,30 @@ export async function replyToInstagramComment(token: string, commentId: string, 
 
 export async function hideInstagramComment(token: string, commentId: string, hide: boolean) {
   return igSend<{ success: boolean }>(`/${commentId}`, token, { hide: String(hide) });
+}
+
+// ---------- Publishing (needs instagram_business_content_publish) ----------
+
+export type ContainerStatus = 'IN_PROGRESS' | 'FINISHED' | 'ERROR' | 'EXPIRED' | 'PUBLISHED';
+
+// A container is Instagram's draft of a post: it fetches the media from the url and prepares it.
+// Images are ready almost at once; videos take from seconds to a few minutes.
+export async function createMediaContainer(token: string, igUserId: string, params: Record<string, string>) {
+  const body = await igSend<{ id: string }>(`/${igUserId}/media`, token, params);
+  return body.id;
+}
+
+export async function mediaContainerStatus(token: string, containerId: string) {
+  const body = await igGet<{ status_code?: ContainerStatus; status?: string }>(`/${containerId}`, token, { fields: 'status_code,status' });
+  return { code: body.status_code ?? 'IN_PROGRESS', detail: body.status ?? null };
+}
+
+export async function publishMediaContainer(token: string, igUserId: string, containerId: string) {
+  const body = await igSend<{ id: string }>(`/${igUserId}/media_publish`, token, { creation_id: containerId });
+  return body.id;
+}
+
+export async function mediaPermalink(token: string, mediaId: string) {
+  const body = await igGet<{ permalink?: string }>(`/${mediaId}`, token, { fields: 'permalink' }).catch(() => null);
+  return body?.permalink ?? null;
 }

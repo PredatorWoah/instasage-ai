@@ -1,3 +1,4 @@
+import { PostingSettings } from '@/components/settings/PostingSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: 'ai', label: 'AI' },
   { id: 'usage', label: 'Usage' },
   { id: 'accounts', label: 'Accounts' },
+  { id: 'posting', label: 'Posting' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'appearance', label: 'Appearance' },
   { id: 'timezone', label: 'Timezone' },
@@ -64,6 +66,10 @@ export default function SettingsPage() {
 
       <Section id="accounts" title="Connected accounts">
         <ConnectedAccounts />
+      </Section>
+
+      <Section id="posting" title="Posting to Instagram" subtitle="Post and schedule from Create, Calendar. These three steps make it work, and each one shows whether it is done.">
+        <PostingSettings />
       </Section>
 
       <Section id="notifications" title="Notifications" subtitle="Sent after the daily sync each morning. Turn them on separately on each phone or computer.">
