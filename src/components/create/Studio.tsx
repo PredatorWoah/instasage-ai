@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarPlus, Check, CircleAlert, Circle, Copy, Lightbulb, Plus, Sparkles, Trash2, TrendingUp, Wand2 } from 'lucide-react';
+import { CalendarPlus, Send, Check, CircleAlert, Circle, Copy, Lightbulb, Plus, Sparkles, Trash2, TrendingUp, Wand2 } from 'lucide-react';
 import { checkCaption, composeCaption, failing, feedPreview, parseHashtags, type Check as CheckRow, type WordRules } from '@/lib/brandKit';
 import type { MakeFormat, ScriptBeat, Slide } from '@/services/ai';
 import type { Vocab } from '@/services/vocab';
@@ -9,6 +9,7 @@ import type { Forecast } from '@/services/forecast';
 import { dropJson, useCachedJson } from '@/lib/useCachedJson';
 import { atTime, nowMs } from '@/lib/calendar';
 import { Modal } from '@/components/ui/modal';
+import { PublishModal } from '@/components/publish/PublishModal';
 import { formatNumber } from '@/utils/formatters';
 import { cn } from '@/lib/utils';
 import { Field, Panel, area, btn, copyText, input, when, type Draft, type Kit, type PostRow } from './ui';
@@ -35,7 +36,7 @@ const scriptText = (s: ScriptBeat[]) => s.map((b) => `${b.time}  ${b.shot}${b.on
 const slidesText = (s: Slide[]) => s.map((x, i) => `Slide ${i + 1}: ${x.title}${x.text ? `\n${x.text}` : ''}`).join('\n\n');
 
 // Make a caption, reel script or carousel with Sage, steered by the words that work for this account
-export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost, onOpenCalendar }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void; onOpenCalendar: () => void }) {
+export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost, onOpenCalendar, username }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void; onOpenCalendar: () => void; username: string }) {
   const { data: vocab } = useCachedJson<Vocab | null>(`/api/creative/words?account=${encodeURIComponent(account)}`);
   const { data: ideas } = useCachedJson<Idea[] | null>('/api/ideas/saved');
   const [format, setFormat] = useState<MakeFormat>('caption');
@@ -55,7 +56,8 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
   const [forecast, setForecast] = useState<Forecast | null>(null);
   const [planning, setPlanning] = useState(false);
   const [planned, setPlanned] = useState<string | null>(null);
-  const [ideaId, setIdeaId] = useState<string | null>(null); // this draft's calendar entry, so planning it again moves it
+  const [ideaId, setIdeaId] = useState<string | null>(null);
+  const [posting, setPosting] = useState<string | null>(null); // the saved draft id while the post window is open // this draft's calendar entry, so planning it again moves it
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const acct = encodeURIComponent(account);
 
@@ -139,7 +141,7 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
   const addTags = (tags: string) => setHashtags((h) => [...new Set([...parseHashtags(h), ...parseHashtags(tags)])].join(' '));
 
   const save = async () => {
-    if (!body.trim()) return false;
+    if (!body.trim()) return null;
     setBusy('save');
     const data = { format, body, cta, hashtags, productId, hooks, script, slides, topic };
     const title = body.replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -147,6 +149,7 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
       ? await fetch(`/api/creative/${loadedId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title, data }) })
       : await fetch('/api/creative', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account, kind: 'caption', title, data }) });
     const out = await res.json().catch(() => ({}));
+    const savedId: string | null = res.ok ? loadedId ?? out.id ?? null : null;
     if (res.ok) {
       if (!loadedId && out.id) setLoadedId(out.id);
       setNote('Saved with its forecast. Link it to the post it becomes, and the Scorecard marks Sage on it.');
@@ -154,7 +157,13 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
       reload();
     } else setNote(out.error || 'Could not save.');
     setBusy(null);
-    return res.ok;
+    return savedId;
+  };
+
+  // Saved first, so the post carries its forecast and the Scorecard can grade it once it is out
+  const openPost = async () => {
+    const id = await save();
+    setPosting(id ?? '');
   };
 
   // Put this draft on the content calendar (Ideas Studio), caption included, and keep the draft itself
@@ -357,6 +366,7 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
 
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={save} disabled={!body.trim() || busy !== null} className={btn.primary}>{busy === 'save' ? 'Saving…' : loadedId ? 'Update draft' : 'Save draft'}</button>
+            <button type="button" onClick={openPost} disabled={!body.trim() || busy !== null} className={btn.ghost}><Send className="w-4 h-4" /> Post to Instagram</button>
             <button type="button" onClick={() => setPlanning(true)} disabled={!body.trim() || busy !== null} className={btn.ghost}><CalendarPlus className="w-4 h-4" /> {busy === 'plan' ? 'Adding…' : 'Plan it'}</button>
             <button type="button" onClick={clear} className={btn.ghost}>Start over</button>
           </div>
@@ -461,6 +471,17 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
         )}
       </Panel>
 
+      {posting !== null && (
+        <PublishModal
+          account={account}
+          caption={full}
+          draftId={posting || null}
+          ideaId={ideaId ?? undefined}
+          kind={format === 'reel' ? 'reel' : format === 'carousel' ? 'carousel' : 'image'}
+          title={`Post to @${username}`}
+          onClose={() => setPosting(null)}
+        />
+      )}
       {planning && <PlanModal title={(topic.trim() || body.split('\n')[0]).slice(0, 80)} onClose={() => setPlanning(false)} onSave={plan} />}
     </div>
   );

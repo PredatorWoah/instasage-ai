@@ -14,6 +14,8 @@ import { Studio } from './Studio';
 import type { Draft, Kit, PostRow } from './ui';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
 import { ContentCalendar } from '@/components/ideas/ContentCalendar';
+import { PublishQueue } from '@/components/publish/PublishQueue';
+import { toast } from 'sonner';
 
 const TABS = [
   { id: 'caption', label: 'Write' },
@@ -35,6 +37,15 @@ export function CreateView() {
   const tabParam = params.get('tab');
   const fromParam = (v: string | null) => TABS.find((t) => t.id === v)?.id ?? 'caption';
   const [tab, setTab] = useState<Tab>(() => fromParam(tabParam));
+  // Back from allowing posting on Instagram: say how it went, once
+  const [announced, setAnnounced] = useState(false);
+  if (!announced && (params.get('connected') || params.get('error'))) {
+    setAnnounced(true);
+    setTimeout(() => {
+      if (params.get('connected')) toast.success('Posting is allowed', { description: `@${params.get('connected')} can now post from InstaSage.` });
+      else toast.error('Instagram did not allow it', { description: params.get('error') ?? undefined });
+    }, 0);
+  }
   // A link to /create?tab=... while Create is already open switches the tab too
   const [seenTabParam, setSeenTabParam] = useState(tabParam);
   if (tabParam !== seenTabParam) {
@@ -102,10 +113,15 @@ export function CreateView() {
             <>
               {/* Write stays mounted while other tabs are open, so an unsaved draft survives a look at Hooks or the Scorecard */}
               <div hidden={tab !== 'caption'}>
-                <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} sourcePost={sourcePost} setSourcePost={setUsePost} onOpenCalendar={() => { setTab('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+                <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} sourcePost={sourcePost} setSourcePost={setUsePost} onOpenCalendar={() => { setTab('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} username={current?.username ?? ''} />
               </div>
               {tab === 'briefs' && <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />}
-              {tab === 'calendar' && <ContentCalendar />}
+              {tab === 'calendar' && (
+                <div className="flex flex-col gap-4">
+                  <PublishQueue account={account} />
+                  <ContentCalendar />
+                </div>
+              )}
               {tab === 'hooks' && <HookLibrary key={account} account={account} onUse={(postId) => { setUsePost(postId); setTab('caption'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
               {tab === 'score' && <Scorecard key={account} account={account} />}
               {tab === 'kit' && <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} others={profiles.filter((p) => p.id !== account).map((p) => ({ id: p.id, username: p.username }))} />}

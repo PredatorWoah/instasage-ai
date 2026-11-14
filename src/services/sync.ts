@@ -16,6 +16,7 @@ import {
 } from './instagram';
 import { prisma } from '@/lib/prisma';
 import { reapplyCorrections } from '@/services/sageActions';
+import { linkPublished } from '@/services/publish';
 import type { SocialProfile } from '@prisma/client';
 
 export async function syncSocialProfile(profileId: string) {
@@ -28,6 +29,8 @@ export async function syncSocialProfile(profileId: string) {
 
   try {
     const result = profile.platform === 'youtube' ? await syncYouTubeProfile(profile) : await syncInstagramProfile(profile);
+    // Posts sent from InstaSage are real posts now: tie them to their draft and calendar entry
+    await linkPublished(profile.id).catch((error) => console.error('Linking published posts failed:', error));
     // Numbers the creator corrected through Sage win over what the platform just reported
     await reapplyCorrections(profile.id, result.reported).catch((error) => console.error('Reapplying corrections failed:', error));
 

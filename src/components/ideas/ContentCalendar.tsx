@@ -3,7 +3,10 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { CalendarArrowDown, ChevronLeft, ChevronRight, Copy, GripVertical, PenLine, Plus } from 'lucide-react';
+import { CalendarArrowDown, ChevronLeft, ChevronRight, Copy, GripVertical, PenLine, Plus, Send } from 'lucide-react';
+import { PublishModal, QUEUE_URL, type Queue } from '@/components/publish/PublishModal';
+import type { PostView } from '@/services/publish';
+import { refreshJson } from '@/lib/useCachedJson';
 import { useCachedJson } from '@/lib/useCachedJson';
 import { usePlatform } from '@/lib/usePlatform';
 import { formatLabel } from '@/lib/platform';
@@ -33,6 +36,10 @@ export function ContentCalendar() {
   const [editing, setEditing] = useState<{ idea: SavedIdea; at: Date } | null>(null);
   const [filling, setFilling] = useState<{ day: Date; slot: Slot } | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState<{ idea: SavedIdea; at: Date } | null>(null);
+  // Calendar entries that go out on their own, from the posting queue
+  const { data: queue } = useCachedJson<Queue | null>(QUEUE_URL);
+  const auto = useMemo(() => new Map((queue?.posts ?? []).filter((p) => p.ideaId && (p.status === 'scheduled' || p.status === 'processing' || p.status === 'failed')).map((p) => [p.ideaId!, p])), [queue]);
 
   const planSlots = useMemo<Slot[]>(() => (planData?.plan?.schedule ?? [])
     .map((s) => ({ weekday: weekdayIndex(s.day), time: parseTime(s.time), label: s.time, format: s.format, why: s.why }))
@@ -77,8 +84,10 @@ export function ContentCalendar() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(at ? { scheduledFor: at.toISOString() } : { scheduledFor: null, status: 'idea' }),
     });
-    if (!res.ok) toast.error('Could not move that idea');
+    if (!res.ok) toast.error('Could not move that idea', { description: ((await res.json().catch(() => ({}))) as { error?: string }).error });
     await refresh();
+    // Moving or unscheduling an entry moves or cancels the post waiting on it
+    refreshJson(QUEUE_URL);
   };
 
   // Dropping keeps a planned idea's time; a fresh idea takes that weekday's plan slot, or 6 PM
@@ -188,11 +197,11 @@ export function ContentCalendar() {
                         e.dataTransfer.effectAllowed = 'move';
                       }}
                       onClick={() => setEditing({ idea: i, at })}
-                      title={`${i.title} · ${timeLabel(at)}`}
+                      title={`${i.title} · ${timeLabel(at)}${auto.has(i.id) ? ' · posts automatically' : ''}`}
                       aria-label={`${i.title}, ${timeLabel(at)}`}
                       className={cn('text-left truncate text-[10px] sm:text-[11px] h-1.5 sm:h-auto sm:px-1.5 sm:py-0.5 rounded-md font-semibold cursor-grab active:cursor-grabbing', late ? 'bg-amber-400 sm:bg-amber-500/10 text-amber-400' : 'bg-indigo-400 sm:bg-indigo-500/15 text-indigo-300')}
                     >
-                      <span className="hidden sm:inline"><span className="opacity-70">{timeLabel(at)} </span>{i.title}</span>
+                      <span className="hidden sm:inline">{auto.has(i.id) && <Send className={cn('inline w-3 h-3 mr-1 -mt-0.5', auto.get(i.id)!.status === 'failed' && 'text-rose-400')} aria-label="posts automatically" />}<span className="opacity-70">{timeLabel(at)} </span>{i.title}</span>
                     </button>
                   );
                 })}
@@ -216,7 +225,7 @@ export function ContentCalendar() {
                 <li key={i.id}>
                   <button type="button" onClick={() => setEditing({ idea: i, at })} className="w-full flex items-center gap-3 text-left p-2.5 rounded-xl bg-ink/[0.03] border border-ink/[0.06]">
                     <span className="text-[11px] font-bold text-indigo-300 w-14 shrink-0">{at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}<br /><span className="font-normal text-muted-foreground">{timeLabel(at)}</span></span>
-                    <span className="text-[13px] font-semibold leading-snug">{i.title}</span>
+                    <span className="text-[13px] font-semibold leading-snug">{auto.has(i.id) && <Send className="inline w-3.5 h-3.5 mr-1.5 -mt-0.5 text-indigo-300" aria-label="posts automatically" />}{i.title}</span>
                   </button>
                 </li>
               );
@@ -268,10 +277,29 @@ export function ContentCalendar() {
           key={editing.idea.id}
           idea={editing.idea}
           at={editing.at}
+          auto={auto.get(editing.idea.id) ?? null}
+          onPost={() => {
+            setPublishing(editing);
+            setEditing(null);
+          }}
           onClose={() => setEditing(null)}
           onSave={async (at) => {
             setEditing(null);
             await schedule(editing.idea.id, at);
+          }}
+        />
+      )}
+      {publishing && (
+        <PublishModal
+          ideaId={publishing.idea.id}
+          caption={publishing.idea.drafts?.caption ?? ''}
+          when={publishing.at}
+          kind={publishing.idea.format === 'reel' ? 'reel' : publishing.idea.format === 'carousel' ? 'carousel' : publishing.idea.format === 'story' ? 'story' : 'image'}
+          title={publishing.idea.title.slice(0, 80)}
+          onClose={() => {
+            setPublishing(null);
+            refreshJson(QUEUE_URL);
+            refreshJson(SAVED_URL);
           }}
         />
       )}
@@ -345,7 +373,7 @@ function nextSlot(slots: Slot[]) {
   return atTime(tomorrow, null);
 }
 
-function EditModal({ idea, at, onClose, onSave }: { idea: SavedIdea; at: Date; onClose: () => void; onSave: (at: Date | null) => void }) {
+function EditModal({ idea, at, auto, onPost, onClose, onSave }: { idea: SavedIdea; at: Date; auto: PostView | null; onPost: () => void; onClose: () => void; onSave: (at: Date | null) => void }) {
   const [value, setValue] = useState(localInput(at));
   return (
     <Modal open onClose={onClose} title={idea.scheduledFor ? 'Move this post' : 'Schedule this idea'} subtitle={idea.title}>
@@ -355,6 +383,13 @@ function EditModal({ idea, at, onClose, onSave }: { idea: SavedIdea; at: Date; o
           <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-border bg-background/60 px-3 text-sm focus:outline-none focus:border-indigo-500" />
         </label>
         {idea.notes && <p className="text-[12px] text-muted-foreground whitespace-pre-wrap line-clamp-4">{idea.notes}</p>}
+        {auto ? (
+          <p className={cn('text-[13px] font-semibold rounded-xl px-3 py-2.5 border', auto.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border-rose-500/25' : 'text-indigo-300 bg-indigo-500/10 border-indigo-500/25')}>
+            {auto.status === 'failed' ? `Posting failed: ${auto.error ?? 'Instagram did not accept it.'} Retry it from the queue on Create, Calendar.` : 'Posts automatically at this time. Moving it here moves the post; Unschedule cancels it.'}
+          </p>
+        ) : (
+          <button type="button" onClick={onPost} className="self-start inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-ink text-background text-[13px] font-bold"><Send className="w-3.5 h-3.5" /> Post it, with photos or video</button>
+        )}
         {idea.drafts?.caption ? (
           <div className="rounded-2xl bg-ink/[0.04] border border-ink/[0.08] p-3 flex flex-col gap-2">
             <p className="text-[12px] font-bold text-muted-foreground">Caption, ready to paste</p>

@@ -7,6 +7,9 @@ import { useCallback, useEffect, useState } from 'react';
 type Entry = { data: unknown; at: number };
 const cache = new Map<string, Entry>();
 const inflight = new Map<string, Promise<unknown>>();
+// Every mounted reader of a URL hears about fresh data, so two panels showing the same thing never disagree
+const listeners = new Map<string, Set<(data: unknown) => void>>();
+const notify = (url: string, data: unknown) => listeners.get(url)?.forEach((fn) => fn(data));
 const FRESH_MS = 30_000;
 const TIMEOUT_MS = 20_000;
 
@@ -19,6 +22,7 @@ async function load(url: string) {
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       cache.set(url, { data, at: Date.now() });
+      notify(url, data);
       return data;
     })
     .finally(() => inflight.delete(url));
@@ -42,6 +46,16 @@ export function useCachedJson<T>(url: string | null) {
     data = initial();
     setState({ url, data });
   }
+
+  useEffect(() => {
+    if (!url) return;
+    const hear = (fresh: unknown) => setState({ url, data: fresh as T });
+    const set = listeners.get(url) ?? listeners.set(url, new Set()).get(url)!;
+    set.add(hear);
+    return () => {
+      set.delete(hear);
+    };
+  }, [url]);
 
   useEffect(() => {
     if (!url) return;
@@ -78,7 +92,14 @@ export function dropJson(url: string) {
   cache.delete(url);
 }
 
+// Load a URL again now and hand the result to every page part showing it
+export function refreshJson(url: string) {
+  cache.delete(url);
+  if (listeners.get(url)?.size) load(url).catch(() => {});
+}
+
 // Put fresh data straight into the cache (for example right after generating it)
 export function primeJson(url: string, data: unknown) {
   cache.set(url, { data, at: Date.now() });
+  notify(url, data);
 }

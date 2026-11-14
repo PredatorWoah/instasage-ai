@@ -43,6 +43,7 @@ model User {
   sageActions       SageAction[]
   brandKits         BrandKit[]
   creativeDrafts    CreativeDraft[]
+  scheduledPosts    ScheduledPost[]
 }
 
 model SocialProfile {
@@ -356,4 +357,34 @@ model CreativeDraft {
   updatedAt       DateTime @updatedAt
 
   @@index([userId, socialProfileId, kind, updatedAt])
+}
+
+// A post InstaSage publishes to Instagram, now or at a planned time. It moves scheduled -> processing
+// (Instagram is preparing the media) -> published, or failed with Instagram's own reason.
+model ScheduledPost {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialProfileId String
+  kind            String // 'image' | 'carousel' | 'reel' | 'story'
+  caption         String    @default("")
+  media           Json // [{ url, type: 'image' | 'video', stored: true when it lives in Vercel Blob }]
+  scheduledFor    DateTime? // null = as soon as possible
+  status          String    @default("scheduled") // 'scheduled' | 'processing' | 'published' | 'failed' | 'canceled'
+  containerId     String? // Instagram's container for the finished post, while it processes
+  children        Json? // carousel item containers
+  mediaId         String? // the published post's id, which is also its Post id after the next sync
+  permalink       String?
+  error           String?
+  attempts        Int       @default(0)
+  startedAt       DateTime? // when it was sent to Instagram, to give up on media that never finishes preparing
+  lockedAt        DateTime? // a runner is working on it; others leave it alone
+  ideaId          String? // the calendar entry it belongs to
+  draftId         String? // the Create draft it came from, linked to the post for the Scorecard
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, scheduledFor])
+  @@index([userId, createdAt])
 }
