@@ -58,9 +58,10 @@ async function isFresh() {
 export async function ensureDemo() {
   await prisma.user.upsert({
     where: { id: DEMO_ID },
-    update: {},
+    update: { setupDismissed: true },
     create: {
       id: DEMO_ID,
+      setupDismissed: true,
       name: 'Demo creator',
       timezone: TZ,
       timezoneAuto: false,
