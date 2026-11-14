@@ -10,6 +10,7 @@ import { SageOrb } from '@/components/ai-assistant/SageOrb';
 import { saveIdea } from './saveIdea';
 import { cn } from '@/lib/utils';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
+import { PlanChat } from './PlanChat';
 
 type Cached = { plan: GamePlan; model: string; createdAt: string } | null;
 const PLAN_URL = '/api/ai/plan';
@@ -27,7 +28,6 @@ const PILLAR_COLORS = ['prism-sunset', 'prism-ocean', 'prism-gold', 'prism-hero'
 
 export function GamePlanView() {
   const { data: cached } = useCachedJson<Cached>(PLAN_URL);
-  const [fresh, setFresh] = useState<Cached>(null);
   const [generating, setGenerating] = useState(false);
   const [failure, setFailure] = useState<{ error: string; code?: string } | null>(null);
   const [step, setStep] = useState(0);
@@ -45,14 +45,13 @@ export function GamePlanView() {
     setStep(0);
     const res = await fetch(PLAN_URL, { method: 'POST' });
     const data = await res.json().catch(() => ({ error: 'The AI took too long or sent back something unexpected. Try again.' }));
-    if (res.ok) {
-      setFresh(data);
-      primeJson(PLAN_URL, data);
-    } else setFailure(data);
+    // Every part of the page showing the plan (and the calendar's slots) picks it up at once
+    if (res.ok) primeJson(PLAN_URL, data);
+    else setFailure(data);
     setGenerating(false);
   };
 
-  const result = fresh ?? cached ?? null;
+  const result = cached ?? null;
   const plan = result?.plan;
 
   const keep = async (key: string, idea: { title: string; notes: string; format?: string }) => {
@@ -117,6 +116,8 @@ export function GamePlanView() {
           )}
         </div>
       </section>
+
+      <PlanChat planUrl={PLAN_URL} />
 
       {/* Do's and don'ts */}
       <section className="stagger grid md:grid-cols-2 gap-4">

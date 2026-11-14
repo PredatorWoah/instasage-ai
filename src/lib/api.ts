@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { cookies } from 'next/headers';
-import { AiError, clearTimedResults } from '@/services/ai';
+import { AiError } from '@/services/ai';
 import { prisma } from '@/lib/prisma';
 
 export async function requireUserId() {
@@ -36,15 +36,20 @@ export const validTimeZone = (tz: unknown): tz is string => {
 const canonical = (tz: string) => new Intl.DateTimeFormat('en', { timeZone: tz }).resolvedOptions().timeZone;
 const sameZone = (a: string | null | undefined, b: string) => !!a && validTimeZone(a) && canonical(a) === canonical(b);
 
-// Stores the creator's timezone. Cached AI answers quoted times in the old zone, so they go.
+// Stores the creator's timezone. Saved AI work is kept: it used to be wiped on every change, and a
+// phone and a laptop reporting different zones wiped it on every visit.
 export async function saveTimeZone(userId: string, tz: string, auto: boolean) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true, timezoneAuto: true } });
   const moved = !sameZone(user?.timezone, tz);
   if (!moved && user?.timezoneAuto === auto) return false;
   await prisma.user.update({ where: { id: userId }, data: { timezone: moved ? tz : user!.timezone, timezoneAuto: auto } });
-  if (moved) await clearTimedResults(userId);
   return moved;
 }
+
+// Privacy settings in some browsers (Brave, Firefox, Tor) report UTC whatever the real zone is.
+// A detected UTC never replaces a real zone already saved.
+export const maskedZone = (detected: string, saved: string | null | undefined) =>
+  /^(UTC|Etc\/.*|GMT)$/i.test(detected) && !!saved && !/^(UTC|Etc\/.*|GMT)$/i.test(saved);
 
 // The browser reports its timezone in a cookie. Unless one was picked by hand in Settings,
 // keep it on the user so the AI (and the daily cron, which has no browser) use local time
@@ -52,7 +57,7 @@ export async function rememberTimeZone(userId: string) {
   const tz = (await cookies()).get('tz')?.value;
   if (!validTimeZone(tz)) return;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { timezone: true, timezoneAuto: true } });
-  if (user && user.timezoneAuto && !sameZone(user.timezone, tz)) await saveTimeZone(userId, tz, true);
+  if (user && user.timezoneAuto && !sameZone(user.timezone, tz) && !maskedZone(tz, user.timezone)) await saveTimeZone(userId, tz, true);
 }
 
 // The zone to show times in: the saved one, else this browser's, else UTC

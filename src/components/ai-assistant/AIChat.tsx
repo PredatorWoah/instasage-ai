@@ -11,7 +11,7 @@ import type { ChatMessage } from '@/types';
 import { cn } from '@/lib/utils';
 import { clearJsonCache } from '@/lib/useCachedJson';
 import { useRouter } from 'next/navigation';
-import { Check, Undo2, X } from 'lucide-react';
+import { Check, RotateCcw, Undo2, X } from 'lucide-react';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
 
 const SUGGESTED_PROMPTS = [
@@ -20,6 +20,13 @@ const SUGGESTED_PROMPTS = [
   'Why did my last post do better or worse?',
   'A number looks wrong',
 ];
+
+const WELCOME: ChatMessage = {
+  id: '0',
+  role: 'assistant',
+  content: "Hey, I'm Sage! I've read your synced posts. Ask me what's working or what to post next. If a number looks wrong, tell me the right one and I'll fix it.",
+  timestamp: new Date(0),
+};
 
 let nextId = 1;
 const newId = () => String(nextId++);
@@ -31,14 +38,32 @@ export function AIChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '0',
-      role: 'assistant',
-      content: "Hey, I'm Sage! I've read your synced posts. Ask me what's working or what to post next. If a number looks wrong, tell me the right one and I'll fix it.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([WELCOME]);
+  // The saved conversation loads the first time the chat opens
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (!open || loaded) return;
+    let cancelled = false;
+    fetch('/api/ai/chat')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { turns?: { role: 'user' | 'assistant'; content: string; at: string; actions?: ActionResult[] }[] } | null) => {
+        if (cancelled) return;
+        setLoaded(true);
+        const turns = body?.turns ?? [];
+        // Anything typed while it loaded stays at the end
+        if (turns.length) setMessages((prev) => [WELCOME, ...turns.map((t) => ({ id: newId(), role: t.role, content: t.content, timestamp: new Date(t.at), actions: t.actions })), ...prev.slice(1)]);
+      })
+      .catch(() => !cancelled && setLoaded(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loaded]);
+
+  const newChat = async () => {
+    if (thinking) return;
+    await fetch('/api/ai/chat', { method: 'DELETE' }).catch(() => {});
+    setMessages([WELCOME]);
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,7 +77,6 @@ export function AIChat() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || thinking) return;
 
-    const history = messages.slice(1).map((m) => ({ role: m.role, content: m.content }));
     setMessages((prev) => [...prev, { id: newId(), role: 'user', content: text, timestamp: new Date() }]);
     setInput('');
     setThinking(true);
@@ -63,7 +87,7 @@ export function AIChat() {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history }),
+        body: JSON.stringify({ message: text }),
       });
       const data = await res.json().catch(() => ({}));
       reply = res.ok ? data.reply : data.error || 'Something went wrong. Try again.';
@@ -78,7 +102,7 @@ export function AIChat() {
       clearJsonCache();
       router.refresh();
     }
-  }, [messages, thinking, router]);
+  }, [thinking, router]);
 
   const undo = async (msgId: string, actionId: string) => {
     const res = await fetch(`/api/sage/actions/${actionId}/undo`, { method: 'POST' });
@@ -133,6 +157,11 @@ export function AIChat() {
               <p className="text-sm font-display font-extrabold">Sage</p>
               <p className="text-[10px] text-muted-foreground">knows your synced posts</p>
             </div>
+            {messages.length > 1 && (
+              <button type="button" onClick={newChat} disabled={thinking} aria-label="Start a new chat" title="Start a new chat" className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-ink/[0.08] disabled:opacity-50">
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
             <AiPicker group="chat" compact />
           </div>
 
