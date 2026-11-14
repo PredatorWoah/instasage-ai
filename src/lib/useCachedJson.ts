@@ -8,11 +8,14 @@ type Entry = { data: unknown; at: number };
 const cache = new Map<string, Entry>();
 const inflight = new Map<string, Promise<unknown>>();
 const FRESH_MS = 30_000;
+const TIMEOUT_MS = 20_000;
 
 async function load(url: string) {
   const running = inflight.get(url);
   if (running) return running;
-  const promise = fetch(url)
+  // A request that never answers (a database waking up, a stuck function) gives up after 20 seconds,
+  // so the page can say it did not load instead of showing a placeholder forever
+  const promise = fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
       cache.set(url, { data, at: Date.now() });

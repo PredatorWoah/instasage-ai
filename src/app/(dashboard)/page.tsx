@@ -25,6 +25,8 @@ import { Guard } from '@/components/ui/Guard';
 import { periodPhrase } from '@/lib/period';
 import { nowMs } from '@/lib/calendar';
 import { AutoReview } from '@/components/dashboard/AutoReview';
+import { cachedQuestions } from '@/services/questions';
+import { CalendarDays, MessageCircleQuestion, ScrollText, Sparkles } from 'lucide-react';
 
 export const metadata = { title: 'Overview' };
 
@@ -42,7 +44,7 @@ export default async function DashboardPage() {
   const [scope, timeZone] = await Promise.all([getAccountScope(userId), getTimeZone(userId)]);
   const now = nowMs();
   const windowStart = new Date(now - scope.span * 86_400_000);
-  const [data, owner, feed, organic, byType] = await Promise.all([
+  const [data, owner, feed, organic, byType, planned, asked] = await Promise.all([
     getDashboardData(scope, scope.span, timeZone),
     prisma.user.findUnique({ where: { id: userId }, select: { goal: true } }),
     sageFeed(userId, scope).catch((error) => {
@@ -51,6 +53,9 @@ export default async function DashboardPage() {
     }),
     prisma.post.aggregate({ where: { socialProfileId: { in: scope.profileIds }, isBoosted: false }, _avg: { performanceScore: true } }),
     prisma.post.groupBy({ by: ['type'], where: { socialProfileId: { in: scope.profileIds }, publishedAt: { gte: windowStart } }, _sum: { views: true, saves: true }, _count: true }),
+    // For the shortcuts row: what is planned this week, and questions waiting from the last comment read
+    prisma.savedIdea.findMany({ where: { userId, status: { not: 'posted' }, scheduledFor: { gte: new Date(now), lte: new Date(now + 7 * 86_400_000) } }, orderBy: { scheduledFor: 'asc' }, select: { title: true, scheduledFor: true } }).catch(() => []),
+    cachedQuestions(userId, scope.key).catch(() => null),
   ]);
 
   const { kpis, timeSeries } = data;
@@ -187,6 +192,38 @@ export default async function DashboardPage() {
             )}
           </article>
         </section>
+      )}
+
+      {/* Shortcuts to the planning tools, with a live hint on each */}
+      {hasData && (
+        <nav aria-label="Plan and create" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {[
+            {
+              href: '/create?tab=calendar',
+              icon: CalendarDays,
+              title: 'Calendar',
+              hint: planned.length
+                ? `${planned.length} planned this week. Next: ${new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true }).format(planned[0].scheduledFor!)}`
+                : 'Nothing planned this week',
+            },
+            { href: '/create', icon: Sparkles, title: 'Write a post', hint: 'Caption, reel script or carousel, with a forecast' },
+            {
+              href: '/comments?view=questions',
+              icon: MessageCircleQuestion,
+              title: 'Questions',
+              hint: asked ? (asked.unanswered ? `${asked.unanswered} unanswered in your comments` : 'Every question answered') : 'What people ask in your comments',
+            },
+            { href: '/reports', icon: ScrollText, title: 'Your week', hint: 'The last 7 days and three things to do' },
+          ].map(({ href, icon: Icon, title, hint }) => (
+            <Link key={href} href={href} transitionTypes={['nav-forward']} className="glass-panel rounded-[24px] p-4 flex items-center gap-3 min-w-0 hover:bg-ink/[0.06] transition-colors">
+              <span className="w-10 h-10 rounded-2xl bg-ink/[0.07] border border-ink/[0.1] flex items-center justify-center shrink-0"><Icon className="w-[18px] h-[18px] text-indigo-400" /></span>
+              <span className="min-w-0">
+                <span className="block text-[15px] font-bold">{title}</span>
+                <span className="block text-[12.5px] text-muted-foreground leading-snug">{hint}</span>
+              </span>
+            </Link>
+          ))}
+        </nav>
       )}
 
       {/* Turn any recent post over */}
