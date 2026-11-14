@@ -182,6 +182,10 @@ API keys you paste inside the app (AI providers, YouTube) are stored in your dat
 
 After changing any environment variable, **redeploy** (Deployments → ⋯ → Redeploy) so the app picks it up.
 
+### Region
+
+`vercel.json` runs the server functions in Singapore (`sin1`), next to the Prisma Postgres database. Keep the two in the same region: every page makes several database trips, and a server on another continent adds a few hundred milliseconds to each. If the database ever moves, change `regions` to match.
+
 ### Auto refresh
 
 When you open the app, follower and subscriber counts refresh within seconds, and a full sync runs if the last one is more than 6 hours old (or the 30 day reach number is missing). So the numbers stay fresh even if the daily cron isn't set up.
