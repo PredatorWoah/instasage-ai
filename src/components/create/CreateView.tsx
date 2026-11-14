@@ -13,10 +13,12 @@ import { Scorecard } from './Scorecard';
 import { Studio } from './Studio';
 import type { Draft, Kit, PostRow } from './ui';
 import { AiPicker } from '@/components/ai-assistant/AiPicker';
+import { ContentCalendar } from '@/components/ideas/ContentCalendar';
 
 const TABS = [
   { id: 'caption', label: 'Write' },
   { id: 'briefs', label: 'Briefs' },
+  { id: 'calendar', label: 'Calendar' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'score', label: 'Scorecard' },
   { id: 'kit', label: 'Brand kit' },
@@ -30,7 +32,15 @@ export function CreateView() {
   const params = useSearchParams();
   const initialTopic = (params.get('topic') ?? '').slice(0, 300);
   const fromPost = params.get('from') ?? '';
-  const [tab, setTab] = useState<Tab>(() => TABS.find((t) => t.id === params.get('tab'))?.id ?? 'caption');
+  const tabParam = params.get('tab');
+  const fromParam = (v: string | null) => TABS.find((t) => t.id === v)?.id ?? 'caption';
+  const [tab, setTab] = useState<Tab>(() => fromParam(tabParam));
+  // A link to /create?tab=... while Create is already open switches the tab too
+  const [seenTabParam, setSeenTabParam] = useState(tabParam);
+  if (tabParam !== seenTabParam) {
+    setSeenTabParam(tabParam);
+    if (tabParam) setTab(fromParam(tabParam));
+  }
   const [picked, setPicked] = useState<string | null>(null);
   // The post to build on: from the link, or picked in the hook library
   const [usePost, setUsePost] = useState<string | null>(null);
@@ -92,9 +102,10 @@ export function CreateView() {
             <>
               {/* Write stays mounted while other tabs are open, so an unsaved draft survives a look at Hooks or the Scorecard */}
               <div hidden={tab !== 'caption'}>
-                <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} sourcePost={sourcePost} setSourcePost={setUsePost} />
+                <Studio key={`${account}:${kit.saved}:${JSON.stringify(kit.products.map((p) => p.id))}`} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} initialTopic={initialTopic} sourcePost={sourcePost} setSourcePost={setUsePost} onOpenCalendar={() => { setTab('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
               </div>
               {tab === 'briefs' && <BriefBuilder key={account} account={account} kit={kit} drafts={drafts.drafts} posts={posts} reload={reloadDrafts} />}
+              {tab === 'calendar' && <ContentCalendar />}
               {tab === 'hooks' && <HookLibrary key={account} account={account} onUse={(postId) => { setUsePost(postId); setTab('caption'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />}
               {tab === 'score' && <Scorecard key={account} account={account} />}
               {tab === 'kit' && <BrandKitEditor key={account} account={account} accountName={current?.username ?? ''} kit={kit} reload={reloadKit} others={profiles.filter((p) => p.id !== account).map((p) => ({ id: p.id, username: p.username }))} />}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import { CalendarPlus, Check, CircleAlert, Circle, Copy, Lightbulb, Plus, Sparkles, Trash2, TrendingUp, Wand2 } from 'lucide-react';
 import { checkCaption, composeCaption, failing, feedPreview, parseHashtags, type Check as CheckRow, type WordRules } from '@/lib/brandKit';
 import type { MakeFormat, ScriptBeat, Slide } from '@/services/ai';
@@ -36,7 +35,7 @@ const scriptText = (s: ScriptBeat[]) => s.map((b) => `${b.time}  ${b.shot}${b.on
 const slidesText = (s: Slide[]) => s.map((x, i) => `Slide ${i + 1}: ${x.title}${x.text ? `\n${x.text}` : ''}`).join('\n\n');
 
 // Make a caption, reel script or carousel with Sage, steered by the words that work for this account
-export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void }) {
+export function Studio({ account, kit, drafts, posts, reload, initialTopic = '', sourcePost, setSourcePost, onOpenCalendar }: { account: string; kit: Kit; drafts: Draft[]; posts: PostRow[]; reload: () => void; initialTopic?: string; sourcePost: string; setSourcePost: (id: string) => void; onOpenCalendar: () => void }) {
   const { data: vocab } = useCachedJson<Vocab | null>(`/api/creative/words?account=${encodeURIComponent(account)}`);
   const { data: ideas } = useCachedJson<Idea[] | null>('/api/ideas/saved');
   const [format, setFormat] = useState<MakeFormat>('caption');
@@ -363,7 +362,7 @@ export function Studio({ account, kit, drafts, posts, reload, initialTopic = '',
           </div>
           {planned && (
             <p role="status" className="text-[13px] font-semibold text-emerald-400 break-words">
-              On the calendar for {planned}, caption included. <Link href="/recommendations?tab=calendar" className="underline underline-offset-2">Open the calendar</Link>
+              On the calendar for {planned}, caption included. <button type="button" onClick={onOpenCalendar} className="underline underline-offset-2">Open the calendar</button>
             </p>
           )}
           {kit.claimNote && <p className="text-[13px] text-muted-foreground leading-relaxed">{kit.claimNote}</p>}
@@ -484,7 +483,7 @@ function PlanModal({ title, onClose, onSave }: { title: string; onClose: () => v
           <input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} className={input} />
         </label>
         {past && <p className="text-[12.5px] font-semibold text-amber-400">That time has already passed.</p>}
-        <p className="text-[12.5px] text-muted-foreground leading-snug">It lands on the calendar in Ideas Studio with the caption attached. With notifications on, you get a reminder that morning. InstaSage does not post for you: you still publish it on Instagram.</p>
+        <p className="text-[12.5px] text-muted-foreground leading-snug">It lands on the calendar (the Calendar tab here, and in Ideas Studio) with the caption attached. With notifications on, you get a reminder that morning. InstaSage does not post for you: you still publish it on Instagram.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!valid || past} onClick={() => valid && onSave(at!)} className={btn.primary}>Add to calendar</button>
           <button type="button" onClick={onClose} className={btn.ghost}>Cancel</button>
