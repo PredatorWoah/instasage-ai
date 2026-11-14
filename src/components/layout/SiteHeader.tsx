@@ -49,17 +49,38 @@ export function SiteHeader() {
     // (the server ignores it when a timezone was picked by hand in Settings)
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     document.cookie = `tz=${tz}; path=/; max-age=31536000; samesite=lax`;
-    fetch('/api/user/timezone', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detected: tz }) })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => data?.changed && clearJsonCache())
-      .catch(() => {});
+    // Told to the server once per zone, not on every page load
+    let sent: string | null = null;
+    try {
+      sent = localStorage.getItem('instasage:tz-sent');
+    } catch {}
+    if (sent !== tz) {
+      fetch('/api/user/timezone', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ detected: tz }) })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data) return;
+          try {
+            localStorage.setItem('instasage:tz-sent', tz);
+          } catch {}
+          if (data.changed) clearJsonCache();
+        })
+        .catch(() => {});
+    }
     // Pull fresh follower counts (and a full sync when the last one is old), then redraw the page
     fetch('/api/refresh', { method: 'POST' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!data?.changed) return;
-        clearJsonCache();
-        router.refresh();
+        if (data?.changed) {
+          clearJsonCache();
+          router.refresh();
+        }
+        // A full sync runs in the background: show its numbers once it has had time to finish
+        if (data?.syncing) {
+          setTimeout(() => {
+            clearJsonCache();
+            router.refresh();
+          }, 75_000);
+        }
       })
       .catch(() => {});
     // Preload the other tabs only once this page has settled, so they never compete with it
